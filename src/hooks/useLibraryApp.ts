@@ -166,6 +166,14 @@ export function useLibraryApp() {
   const allChapters = useMemo(() => (data ? getAllChapters(data) : []), [data]);
   const initialMoveBookId = books[0]?.id ?? '';
 
+  function runIfDataLoaded(callback: (currentData: LibraryData) => void): void {
+    if (!data) {
+      return;
+    }
+
+    callback(data);
+  }
+
   function updateData(nextData: LibraryData): void {
     setData(nextData);
   }
@@ -177,49 +185,41 @@ export function useLibraryApp() {
   }
 
   function handleCreateBook(): void {
-    if (!data) {
-      return;
-    }
-
-    const result = createBook(data);
-    updateData(result.data);
-    setView({ type: 'book', bookId: result.book.id });
-    closeSidebarOnMobile();
+    runIfDataLoaded((currentData) => {
+      const result = createBook(currentData);
+      updateData(result.data);
+      setView({ type: 'book', bookId: result.book.id });
+      closeSidebarOnMobile();
+    });
   }
 
   function handleCreateChapter(bookId: string): void {
-    if (!data) {
-      return;
-    }
-
-    const result = createChapter(data, bookId);
-    updateData(result.data);
-    setView({ type: 'chapter', chapterId: result.chapter.id });
-    closeSidebarOnMobile();
+    runIfDataLoaded((currentData) => {
+      const result = createChapter(currentData, bookId);
+      updateData(result.data);
+      setView({ type: 'chapter', chapterId: result.chapter.id });
+      closeSidebarOnMobile();
+    });
   }
 
   function handleCreatePage(chapterId: string): void {
-    if (!data) {
-      return;
-    }
-
-    const result = createPage(data, { chapterId, isLoose: false });
-    updateData(result.data);
-    setShouldAutoFocusEditor(true);
-    setView({ type: 'page', pageId: result.page.id });
-    closeSidebarOnMobile();
+    runIfDataLoaded((currentData) => {
+      const result = createPage(currentData, { chapterId, isLoose: false });
+      updateData(result.data);
+      setShouldAutoFocusEditor(true);
+      setView({ type: 'page', pageId: result.page.id });
+      closeSidebarOnMobile();
+    });
   }
 
   function handleCreateLoosePage(): void {
-    if (!data) {
-      return;
-    }
-
-    const result = createPage(data, { chapterId: null, isLoose: true });
-    updateData(result.data);
-    setShouldAutoFocusEditor(true);
-    setView({ type: 'page', pageId: result.page.id });
-    closeSidebarOnMobile();
+    runIfDataLoaded((currentData) => {
+      const result = createPage(currentData, { chapterId: null, isLoose: true });
+      updateData(result.data);
+      setShouldAutoFocusEditor(true);
+      setView({ type: 'page', pageId: result.page.id });
+      closeSidebarOnMobile();
+    });
   }
 
   function handleDeleteBook(bookId: string): void {

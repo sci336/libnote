@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { InlineEditableText } from './InlineEditableText';
 import type { Book, Chapter, Page } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
+import { isLoosePage } from '../utils/pageState';
 
 interface PageEditorProps {
   page: Page;
@@ -28,6 +29,7 @@ export function PageEditor({
   onDelete,
   onMoveLoosePage
 }: PageEditorProps): JSX.Element {
+  const pageIsLoose = isLoosePage(page);
   const [showMovePanel, setShowMovePanel] = useState(false);
   const [selectedBookId, setSelectedBookId] = useState(initialMoveBookId);
   const [selectedChapterId, setSelectedChapterId] = useState('');
@@ -78,7 +80,7 @@ export function PageEditor({
           />
           <p className="editor-meta">
             Updated {formatTimestamp(page.updatedAt)}
-            {page.isLoose ? ' - Loose Page' : ''}
+            {pageIsLoose ? ' - Loose Page' : ''}
           </p>
         </div>
 
@@ -96,7 +98,7 @@ export function PageEditor({
             <span>{page.textSize}px</span>
           </label>
 
-          {page.isLoose ? (
+          {pageIsLoose ? (
             <button type="button" className="secondary-button" onClick={() => setShowMovePanel((open) => !open)}>
               Convert to Book/Chapter
             </button>
@@ -108,7 +110,7 @@ export function PageEditor({
         </div>
       </div>
 
-      {page.isLoose && showMovePanel ? (
+      {pageIsLoose && showMovePanel ? (
         <div className="move-panel">
           <h3>Move Loose Page</h3>
 

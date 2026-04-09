@@ -1,6 +1,6 @@
 import type { Book, Chapter, LibraryData, Page, ViewState } from '../types/domain';
 import { getBook, getChapter, getChaptersForBook, getLoosePages, getPage, getPagesForChapter } from './libraryStore';
-import { isLoosePage } from '../utils/pageState';
+import { isChapterPage, isLoosePage } from '../utils/pageState';
 
 export function getSortedBooks(data: LibraryData): Book[] {
   return [...data.books].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
@@ -210,4 +210,12 @@ export function getAllChapters(data: LibraryData): Chapter[] {
 
 export function getLoosePagesList(data: LibraryData): Page[] {
   return getLoosePages(data);
+}
+
+export function getChapterCountForBook(data: LibraryData, bookId: string): number {
+  return data.chapters.filter((chapter) => chapter.bookId === bookId).length;
+}
+
+export function getPageCountForChapter(data: LibraryData, chapterId: string): number {
+  return data.pages.filter((page) => page.chapterId === chapterId && isChapterPage(page)).length;
 }

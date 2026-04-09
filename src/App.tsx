@@ -5,6 +5,7 @@ import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { useLibraryApp } from './hooks/useLibraryApp';
 import { AppLayout } from './layouts/AppLayout';
+import { getChapterCountForBook, getPageCountForChapter } from './store/librarySelectors';
 import { BookView } from './views/BookView';
 import { ChapterView } from './views/ChapterView';
 import { LoosePagesView } from './views/LoosePagesView';
@@ -16,6 +17,26 @@ export default function App(): JSX.Element {
   if (!app.data) {
     return <div className="loading-screen">Loading note library...</div>;
   }
+
+  const data = app.data;
+  const sidebarBookId = app.sidebarBookId;
+  const sidebarChapterId = app.sidebarChapterId;
+  const sidebarCreateChapter =
+    sidebarBookId === undefined
+      ? undefined
+      : () => app.handleCreateChapter(sidebarBookId);
+  const sidebarCreatePage =
+    sidebarChapterId === undefined
+      ? undefined
+      : () => app.handleCreatePage(sidebarChapterId);
+  const sidebarReorderChapters =
+    sidebarBookId === undefined || app.chapterList.length <= 1
+      ? undefined
+      : (orderedChapterIds: string[]) => app.handleReorderChapters(sidebarBookId, orderedChapterIds);
+  const sidebarReorderPages =
+    sidebarChapterId === undefined || app.pageList.length <= 1
+      ? undefined
+      : (orderedPageIds: string[]) => app.handleReorderPages(sidebarChapterId, orderedPageIds);
 
   return (
     <AppLayout
@@ -51,40 +72,26 @@ export default function App(): JSX.Element {
           onNavigateBook={app.handleOpenBook}
           onNavigateChapter={app.handleOpenChapter}
           onNavigatePage={app.handleOpenPage}
-          onCreateChapterInContext={
-            app.sidebarBookId ? () => app.handleCreateChapter(app.sidebarBookId!) : undefined
-          }
-          onCreatePageInContext={
-            app.sidebarChapterId ? () => app.handleCreatePage(app.sidebarChapterId!) : undefined
-          }
-          onReorderChapters={
-            app.sidebarBookId && app.chapterList.length > 1
-              ? (orderedChapterIds) => app.handleReorderChapters(app.sidebarBookId!, orderedChapterIds)
-              : undefined
-          }
-          onReorderPages={
-            app.sidebarChapterId && app.pageList.length > 1
-              ? (orderedPageIds) => app.handleReorderPages(app.sidebarChapterId!, orderedPageIds)
-              : undefined
-          }
+          onCreateChapterInContext={sidebarCreateChapter}
+          onCreatePageInContext={sidebarCreatePage}
+          onReorderChapters={sidebarReorderChapters}
+          onReorderPages={sidebarReorderPages}
           onCreateLoosePageInContext={app.handleCreateLoosePage}
           onClose={() => app.setSidebarOpen(false)}
         />
       }
     >
-      {renderMainContent(app)}
+      {renderMainContent(app, data)}
     </AppLayout>
   );
 }
 
-function renderMainContent(app: ReturnType<typeof useLibraryApp>): JSX.Element {
+function renderMainContent(app: ReturnType<typeof useLibraryApp>, data: NonNullable<ReturnType<typeof useLibraryApp>['data']>): JSX.Element {
   if (app.view.type === 'root') {
     return (
       <RootView
         books={app.books}
-        getChapterCountForBook={(bookId) =>
-          app.data ? app.data.chapters.filter((chapter) => chapter.bookId === bookId).length : 0
-        }
+        getChapterCountForBook={(bookId) => getChapterCountForBook(data, bookId)}
         onCreateBook={app.handleCreateBook}
         onOpenBook={app.handleOpenBook}
         onCreateChapter={app.handleCreateChapter}
@@ -110,15 +117,15 @@ function renderMainContent(app: ReturnType<typeof useLibraryApp>): JSX.Element {
       return invalidState();
     }
 
+    const activeBook = app.activeBook;
+
     return (
       <BookView
-        book={app.activeBook}
+        book={activeBook}
         chapters={app.chapterList}
         books={app.books}
         movingChapterId={app.movingChapterId}
-        getPageCountForChapter={(chapterId) =>
-          app.data ? app.data.pages.filter((page) => page.chapterId === chapterId && !page.isLoose).length : 0
-        }
+        getPageCountForChapter={(chapterId) => getPageCountForChapter(data, chapterId)}
         onRenameBook={app.handleRenameBook}
         onCreateChapter={app.handleCreateChapter}
         onDeleteBook={app.handleDeleteBook}
@@ -131,9 +138,7 @@ function renderMainContent(app: ReturnType<typeof useLibraryApp>): JSX.Element {
         }
         onConfirmMoveChapter={app.handleMoveChapter}
         onCancelMoveChapter={() => app.setMovingChapterId(null)}
-        onReorderChapters={(orderedChapterIds) =>
-          app.handleReorderChapters(app.activeBook!.id, orderedChapterIds)
-        }
+        onReorderChapters={(orderedChapterIds) => app.handleReorderChapters(activeBook.id, orderedChapterIds)}
       />
     );
   }
@@ -143,9 +148,11 @@ function renderMainContent(app: ReturnType<typeof useLibraryApp>): JSX.Element {
       return invalidState();
     }
 
+    const activeChapter = app.activeChapter;
+
     return (
       <ChapterView
-        chapter={app.activeChapter}
+        chapter={activeChapter}
         book={app.derivedBookForChapter}
         pages={app.pageList}
         chapters={app.allChapters}
@@ -162,9 +169,7 @@ function renderMainContent(app: ReturnType<typeof useLibraryApp>): JSX.Element {
         }
         onConfirmMovePage={app.handleMovePage}
         onCancelMovePage={() => app.setMovingPageId(null)}
-        onReorderPages={(orderedPageIds) =>
-          app.handleReorderPages(app.activeChapter!.id, orderedPageIds)
-        }
+        onReorderPages={(orderedPageIds) => app.handleReorderPages(activeChapter.id, orderedPageIds)}
       />
     );
   }
@@ -186,18 +191,20 @@ function renderMainContent(app: ReturnType<typeof useLibraryApp>): JSX.Element {
       return invalidState();
     }
 
+    const activePage = app.activePage;
+
     return (
       <PageEditor
-        page={app.activePage}
+        page={activePage}
         books={app.books}
         chapters={app.allChapters}
         initialMoveBookId={app.initialMoveBookId}
         shouldAutoFocus={app.shouldAutoFocusEditor}
-        onChangeTitle={(title) => app.handleRenamePage(app.activePage!.id, title)}
-        onChangeContent={(content) => app.handleUpdatePageContent(app.activePage!.id, content)}
-        onChangeTextSize={(textSize) => app.handleUpdatePageTextSize(app.activePage!.id, textSize)}
-        onDelete={() => app.handleDeletePage(app.activePage!)}
-        onMoveLoosePage={(payload) => app.handleMoveLoosePage(app.activePage!.id, payload)}
+        onChangeTitle={(title) => app.handleRenamePage(activePage.id, title)}
+        onChangeContent={(content) => app.handleUpdatePageContent(activePage.id, content)}
+        onChangeTextSize={(textSize) => app.handleUpdatePageTextSize(activePage.id, textSize)}
+        onDelete={() => app.handleDeletePage(activePage)}
+        onMoveLoosePage={(payload) => app.handleMoveLoosePage(activePage.id, payload)}
       />
     );
   }
