@@ -1,5 +1,6 @@
 import type { Book, Chapter, Page, ViewState } from '../types/domain';
 import { ReorderableList } from './ReorderableList';
+import { isLoosePage } from '../utils/pageState';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -261,6 +262,6 @@ function isLooseEditor(
   return (
     currentView.type === 'page' &&
     !!activePageId &&
-    loosePages.some((page) => page.id === activePageId)
+    loosePages.some((page) => page.id === activePageId && isLoosePage(page))
   );
 }

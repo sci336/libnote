@@ -8,7 +8,7 @@ interface PageEditorProps {
   books: Book[];
   chapters: Chapter[];
   initialMoveBookId: string;
-  shouldAutoFocus?: boolean; // ✅ NEW
+  shouldAutoFocus?: boolean;
   onChangeTitle: (title: string) => void;
   onChangeContent: (content: string) => void;
   onChangeTextSize: (size: number) => void;
@@ -21,7 +21,7 @@ export function PageEditor({
   books,
   chapters,
   initialMoveBookId,
-  shouldAutoFocus = false, // ✅ default false
+  shouldAutoFocus = false,
   onChangeTitle,
   onChangeContent,
   onChangeTextSize,
@@ -42,7 +42,6 @@ export function PageEditor({
     setSelectedChapterId('');
   }, [selectedBookId]);
 
-  // ✅ UPDATED FOCUS LOGIC
   useEffect(() => {
     if (!shouldAutoFocus) return;
 

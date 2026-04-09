@@ -2,6 +2,7 @@ import { loadLibraryData, saveLibraryData } from '../db/indexedDb';
 import type { Book, Chapter, ID, LibraryData, Page } from '../types/domain';
 import { nowIso } from '../utils/date';
 import { createId } from '../utils/ids';
+import { isChapterPage, isLoosePage } from '../utils/pageState';
 
 export const DEFAULT_TEXT_SIZE = 16;
 
@@ -40,13 +41,13 @@ export function getChaptersForBook(data: LibraryData, bookId: ID): Chapter[] {
 
 export function getPagesForChapter(data: LibraryData, chapterId: ID): Page[] {
   return [...data.pages]
-    .filter((page) => page.chapterId === chapterId && !page.isLoose)
+    .filter((page) => page.chapterId === chapterId && isChapterPage(page))
     .sort(compareBySortOrder);
 }
 
 export function getLoosePages(data: LibraryData): Page[] {
   return [...data.pages]
-    .filter((page) => page.isLoose || page.chapterId === null)
+    .filter((page) => isLoosePage(page))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
@@ -295,7 +296,7 @@ export function movePageToChapter(
   const page = getPage(data, pageId);
   const destinationChapter = getChapter(data, destinationChapterId);
 
-  if (!page || page.isLoose || !page.chapterId || !destinationChapter || page.chapterId === destinationChapterId) {
+  if (!page || isLoosePage(page) || !page.chapterId || !destinationChapter || page.chapterId === destinationChapterId) {
     return data;
   }
 
@@ -531,7 +532,7 @@ function getNextPageSortOrder(
     return getPagesForChapter(data, chapterId).length;
   }
 
-  return data.pages.filter((page) => page.isLoose || page.chapterId === null).length;
+  return data.pages.filter((page) => isLoosePage(page)).length;
 }
 
 function getPageOrderingKey(chapterId: ID | null, isLoose: boolean): string {
