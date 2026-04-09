@@ -213,45 +213,36 @@ export function deletePage(data: LibraryData, pageId: ID): LibraryData {
 export function moveLoosePageToChapter(
   data: LibraryData,
   pageId: ID,
-  bookId: ID,
-  target: { chapterId?: ID; newChapterTitle?: string }
+  chapterId: ID
 ): { data: LibraryData; chapterId: ID | null } {
   const page = getPage(data, pageId);
+  const chapter = getChapter(data, chapterId);
   if (!page) {
+    return { data, chapterId: null };
+  }
+  if (!chapter) {
     return { data, chapterId: null };
   }
 
   const timestamp = nowIso();
-  let nextData = data;
-  let chapterId = target.chapterId ?? null;
-
-  if (!chapterId && target.newChapterTitle) {
-    const result = createChapter(nextData, bookId);
-    chapterId = result.chapter.id;
-    nextData = updateChapter(result.data, chapterId, target.newChapterTitle);
-  }
-
-  if (!chapterId) {
-    return { data, chapterId: null };
-  }
 
   return {
     chapterId,
     data: {
-      ...nextData,
-      pages: nextData.pages.map((item) =>
+      ...data,
+      pages: data.pages.map((item) =>
         item.id === pageId
           ? {
               ...item,
               chapterId,
               isLoose: false,
-              sortOrder: getNextPageSortOrder(nextData, chapterId, false),
+              sortOrder: getNextPageSortOrder(data, chapterId, false),
               updatedAt: timestamp
             }
           : item
       ),
-      chapters: touchChapter(nextData.chapters, chapterId, timestamp),
-      books: touchBook(nextData.books, bookId, timestamp)
+      chapters: touchChapter(data.chapters, chapterId, timestamp),
+      books: touchBook(data.books, chapter.bookId, timestamp)
     }
   };
 }

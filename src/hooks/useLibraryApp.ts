@@ -349,16 +349,13 @@ export function useLibraryApp() {
 
   function handleMoveLoosePage(
     pageId: string,
-    payload: { bookId: string; chapterId?: string; newChapterTitle?: string }
+    payload: { chapterId: string }
   ): void {
     if (!data) {
       return;
     }
 
-    const result = moveLoosePageToChapter(data, pageId, payload.bookId, {
-      chapterId: payload.chapterId,
-      newChapterTitle: payload.newChapterTitle
-    });
+    const result = moveLoosePageToChapter(data, pageId, payload.chapterId);
 
     updateData(result.data);
     if (result.chapterId) {

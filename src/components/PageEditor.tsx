@@ -14,7 +14,7 @@ interface PageEditorProps {
   onChangeContent: (content: string) => void;
   onChangeTextSize: (size: number) => void;
   onDelete: () => void;
-  onMoveLoosePage: (payload: { bookId: string; chapterId?: string; newChapterTitle?: string }) => void;
+  onMoveLoosePage: (payload: { chapterId: string }) => void;
 }
 
 export function PageEditor({
@@ -33,7 +33,6 @@ export function PageEditor({
   const [showMovePanel, setShowMovePanel] = useState(false);
   const [selectedBookId, setSelectedBookId] = useState(initialMoveBookId);
   const [selectedChapterId, setSelectedChapterId] = useState('');
-  const [newChapterTitle, setNewChapterTitle] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -59,8 +58,8 @@ export function PageEditor({
   }, [page.id, shouldAutoFocus]);
 
   const canMove = useMemo(() => {
-    return Boolean(selectedBookId && (selectedChapterId || newChapterTitle.trim().length > 0));
-  }, [newChapterTitle, selectedBookId, selectedChapterId]);
+    return Boolean(selectedBookId && selectedChapterId);
+  }, [selectedBookId, selectedChapterId]);
 
   const chaptersForSelectedBook = useMemo(
     () => chapters.filter((chapter) => chapter.bookId === selectedBookId),
@@ -100,7 +99,7 @@ export function PageEditor({
 
           {pageIsLoose ? (
             <button type="button" className="secondary-button" onClick={() => setShowMovePanel((open) => !open)}>
-              Convert to Book/Chapter
+              Move to Chapter
             </button>
           ) : null}
 
@@ -112,7 +111,7 @@ export function PageEditor({
 
       {pageIsLoose && showMovePanel ? (
         <div className="move-panel">
-          <h3>Move Loose Page</h3>
+          <h3>Move Loose Page into a Chapter</h3>
 
           <label>
             <span>Book</span>
@@ -128,8 +127,12 @@ export function PageEditor({
 
           <label>
             <span>Chapter</span>
-            <select value={selectedChapterId} onChange={(event) => setSelectedChapterId(event.target.value)}>
-              <option value="">Create a new chapter below</option>
+            <select
+              value={selectedChapterId}
+              onChange={(event) => setSelectedChapterId(event.target.value)}
+              disabled={!selectedBookId}
+            >
+              <option value="">Select a chapter</option>
               {chaptersForSelectedBook.map((chapter) => (
                 <option key={chapter.id} value={chapter.id}>
                   {chapter.title}
@@ -138,33 +141,18 @@ export function PageEditor({
             </select>
           </label>
 
-          <label>
-            <span>New Chapter Title</span>
-            <input
-              type="text"
-              value={newChapterTitle}
-              onChange={(event) => setNewChapterTitle(event.target.value)}
-              placeholder="New chapter name"
-            />
-          </label>
-
           <div className="move-panel-actions">
             <button
               type="button"
               className="primary-button"
               disabled={!canMove}
               onClick={() => {
-                onMoveLoosePage({
-                  bookId: selectedBookId,
-                  chapterId: selectedChapterId || undefined,
-                  newChapterTitle: selectedChapterId ? undefined : newChapterTitle
-                });
+                onMoveLoosePage({ chapterId: selectedChapterId });
                 setShowMovePanel(false);
                 setSelectedChapterId('');
-                setNewChapterTitle('');
               }}
             >
-              Move Page
+              Move Page into Chapter
             </button>
 
             <button type="button" className="secondary-button" onClick={() => setShowMovePanel(false)}>
