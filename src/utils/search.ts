@@ -1,4 +1,5 @@
 import type { ID, LibraryData, Page } from '../types/domain';
+import { normalizeTag } from './tags';
 
 export interface SearchResult {
   page: Page;
@@ -33,8 +34,29 @@ export interface SearchIndex {
   tokenToPageIds: Map<string, Set<ID>>;
 }
 
+export type SearchMode =
+  | { type: 'emptyTag' }
+  | { type: 'tag'; tag: string }
+  | { type: 'text'; query: string };
+
 export function normalizeSearchQuery(query: string): string {
   return normalizeSearchText(query);
+}
+
+export function parseSearchInput(raw: string): SearchMode {
+  const trimmed = raw.trim();
+
+  if (trimmed.startsWith('/')) {
+    const tag = normalizeTag(trimmed.slice(1));
+
+    if (tag.length === 0) {
+      return { type: 'emptyTag' };
+    }
+
+    return { type: 'tag', tag };
+  }
+
+  return { type: 'text', query: trimmed };
 }
 
 export function normalizeSearchText(input: string): string {
@@ -97,12 +119,31 @@ export function buildSearchIndex(data: LibraryData): SearchIndex {
 }
 
 export function searchPages(query: string, index: SearchIndex): SearchResult[] {
-  const normalizedQuery = normalizeSearchText(query);
+  const mode = parseSearchInput(query);
+
+  if (mode.type === 'emptyTag') {
+    return [];
+  }
+
+  if (mode.type === 'tag') {
+    return [...index.pagesById.values()]
+      .filter((record) => record.page.tags.includes(mode.tag))
+      .map((record) => ({
+        page: record.page,
+        path: record.path,
+        snippet: '',
+        matchLabel: 'Tag match',
+        score: 1
+      }))
+      .sort((left, right) => left.page.title.localeCompare(right.page.title));
+  }
+
+  const normalizedQuery = normalizeSearchText(mode.query);
   if (!normalizedQuery) {
     return [];
   }
 
-  const tokens = tokenizeSearchText(query);
+  const tokens = tokenizeSearchText(mode.query);
   const candidatePageIds = getCandidatePageIds(tokens, index);
   const candidateRecords =
     candidatePageIds.size > 0

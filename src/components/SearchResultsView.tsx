@@ -1,18 +1,22 @@
-import type { SearchResult } from '../utils/search';
+import type { SearchMode, SearchResult } from '../utils/search';
 import { getHighlightedParts } from '../utils/search';
 
 interface SearchResultsViewProps {
   query: string;
+  mode: SearchMode;
   results: SearchResult[];
   onOpenPage: (pageId: string) => void;
 }
 
 export function SearchResultsView({
   query,
+  mode,
   results,
   onOpenPage
 }: SearchResultsViewProps): JSX.Element {
   const trimmedQuery = query.trim();
+  const isTagSearch = mode.type === 'tag';
+  const isEmptyTag = mode.type === 'emptyTag';
 
   return (
     <section className="content-section">
@@ -21,7 +25,13 @@ export function SearchResultsView({
           <p className="eyebrow">Library Search</p>
           <h1>Search Results</h1>
           <p className="search-subtitle">
-            {trimmedQuery ? `Results for "${trimmedQuery}"` : 'Search page titles and note content.'}
+            {isTagSearch
+              ? `Tag: ${mode.tag}`
+              : isEmptyTag
+                ? 'Enter a tag after "/" to search by tag.'
+                : trimmedQuery
+                  ? `Results for "${trimmedQuery}"`
+                  : 'Search page titles and note content.'}
           </p>
         </div>
       </div>
@@ -31,10 +41,19 @@ export function SearchResultsView({
           <h2>Start a search</h2>
           <p>Type a word or phrase in the search bar to find matching pages across books, chapters, and loose pages.</p>
         </div>
+      ) : isEmptyTag ? (
+        <div className="empty-state">
+          <h2>Enter a tag</h2>
+          <p>Type a tag after "/" to search pages by exact tag, for example `/school`.</p>
+        </div>
       ) : results.length === 0 ? (
         <div className="empty-state">
           <h2>No matches found</h2>
-          <p>Try a shorter phrase, different wording, or another exact fragment from the page you remember.</p>
+          <p>
+            {isTagSearch
+              ? 'No pages currently use that tag.'
+              : 'Try a shorter phrase, different wording, or another exact fragment from the page you remember.'}
+          </p>
         </div>
       ) : (
         <div className="stack-list">
@@ -54,11 +73,13 @@ export function SearchResultsView({
                 <span className="search-result-badge">{result.matchLabel}</span>
               </div>
               <p className="search-result-path">{result.path}</p>
-              <p className="search-result-snippet">
-                {getHighlightedParts(result.snippet, query).map((part, index) =>
-                  part.isMatch ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>
-                )}
-              </p>
+              {result.snippet ? (
+                <p className="search-result-snippet">
+                  {getHighlightedParts(result.snippet, query).map((part, index) =>
+                    part.isMatch ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>
+                  )}
+                </p>
+              ) : null}
             </button>
           ))}
         </div>

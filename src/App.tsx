@@ -171,6 +171,7 @@ function renderMainContent(
     return (
       <SearchResultsView
         query={app.searchQuery}
+        mode={app.searchMode}
         results={app.searchResults}
         onOpenPage={pageLinkState.openPageById}
       />
@@ -270,9 +271,11 @@ function renderMainContent(
         onChangeTitle={(title) => app.handleRenamePage(activePage.id, title)}
         onChangeContent={(content) => app.handleUpdatePageContent(activePage.id, content)}
         onChangeTextSize={(textSize) => app.handleUpdatePageTextSize(activePage.id, textSize)}
+        onChangeTags={(tags) => app.handleUpdatePageTags(activePage.id, tags)}
         onDelete={() => app.handleDeletePage(activePage)}
         onMoveLoosePage={(payload) => app.handleMoveLoosePage(activePage.id, payload)}
         onOpenPage={pageLinkState.openPageById}
+        onOpenTagSearch={(tag) => app.handleSearchChange(`/${tag}`)}
       />
     );
   }

@@ -4,6 +4,7 @@ import type { Book, Chapter, Page } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
 import { isLoosePage } from '../utils/pageState';
 import type { ContentSegment } from '../utils/pageLinks';
+import { isValidTag, normalizeTag } from '../utils/tags';
 
 interface PageEditorProps {
   page: Page;
@@ -16,9 +17,11 @@ interface PageEditorProps {
   onChangeTitle: (title: string) => void;
   onChangeContent: (content: string) => void;
   onChangeTextSize: (size: number) => void;
+  onChangeTags: (tags: string[]) => void;
   onDelete: () => void;
   onMoveLoosePage: (payload: { chapterId: string }) => void;
   onOpenPage: (pageId: string) => void;
+  onOpenTagSearch?: (tag: string) => void;
 }
 
 export function PageEditor({
@@ -32,15 +35,18 @@ export function PageEditor({
   onChangeTitle,
   onChangeContent,
   onChangeTextSize,
+  onChangeTags,
   onDelete,
   onMoveLoosePage,
-  onOpenPage
+  onOpenPage,
+  onOpenTagSearch
 }: PageEditorProps): JSX.Element {
   const pageIsLoose = isLoosePage(page);
   const [showMovePanel, setShowMovePanel] = useState(false);
   const [selectedBookId, setSelectedBookId] = useState(initialMoveBookId);
   const [selectedChapterId, setSelectedChapterId] = useState('');
   const [isEditingContent, setIsEditingContent] = useState(false);
+  const [tagInput, setTagInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -106,6 +112,51 @@ export function PageEditor({
             Updated {formatTimestamp(page.updatedAt)}
             {pageIsLoose ? ' - Loose Page' : ''}
           </p>
+          <div className="tag-editor" aria-label="Page tags">
+            <div className="tag-list">
+              {page.tags.map((tag) => (
+                <span key={tag} className="tag-pill">
+                  <button
+                    type="button"
+                    className="tag-pill-label"
+                    onClick={() => onOpenTagSearch?.(tag)}
+                  >
+                    {tag}
+                  </button>
+                  <button
+                    type="button"
+                    className="tag-pill-remove"
+                    aria-label={`Remove tag ${tag}`}
+                    onClick={() => onChangeTags(page.tags.filter((existingTag) => existingTag !== tag))}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+            <input
+              type="text"
+              className="tag-input"
+              value={tagInput}
+              onChange={(event) => setTagInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter') {
+                  return;
+                }
+
+                event.preventDefault();
+                const normalizedTag = normalizeTag(tagInput);
+                if (!isValidTag(normalizedTag) || page.tags.includes(normalizedTag)) {
+                  setTagInput('');
+                  return;
+                }
+
+                onChangeTags([...page.tags, normalizedTag]);
+                setTagInput('');
+              }}
+              placeholder="Add tag"
+            />
+          </div>
         </div>
 
         <div className="editor-actions">

@@ -3,6 +3,7 @@ import type { Book, Chapter, ID, LibraryData, Page } from '../types/domain';
 import { nowIso } from '../utils/date';
 import { createId } from '../utils/ids';
 import { isChapterPage, isLoosePage } from '../utils/pageState';
+import { isValidTag, normalizeTag } from '../utils/tags';
 
 export const DEFAULT_TEXT_SIZE = 16;
 
@@ -148,6 +149,7 @@ export function createPage(
     chapterId: options.chapterId,
     title: options.isLoose ? 'Untitled Loose Page' : 'Untitled Page',
     content: '',
+    tags: [],
     textSize: DEFAULT_TEXT_SIZE,
     isLoose: options.isLoose,
     sortOrder: getNextPageSortOrder(data, options.chapterId, options.isLoose),
@@ -171,7 +173,7 @@ export function createPage(
 export function updatePage(
   data: LibraryData,
   pageId: ID,
-  updates: Partial<Pick<Page, 'title' | 'content' | 'textSize'>>
+  updates: Partial<Pick<Page, 'title' | 'content' | 'textSize' | 'tags'>>
 ): LibraryData {
   const page = getPage(data, pageId);
   if (!page) {
@@ -184,6 +186,7 @@ export function updatePage(
     ...updates,
     title:
       updates.title !== undefined ? normalizeTitle(updates.title, page.isLoose ? 'Untitled Loose Page' : 'Untitled Page') : page.title,
+    tags: updates.tags !== undefined ? normalizeTags(updates.tags) : page.tags,
     updatedAt: timestamp
   };
 
@@ -427,7 +430,12 @@ function normalizeLibraryData(data: LibraryData): LibraryData {
   return {
     ...data,
     chapters: normalizeChapterOrders(data.chapters),
-    pages: normalizePageOrders(data.pages)
+    pages: normalizePageOrders(
+      data.pages.map((page) => ({
+        ...page,
+        tags: normalizeTags(page.tags)
+      }))
+    )
   };
 }
 
@@ -528,4 +536,18 @@ function getNextPageSortOrder(
 
 function getPageOrderingKey(chapterId: ID | null, isLoose: boolean): string {
   return isLoose || chapterId === null ? 'loose' : chapterId;
+}
+
+function normalizeTags(tags: unknown): string[] {
+  if (!Array.isArray(tags)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      tags
+        .map((tag) => normalizeTag(typeof tag === 'string' ? tag : String(tag ?? '')))
+        .filter(isValidTag)
+    )
+  );
 }

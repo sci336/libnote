@@ -21,6 +21,7 @@ export interface Page {
   chapterId: ID | null;
   title: string;
   content: string;
+  tags: string[];
   textSize: number;
   isLoose: boolean;
   sortOrder: number;

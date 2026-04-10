@@ -395,6 +395,54 @@ h1 {
   color: #6b7280;
 }
 
+.tag-editor {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.tag-pill-label,
+.tag-pill-remove {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.tag-pill-label {
+  color: #374151;
+}
+
+.tag-pill-remove {
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.tag-input {
+  width: min(240px, 100%);
+  border-radius: 0.9rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.88);
+  padding: 0.65rem 0.85rem;
+}
+
 .stack-list {
   display: flex;
   flex-direction: column;

@@ -37,7 +37,7 @@ import {
   getSortedBooks
 } from '../store/librarySelectors';
 import { useDebouncedEffect } from './useDebouncedEffect';
-import { buildSearchIndex, normalizeSearchQuery, searchPages } from '../utils/search';
+import { buildSearchIndex, normalizeSearchQuery, parseSearchInput, searchPages } from '../utils/search';
 import { isLoosePage } from '../utils/pageState';
 
 const DESKTOP_WIDTH = 920;
@@ -163,6 +163,7 @@ export function useLibraryApp() {
     () => (searchIndex ? searchPages(searchQuery, searchIndex) : []),
     [searchIndex, searchQuery]
   );
+  const searchMode = useMemo(() => parseSearchInput(searchQuery), [searchQuery]);
   const allChapters = useMemo(() => (data ? getAllChapters(data) : []), [data]);
   const initialMoveBookId = books[0]?.id ?? '';
 
@@ -403,6 +404,14 @@ export function useLibraryApp() {
     updateData(updatePage(data, pageId, { textSize }));
   }
 
+  function handleUpdatePageTags(pageId: string, tags: string[]): void {
+    if (!data) {
+      return;
+    }
+
+    updateData(updatePage(data, pageId, { tags }));
+  }
+
   return {
     data,
     view,
@@ -417,6 +426,7 @@ export function useLibraryApp() {
     chapterList,
     pageList,
     searchResults,
+    searchMode,
     activeBook,
     activeChapter,
     activePage,
@@ -457,6 +467,7 @@ export function useLibraryApp() {
     handleRenameChapter,
     handleRenamePage,
     handleUpdatePageContent,
-    handleUpdatePageTextSize
+    handleUpdatePageTextSize,
+    handleUpdatePageTags
   };
 }
