@@ -552,14 +552,92 @@ mark {
 }
 
 .editor-textarea {
-  flex: 1;
+  width: 100%;
   min-height: 420px;
   resize: vertical;
+  border: 0;
+  border-radius: inherit;
+  padding: 1rem;
+  background: transparent;
+  line-height: 1.65;
+  outline: none;
+}
+
+.editor-content-surface,
+.backlinks-section {
   border: 1px solid var(--border);
   border-radius: 1.25rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.backlinks-section h3 {
+  margin: 0 0 0.85rem;
+  font-size: 1rem;
+}
+
+.editor-content-surface {
+  flex: 1;
+  min-height: 420px;
+}
+
+.editor-content-surface.is-preview {
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.9);
-  line-height: 1.65;
+}
+
+.editor-content-preview {
+  white-space: pre-wrap;
+  line-height: 1.7;
+  color: #1f2937;
+  min-height: 100%;
+}
+
+.editor-content-placeholder {
+  margin: 0;
+  color: #9ca3af;
+}
+
+.inline-page-link {
+  display: inline;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-underline-offset: 0.18rem;
+}
+
+.inline-page-link.unresolved {
+  color: #8f3a2a;
+  text-decoration-style: dashed;
+  cursor: default;
+}
+
+.backlinks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.backlink-item {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 0.8rem 0.9rem;
+  background: rgba(255, 255, 255, 0.82);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.backlink-title {
+  font-weight: 600;
+  color: #111827;
+}
+
+.backlink-path {
+  color: #6b7280;
+  font-size: 0.92rem;
 }
 
 .block-input {

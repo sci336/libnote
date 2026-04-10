@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react';
 import { EmptyState } from './components/EmptyState';
 import { PageEditor } from './components/PageEditor';
 import { SearchResultsView } from './components/SearchResultsView';
@@ -6,6 +7,9 @@ import { TopBar } from './components/TopBar';
 import { useLibraryApp } from './hooks/useLibraryApp';
 import { AppLayout } from './layouts/AppLayout';
 import { getChapterCountForBook, getPageCountForChapter } from './store/librarySelectors';
+import type { Book, Chapter, Page } from './types/domain';
+import { isLoosePage } from './utils/pageState';
+import { buildBacklinkIndex, buildPageTitleLookup, parseContentIntoSegments } from './utils/pageLinks';
 import { BookView } from './views/BookView';
 import { ChapterView } from './views/ChapterView';
 import { LoosePagesView } from './views/LoosePagesView';
@@ -13,12 +17,61 @@ import { RootView } from './views/RootView';
 
 export default function App(): JSX.Element {
   const app = useLibraryApp();
+  const data = app.data;
+  const allPages = useMemo(() => data?.pages ?? [], [data]);
+  const pageById = useMemo(() => new Map(allPages.map((page) => [page.id, page])), [allPages]);
+  const chapterById = useMemo(
+    () => new Map((data?.chapters ?? []).map((chapter) => [chapter.id, chapter])),
+    [data]
+  );
+  const bookById = useMemo(() => new Map((data?.books ?? []).map((book) => [book.id, book])), [data]);
+  const pageTitleLookup = useMemo(() => buildPageTitleLookup(allPages), [allPages]);
+  const backlinkIndex = useMemo(() => buildBacklinkIndex(allPages), [allPages]);
+  const activePageSegments = useMemo(
+    () => (app.activePage ? parseContentIntoSegments(app.activePage.content, pageTitleLookup) : []),
+    [app.activePage, pageTitleLookup]
+  );
+  const activePageBacklinks = useMemo(() => {
+    if (!app.activePage) {
+      return [];
+    }
 
-  if (!app.data) {
+    const backlinkPageIds = backlinkIndex[app.activePage.id] ?? [];
+
+    return backlinkPageIds
+      .map((pageId) => pageById.get(pageId))
+      .filter((page): page is NonNullable<typeof page> => Boolean(page))
+      .map((page) => ({
+        pageId: page.id,
+        title: page.title,
+        path: getPagePathLabel(page, chapterById, bookById)
+      }))
+      .sort((left, right) => left.title.localeCompare(right.title));
+  }, [app.activePage, backlinkIndex, bookById, chapterById, pageById]);
+
+  const openPageById = useCallback(
+    (pageId: string) => {
+      const page = pageById.get(pageId);
+      if (!page) {
+        return;
+      }
+
+      if (isLoosePage(page)) {
+        app.handleOpenPage(page.id);
+        return;
+      }
+
+      if (page.chapterId) {
+        app.handleOpenPage(page.id);
+      }
+    },
+    [app.handleOpenPage, pageById]
+  );
+
+  if (!data) {
     return <div className="loading-screen">Loading note library...</div>;
   }
 
-  const data = app.data;
   const sidebarBookId = app.sidebarBookId;
   const sidebarChapterId = app.sidebarChapterId;
   const sidebarCreateChapter =
@@ -71,7 +124,7 @@ export default function App(): JSX.Element {
           onNavigateLoosePages={app.handleOpenLoosePages}
           onNavigateBook={app.handleOpenBook}
           onNavigateChapter={app.handleOpenChapter}
-          onNavigatePage={app.handleOpenPage}
+          onNavigatePage={openPageById}
           onCreateChapterInContext={sidebarCreateChapter}
           onCreatePageInContext={sidebarCreatePage}
           onReorderChapters={sidebarReorderChapters}
@@ -81,12 +134,24 @@ export default function App(): JSX.Element {
         />
       }
     >
-      {renderMainContent(app, data)}
+      {renderMainContent(app, data, {
+        openPageById,
+        activePageSegments,
+        activePageBacklinks
+      })}
     </AppLayout>
   );
 }
 
-function renderMainContent(app: ReturnType<typeof useLibraryApp>, data: NonNullable<ReturnType<typeof useLibraryApp>['data']>): JSX.Element {
+function renderMainContent(
+  app: ReturnType<typeof useLibraryApp>,
+  data: NonNullable<ReturnType<typeof useLibraryApp>['data']>,
+  pageLinkState: {
+    openPageById: (pageId: string) => void;
+    activePageSegments: ReturnType<typeof parseContentIntoSegments>;
+    activePageBacklinks: Array<{ pageId: string; title: string; path: string }>;
+  }
+): JSX.Element {
   if (app.view.type === 'root') {
     return (
       <RootView
@@ -107,7 +172,7 @@ function renderMainContent(app: ReturnType<typeof useLibraryApp>, data: NonNulla
       <SearchResultsView
         query={app.searchQuery}
         results={app.searchResults}
-        onOpenPage={app.handleOpenPage}
+        onOpenPage={pageLinkState.openPageById}
       />
     );
   }
@@ -161,7 +226,7 @@ function renderMainContent(app: ReturnType<typeof useLibraryApp>, data: NonNulla
         onRenameChapter={app.handleRenameChapter}
         onCreatePage={app.handleCreatePage}
         onDeleteChapter={app.handleDeleteChapter}
-        onOpenPage={app.handleOpenPage}
+        onOpenPage={pageLinkState.openPageById}
         onRenamePage={app.handleRenamePage}
         onDeletePage={app.handleDeletePage}
         onToggleMovePage={(pageId) =>
@@ -179,7 +244,7 @@ function renderMainContent(app: ReturnType<typeof useLibraryApp>, data: NonNulla
       <LoosePagesView
         loosePages={app.loosePages}
         onCreateLoosePage={app.handleCreateLoosePage}
-        onOpenPage={app.handleOpenPage}
+        onOpenPage={pageLinkState.openPageById}
         onRenamePage={app.handleRenamePage}
         onDeletePage={app.handleDeletePage}
       />
@@ -199,12 +264,15 @@ function renderMainContent(app: ReturnType<typeof useLibraryApp>, data: NonNulla
         books={app.books}
         chapters={app.allChapters}
         initialMoveBookId={app.initialMoveBookId}
+        contentSegments={pageLinkState.activePageSegments}
+        backlinks={pageLinkState.activePageBacklinks}
         shouldAutoFocus={app.shouldAutoFocusEditor}
         onChangeTitle={(title) => app.handleRenamePage(activePage.id, title)}
         onChangeContent={(content) => app.handleUpdatePageContent(activePage.id, content)}
         onChangeTextSize={(textSize) => app.handleUpdatePageTextSize(activePage.id, textSize)}
         onDelete={() => app.handleDeletePage(activePage)}
         onMoveLoosePage={(payload) => app.handleMoveLoosePage(activePage.id, payload)}
+        onOpenPage={pageLinkState.openPageById}
       />
     );
   }
@@ -221,4 +289,22 @@ function invalidState(): JSX.Element {
       onAction={() => window.location.reload()}
     />
   );
+}
+
+function getPagePathLabel(
+  page: Page,
+  chapterById: Map<string, Chapter>,
+  bookById: Map<string, Book>
+): string {
+  if (isLoosePage(page)) {
+    return 'Loose Pages';
+  }
+
+  const chapter = page.chapterId ? chapterById.get(page.chapterId) : undefined;
+  if (!chapter) {
+    return 'Loose Pages';
+  }
+
+  const book = bookById.get(chapter.bookId);
+  return book ? `${book.title} / ${chapter.title}` : chapter.title;
 }

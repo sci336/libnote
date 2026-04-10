@@ -1,4 +1,4 @@
-const CACHE_NAME = 'note-library-v1';
+const CACHE_NAME = 'note-library-v2';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (event) => {
@@ -30,6 +30,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            void caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', clone));
+          }
+
+          return response;
+        })
+        .catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) {
@@ -38,7 +54,7 @@ self.addEventListener('fetch', (event) => {
 
       return fetch(event.request)
         .then((response) => {
-          if (response.ok && !url.pathname.startsWith('/@vite')) {
+          if (response.ok && !url.pathname.startsWith('/@vite') && url.pathname !== '/' && url.pathname !== '/index.html') {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           }
