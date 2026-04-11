@@ -14,6 +14,11 @@ interface ReorderableListProps<T extends { id: string }> {
   isEnabled?: boolean;
 }
 
+/**
+ * Small shared drag-and-drop primitive for chapter/page ordering.
+ * It reports a complete ordered id list so the store layer can validate and
+ * persist the new order without coupling DOM drag state to data mutations.
+ */
 export function ReorderableList<T extends { id: string }>({
   items,
   onReorder,
@@ -84,6 +89,8 @@ export function ReorderableList<T extends { id: string }>({
 
               event.preventDefault();
               const bounds = event.currentTarget.getBoundingClientRect();
+              // Use the hovered half of the card instead of inserting between
+              // invisible separators so the drop target stays easy to predict.
               const edge: DropEdge =
                 event.clientY - bounds.top < bounds.height / 2 ? 'top' : 'bottom';
 

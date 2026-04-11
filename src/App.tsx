@@ -30,6 +30,8 @@ export default function App(): JSX.Element {
   const bookById = useMemo(() => new Map((data?.books ?? []).map((book) => [book.id, book])), [data]);
   const pageTitleLookup = useMemo(() => buildPageTitleLookup(allPages), [allPages]);
   const backlinkIndex = useMemo(() => buildBacklinkIndex(allPages), [allPages]);
+  // Page-link parsing is derived in the shell so the editor stays focused on UI
+  // concerns while still receiving resolved links and backlinks as ready-to-render data.
   const activePageSegments = useMemo(
     () => (app.activePage ? parseContentIntoSegments(app.activePage.content, pageTitleLookup) : []),
     [app.activePage, pageTitleLookup]
@@ -168,6 +170,8 @@ function renderMainContent(
     tagResults: ReturnType<typeof getTagResults>;
   }
 ): JSX.Element {
+  // Keep route-to-view branching centralized here so individual view components
+  // remain mostly presentational and the app hook owns navigation behavior.
   if (app.view.type === 'root') {
     return (
       <RootView

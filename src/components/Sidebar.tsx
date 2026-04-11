@@ -49,7 +49,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     onClose
   } = props;
 
-  const isLoose = isLooseEditor(currentView, activePageId, loosePages);
+  const isViewingLoosePage = isLoosePageView(currentView, activePageId, loosePages);
 
   const showsBooks =
     currentView.type === 'root' ||
@@ -57,15 +57,15 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     currentView.type === 'search' ||
     currentView.type === 'tag' ||
     currentView.type === 'loosePages' ||
-    isLoose;
+    isViewingLoosePage;
 
   const showsChapters =
     currentView.type === 'book' ||
     currentView.type === 'chapter' ||
-    (currentView.type === 'page' && !isLoose);
+    (currentView.type === 'page' && !isViewingLoosePage);
 
   const showsPages =
-    (currentView.type === 'page' && !isLoose) ||
+    (currentView.type === 'page' && !isViewingLoosePage) ||
     currentView.type === 'chapter';
 
   const showsLoose =
@@ -73,7 +73,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     currentView.type === 'search' ||
     currentView.type === 'tag' ||
     currentView.type === 'loosePages' ||
-    isLoose;
+    isViewingLoosePage;
 
   const visibleChapters = activeBookId
     ? chapters.filter((chapter) => chapter.bookId === activeBookId)
@@ -86,7 +86,8 @@ export function Sidebar(props: SidebarProps): JSX.Element {
         onClick={onClose}
       />
       <aside className={`sidebar ${isOpen ? 'is-open' : ''}`}>
-        {/* BOOKS */}
+        {/* The sidebar intentionally changes shape with the current route so
+            root/search/tag/loose-page flows all keep nearby navigation visible. */}
         {showsBooks && (
           <SidebarSection
             title="Books"
@@ -256,7 +257,12 @@ function SidebarSection({
   );
 }
 
-function isLooseEditor(
+/**
+ * Detects whether the current page route should be treated like the loose-page
+ * inbox. The route alone only tells us "page", so we consult the loose page list
+ * to decide which sidebar sections stay visible.
+ */
+function isLoosePageView(
   currentView: ViewState,
   activePageId: string | undefined,
   loosePages: Page[]

@@ -61,6 +61,8 @@ export function PageEditor({
     if (!shouldAutoFocus) return;
 
     const timeoutId = window.setTimeout(() => {
+      // Defer until after the new page has rendered so freshly created pages can
+      // jump straight into writing mode without racing the textarea mount.
       setIsEditingContent(true);
       const el = textareaRef.current;
       if (!el) return;
@@ -81,6 +83,8 @@ export function PageEditor({
       return;
     }
 
+    // Re-focus after mode switches so clicking the preview behaves like entering
+    // an inline editor, not like opening a separate editing surface.
     const timeoutId = window.setTimeout(() => {
       textareaRef.current?.focus();
     }, 0);
@@ -146,6 +150,8 @@ export function PageEditor({
 
                 event.preventDefault();
                 const normalizedTag = normalizeTag(tagInput);
+                // Keep editor-entered tags on the same normalized path as search
+                // filters so clicking a tag always routes back to matching pages.
                 if (!isValidTag(normalizedTag) || page.tags.includes(normalizedTag)) {
                   setTagInput('');
                   return;
@@ -282,6 +288,8 @@ export function PageEditor({
                   );
                 }
 
+                // Unresolved links stay visible instead of disappearing so authors
+                // can spot broken references while reading the rendered preview.
                 return (
                   <span
                     key={`link-${index}`}

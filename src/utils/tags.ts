@@ -13,6 +13,11 @@ export function isValidTagToken(token: string): boolean {
   return /^\/[^\s/#,]+$/.test(token);
 }
 
+/**
+ * Normalizes user-entered tags into the canonical stored form.
+ * This keeps typed input, clicked tags, persisted tags, and multi-tag filters
+ * aligned on the same lowercase deduplicated representation.
+ */
 export function normalizeTagList(tags: string[]): string[] {
   const normalizedTags: string[] = [];
 
@@ -28,6 +33,11 @@ export function normalizeTagList(tags: string[]): string[] {
   return normalizedTags;
 }
 
+/**
+ * Parses slash-prefixed search input into tag filters.
+ * Returning `null` instead of an empty array lets callers distinguish "not a tag
+ * query" from "tag mode with no usable tags yet".
+ */
 export function parseTagQuery(raw: string): string[] | null {
   const trimmed = raw.trim();
   if (!trimmed) {
@@ -85,6 +95,7 @@ export function getTagResults(
   const bookById = new Map(books.map((book) => [book.id, book] as const));
 
   return pages
+    // Tag view is an intersection filter: every active tag must be present.
     .filter((page) => tags.every((tag) => page.tags.includes(tag)))
     .map((page) => {
       const chapter = page.chapterId ? chapterById.get(page.chapterId) : undefined;
@@ -108,6 +119,8 @@ export function getTagResults(
 }
 
 function buildTagSnippet(content: string): string {
+  // Flatten aggressively so snippets from multi-line notes remain scannable in
+  // the compact tag result cards.
   const flattened = content.replace(/\s+/g, ' ').trim();
   if (!flattened) {
     return '';

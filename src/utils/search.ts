@@ -39,10 +39,19 @@ export type SearchMode =
   | { type: 'tag'; tags: string[] }
   | { type: 'text'; query: string };
 
+/**
+ * Keeps search-bar state and search matching aligned on the same normalized text
+ * representation so switching between views does not produce mismatched results.
+ */
 export function normalizeSearchQuery(query: string): string {
   return normalizeSearchText(query);
 }
 
+/**
+ * Splits top-bar input into text search vs slash-tag search.
+ * The dedicated `emptyTag` mode lets the UI teach the `/tag` syntax without
+ * pretending the user is running a normal text search for "/".
+ */
 export function parseSearchInput(raw: string): SearchMode {
   const trimmed = raw.trim();
 
@@ -69,6 +78,11 @@ export function tokenizeSearchText(input: string): string[] {
   return normalizeSearchText(input).split(' ').filter(Boolean);
 }
 
+/**
+ * Precomputes searchable page records and a token lookup table.
+ * The index is only built when the user is searching so regular editing flows
+ * do not pay for search-specific normalization on every render.
+ */
 export function buildSearchIndex(data: LibraryData): SearchIndex {
   const pagesById = new Map<ID, SearchIndexedPageRecord>();
   const tokenToPageIds = new Map<string, Set<ID>>();
@@ -146,6 +160,8 @@ export function searchPages(query: string, index: SearchIndex): SearchResult[] {
   }
 
   const tokens = tokenizeSearchText(mode.query);
+  // Start with token hits when possible, but fall back to scanning every page so
+  // exact substring matches still work for punctuation-heavy fragments.
   const candidatePageIds = getCandidatePageIds(tokens, index);
   const candidateRecords =
     candidatePageIds.size > 0
@@ -233,6 +249,8 @@ function buildSnippetFromRecord(
     }
   }
 
+  // Title-only matches still show a content preview so results remain useful
+  // even when the matching words never appear in the body text.
   if (record.normalizedTitle.includes(normalizedQuery)) {
     return clipSnippet(flattenedContent, 0, 0);
   }

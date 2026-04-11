@@ -1,5 +1,10 @@
 export type ID = string;
 
+/**
+ * The app persists a normalized library graph instead of nested book objects.
+ * Relationships are reconstructed through ids so books, chapters, pages, search,
+ * and move flows can all derive context from one shared source of truth.
+ */
 export interface Book {
   id: ID;
   title: string;
@@ -37,6 +42,11 @@ export interface LibraryData {
 
 export type AppMenuSection = 'help' | 'shortcuts' | 'settings' | 'credits';
 
+/**
+ * ViewState acts as the app's lightweight router.
+ * Components and selectors derive the current book/chapter/page context from here
+ * instead of pushing navigation rules down into each view.
+ */
 export type ViewState =
   | { type: 'root' }
   | { type: 'book'; bookId: ID }

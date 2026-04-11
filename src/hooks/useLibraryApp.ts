@@ -44,6 +44,11 @@ import { formatTagQuery, normalizeTag, normalizeTagList, parseTagQuery } from '.
 const DESKTOP_WIDTH = 920;
 const PERSISTENCE_DELAY_MS = 300;
 
+/**
+ * Central application controller for the note library.
+ * It coordinates view routing, derived navigation context, persistence, search,
+ * tag mode, and move/reorder actions so presentational components can stay thin.
+ */
 export function useLibraryApp() {
   const [data, setData] = useState<LibraryData | null>(null);
   const [view, setView] = useState<ViewState>({ type: 'root' });
@@ -72,6 +77,8 @@ export function useLibraryApp() {
         return;
       }
 
+      // Typing in the editor updates state immediately, then persistence trails
+      // behind slightly so edits stay responsive.
       persistLibraryData(data).catch(console.error);
     },
     [data],
@@ -83,6 +90,8 @@ export function useLibraryApp() {
       return;
     }
 
+    // `pagehide` catches tab closes/backgrounding where the debounced write has
+    // not fired yet, which protects the last few keystrokes from being lost.
     const flush = () => {
       const latestData = latestDataRef.current;
       if (latestData) {
@@ -158,6 +167,8 @@ export function useLibraryApp() {
     [data, view]
   );
   const normalizedSearchQuery = useMemo(() => normalizeSearchQuery(searchQuery), [searchQuery]);
+  // Building the search index is the expensive part of search, so keep it lazy
+  // until the user is actively searching or has typed something meaningful.
   const shouldBuildSearchIndex = view.type === 'search' || normalizedSearchQuery.length > 0;
   const searchIndex = useMemo(
     () => (data && shouldBuildSearchIndex ? buildSearchIndex(data) : null),
@@ -327,6 +338,8 @@ export function useLibraryApp() {
     setSearchQuery(value);
     const parsedTags = parseTagQuery(value);
     if (parsedTags && parsedTags.length > 0) {
+      // Route tag-only queries into the dedicated tag view so typed filters,
+      // clicked tags, and tag removal all operate on the same source of truth.
       if (view.type !== 'tag') {
         setTagOriginView(view.type === 'search' ? searchOriginView : view);
       }
@@ -338,6 +351,8 @@ export function useLibraryApp() {
     const normalizedQuery = normalizeSearchQuery(value);
 
     if (normalizedQuery) {
+      // Remember where search started so "back" returns to the prior context
+      // instead of treating search like a dead-end screen.
       if (view.type !== 'search') {
         setSearchOriginView(view);
       }
@@ -388,6 +403,8 @@ export function useLibraryApp() {
     }
 
     if (view.type === 'tag') {
+      // Clicking an additional tag refines the current intersection instead of
+      // throwing away the active tag route.
       const nextTags = normalizeTagList([...view.tags, normalizedTag]);
       setSearchQuery(formatTagQuery(nextTags));
       setView({ type: 'tag', tags: nextTags });
@@ -410,6 +427,8 @@ export function useLibraryApp() {
     const nextTags = view.tags.filter((activeTag) => activeTag !== normalizedTag);
 
     if (nextTags.length === 0) {
+      // Clearing the last tag exits tag mode entirely so the search bar and
+      // visible route do not drift out of sync.
       setSearchQuery('');
       setView({ type: 'root' });
       closeSidebarOnMobile();

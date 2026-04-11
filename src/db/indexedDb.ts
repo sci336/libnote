@@ -21,6 +21,11 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
+/**
+ * Loads the most recent normalized library snapshot.
+ * The store layer performs any cleanup/reconciliation after hydration so the
+ * persistence boundary can stay intentionally dumb.
+ */
 export async function loadLibraryData(): Promise<LibraryData | null> {
   const db = await openDb();
 
@@ -34,6 +39,11 @@ export async function loadLibraryData(): Promise<LibraryData | null> {
   });
 }
 
+/**
+ * Persists the entire library graph as a single snapshot.
+ * Keeping writes coarse-grained avoids merge logic during hydration and matches
+ * the app's small, client-only data model.
+ */
 export async function saveLibraryData(data: LibraryData): Promise<void> {
   const db = await openDb();
 

@@ -13,6 +13,11 @@ export const emptyLibraryData: LibraryData = {
   pages: []
 };
 
+/**
+ * Loads persisted data and repairs fields that older snapshots may omit, such as
+ * sort orders or normalized tags. Callers can treat the returned graph as the
+ * canonical in-memory shape.
+ */
 export async function hydrateLibraryData(): Promise<LibraryData> {
   const data = await loadLibraryData();
   return normalizeLibraryData(data ?? emptyLibraryData);
@@ -48,6 +53,8 @@ export function getPagesForChapter(data: LibraryData, chapterId: ID): Page[] {
 
 export function getLoosePages(data: LibraryData): Page[] {
   return [...data.pages]
+    // Loose pages behave like an inbox, so recency is more useful than a fixed
+    // manual order the way chapter pages use.
     .filter((page) => isLoosePage(page))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
@@ -190,6 +197,8 @@ export function updatePage(
     updatedAt: timestamp
   };
 
+  // Any page edit should bubble recency to its container so the root/book views
+  // surface recently touched work without storing extra denormalized metadata.
   const chapter = nextPage.chapterId ? getChapter(data, nextPage.chapterId) : undefined;
 
   return {
@@ -239,6 +248,8 @@ export function moveLoosePageToChapter(
               ...item,
               chapterId,
               isLoose: false,
+              // Moved loose pages become the newest item in the destination
+              // chapter instead of trying to preserve inbox ordering there.
               sortOrder: getNextPageSortOrder(data, chapterId, false),
               updatedAt: timestamp
             }
@@ -262,6 +273,8 @@ export function moveChapterToBook(
 
   const timestamp = nowIso();
   const sourceBookId = chapter.bookId;
+  // Re-run normalization after the move so the source book closes any sort-order
+  // gaps left behind by removing one of its chapters.
   const nextChapters = normalizeChapterOrders(
     data.chapters.map((item) =>
       item.id === chapterId
@@ -296,6 +309,8 @@ export function movePageToChapter(
 
   const timestamp = nowIso();
   const sourceChapter = getChapter(data, page.chapterId);
+  // Pages keep chapter-local ordering, so moving across chapters always appends
+  // at the destination and then re-normalizes sibling orders globally.
   const nextPages = normalizePageOrders(
     data.pages.map((item) =>
       item.id === pageId
@@ -338,6 +353,8 @@ export function reorderChaptersInBook(
   );
   const normalizedIds = orderedChapterIds.filter((id) => validIds.has(id));
 
+  // Reject partial reorder payloads so a stale drag state cannot accidentally
+  // drop chapters from the stored order.
   if (normalizedIds.length !== validIds.size) {
     return data;
   }
@@ -429,6 +446,8 @@ function normalizeTitle(value: string, fallback: string): string {
 function normalizeLibraryData(data: LibraryData): LibraryData {
   return {
     ...data,
+    // Hydration is the one place we repair legacy or malformed snapshots so the
+    // rest of the app can assume normalized sort order and tag data.
     chapters: normalizeChapterOrders(data.chapters),
     pages: normalizePageOrders(
       data.pages.map((page) => ({
@@ -456,6 +475,8 @@ function normalizeChapterOrders(chapters: Chapter[]): Chapter[] {
 function normalizePageOrders(pages: Page[]): Page[] {
   const pagesByParent = new Map<string, Page[]>();
   for (const page of pages) {
+    // Loose pages share a single pseudo-parent so they can be normalized
+    // separately from chapter pages even though they live in the same array.
     const key = getPageOrderingKey(page.chapterId, page.isLoose);
     const siblingPages = pagesByParent.get(key) ?? [];
     siblingPages.push(page);
@@ -479,6 +500,8 @@ function resolveSortOrder<T extends { id: ID; updatedAt: string; createdAt: stri
     return item.sortOrder;
   }
 
+  // Fall back to recency-based ordering for older snapshots that predate explicit
+  // drag-and-drop order fields.
   const sortedSiblings = [...siblings].sort((a, b) => {
     const updatedComparison = b.updatedAt.localeCompare(a.updatedAt);
     if (updatedComparison !== 0) {
@@ -545,6 +568,8 @@ function normalizeTags(tags: unknown): string[] {
 
   return Array.from(
     new Set(
+      // Normalize unknown persisted values defensively so corrupted snapshots
+      // do not break tag filtering or editor chips.
       tags
         .map((tag) => normalizeTag(typeof tag === 'string' ? tag : String(tag ?? '')))
         .filter(isValidTag)

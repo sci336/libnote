@@ -14,6 +14,11 @@ interface MoveTargetPanelProps {
   onCancel: () => void;
 }
 
+/**
+ * Reusable "move into another container" chooser for chapters and pages.
+ * Filtering the current container out here keeps the mutation handlers simpler
+ * and prevents no-op moves from showing up as valid options in the UI.
+ */
 export function MoveTargetPanel({
   title,
   options,

@@ -2,6 +2,10 @@ import type { Book, Chapter, LibraryData, Page, ViewState } from '../types/domai
 import { getBook, getChapter, getChaptersForBook, getLoosePages, getPage, getPagesForChapter } from './libraryStore';
 import { isChapterPage, isLoosePage } from '../utils/pageState';
 
+/**
+ * Books are surfaced by recent activity instead of creation order so the root
+ * view doubles as a "recently worked on" list.
+ */
 export function getSortedBooks(data: LibraryData): Book[] {
   return [...data.books].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 }
@@ -46,6 +50,8 @@ export function getChapterListForView(
   activeChapter?: Chapter,
   derivedBookForPage?: Book
 ): Chapter[] {
+  // The sidebar mirrors the active reading/editing context, even when that
+  // context comes from a page view rather than a direct chapter route.
   if (view.type === 'book' && activeBook) {
     return getChaptersForBook(data, activeBook.id);
   }
@@ -174,6 +180,11 @@ export function getNavigationMetadata(
   };
 }
 
+/**
+ * Resolves the "up one level" destination for the current lightweight route.
+ * Search and tag views remember where they were entered from so back navigation
+ * feels contextual instead of always bouncing to the root library.
+ */
 export function getParentView(
   data: LibraryData,
   view: ViewState,

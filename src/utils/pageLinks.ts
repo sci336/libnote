@@ -19,6 +19,11 @@ export type BacklinkIndex = Record<string, string[]>;
 const BRACKET_LINK_PATTERN = /\[\[([\s\S]*?)\]\]/g;
 const WHITESPACE_PATTERN = /\s+/g;
 
+/**
+ * Normalizes page titles for the `[[Page Title]]` link system.
+ * Matching is intentionally case-insensitive and whitespace-insensitive so small
+ * title edits do not silently break the reader experience.
+ */
 export function normalizePageTitle(title: string): string {
   return flattenText(title).toLowerCase();
 }
@@ -47,7 +52,8 @@ export function buildPageTitleLookup(allPages: Page[]): PageTitleLookup {
     }
 
     if (!lookup.has(normalizedTitle)) {
-      // TODO: support disambiguation for duplicate page titles without relying on flattened page order.
+      // Duplicate titles currently resolve to the first matching page. Keeping
+      // that rule centralized here avoids each renderer inventing its own tie-breaker.
       lookup.set(normalizedTitle, page);
     }
   }
@@ -113,6 +119,11 @@ export function parseContentIntoSegments(
   return segments;
 }
 
+/**
+ * Builds a reverse lookup of "which pages reference this page".
+ * Backlinks are derived at render time from raw page content rather than stored,
+ * which keeps editing simple and avoids synchronization bugs.
+ */
 export function buildBacklinkIndex(allPages: Page[]): BacklinkIndex {
   const backlinkIndex: BacklinkIndex = Object.create(null);
   const titleLookup = buildPageTitleLookup(allPages);
