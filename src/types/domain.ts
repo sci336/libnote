@@ -41,4 +41,5 @@ export type ViewState =
   | { type: 'chapter'; chapterId: ID }
   | { type: 'page'; pageId: ID }
   | { type: 'loosePages' }
+  | { type: 'tag'; tags: string[] }
   | { type: 'search'; query: string };

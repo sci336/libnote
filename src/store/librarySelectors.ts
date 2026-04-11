@@ -127,6 +127,14 @@ export function getNavigationMetadata(
     };
   }
 
+  if (view.type === 'tag') {
+    return {
+      showBack: true,
+      parentLabel: 'Library',
+      currentLabel: view.tags.length > 0 ? view.tags.map((tag) => `#${tag}`).join(' ') : 'Tagged Pages'
+    };
+  }
+
   if (view.type === 'chapter') {
     const chapter = getChapter(data, view.chapterId);
     const book = chapter ? getBook(data, chapter.bookId) : undefined;
@@ -169,7 +177,8 @@ export function getNavigationMetadata(
 export function getParentView(
   data: LibraryData,
   view: ViewState,
-  searchOriginView: ViewState
+  searchOriginView: ViewState,
+  tagOriginView: ViewState
 ): ViewState {
   if (view.type === 'book') {
     return { type: 'root' };
@@ -177,6 +186,10 @@ export function getParentView(
 
   if (view.type === 'search') {
     return searchOriginView.type === 'search' ? { type: 'root' } : searchOriginView;
+  }
+
+  if (view.type === 'tag') {
+    return tagOriginView.type === 'tag' ? { type: 'root' } : tagOriginView;
   }
 
   if (view.type === 'chapter') {

@@ -3,6 +3,7 @@ import { EmptyState } from './components/EmptyState';
 import { PageEditor } from './components/PageEditor';
 import { SearchResultsView } from './components/SearchResultsView';
 import { Sidebar } from './components/Sidebar';
+import { TagResultsView } from './components/TagResultsView';
 import { TopBar } from './components/TopBar';
 import { useLibraryApp } from './hooks/useLibraryApp';
 import { AppLayout } from './layouts/AppLayout';
@@ -10,6 +11,7 @@ import { getChapterCountForBook, getPageCountForChapter } from './store/libraryS
 import type { Book, Chapter, Page } from './types/domain';
 import { isLoosePage } from './utils/pageState';
 import { buildBacklinkIndex, buildPageTitleLookup, parseContentIntoSegments } from './utils/pageLinks';
+import { getTagResults } from './utils/tags';
 import { BookView } from './views/BookView';
 import { ChapterView } from './views/ChapterView';
 import { LoosePagesView } from './views/LoosePagesView';
@@ -48,6 +50,10 @@ export default function App(): JSX.Element {
       }))
       .sort((left, right) => left.title.localeCompare(right.title));
   }, [app.activePage, backlinkIndex, bookById, chapterById, pageById]);
+  const tagResults = useMemo(
+    () => (app.view.type === 'tag' ? getTagResults(allPages, data?.chapters ?? [], data?.books ?? [], app.view.tags) : []),
+    [allPages, app.view, data]
+  );
 
   const openPageById = useCallback(
     (pageId: string) => {
@@ -137,7 +143,8 @@ export default function App(): JSX.Element {
       {renderMainContent(app, data, {
         openPageById,
         activePageSegments,
-        activePageBacklinks
+        activePageBacklinks,
+        tagResults
       })}
     </AppLayout>
   );
@@ -150,6 +157,7 @@ function renderMainContent(
     openPageById: (pageId: string) => void;
     activePageSegments: ReturnType<typeof parseContentIntoSegments>;
     activePageBacklinks: Array<{ pageId: string; title: string; path: string }>;
+    tagResults: ReturnType<typeof getTagResults>;
   }
 ): JSX.Element {
   if (app.view.type === 'root') {
@@ -174,6 +182,18 @@ function renderMainContent(
         mode={app.searchMode}
         results={app.searchResults}
         onOpenPage={pageLinkState.openPageById}
+      />
+    );
+  }
+
+  if (app.view.type === 'tag') {
+    return (
+      <TagResultsView
+        tags={app.view.tags}
+        results={pageLinkState.tagResults}
+        onOpenPage={pageLinkState.openPageById}
+        onOpenTag={app.handleOpenTag}
+        onRemoveTag={app.handleRemoveActiveTag}
       />
     );
   }
@@ -275,7 +295,7 @@ function renderMainContent(
         onDelete={() => app.handleDeletePage(activePage)}
         onMoveLoosePage={(payload) => app.handleMoveLoosePage(activePage.id, payload)}
         onOpenPage={pageLinkState.openPageById}
-        onOpenTagSearch={(tag) => app.handleSearchChange(`/${tag}`)}
+        onOpenTagSearch={app.handleOpenTag}
       />
     );
   }

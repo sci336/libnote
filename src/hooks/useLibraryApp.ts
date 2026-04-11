@@ -39,6 +39,7 @@ import {
 import { useDebouncedEffect } from './useDebouncedEffect';
 import { buildSearchIndex, normalizeSearchQuery, parseSearchInput, searchPages } from '../utils/search';
 import { isLoosePage } from '../utils/pageState';
+import { normalizeTag, normalizeTagList } from '../utils/tags';
 
 const DESKTOP_WIDTH = 920;
 const PERSISTENCE_DELAY_MS = 300;
@@ -52,6 +53,7 @@ export function useLibraryApp() {
   const [movingPageId, setMovingPageId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOriginView, setSearchOriginView] = useState<ViewState>({ type: 'root' });
+  const [tagOriginView, setTagOriginView] = useState<ViewState>({ type: 'root' });
   const latestDataRef = useRef<LibraryData | null>(null);
 
   useEffect(() => {
@@ -300,7 +302,7 @@ export function useLibraryApp() {
       return;
     }
 
-    setView(getParentView(data, view, searchOriginView));
+    setView(getParentView(data, view, searchOriginView, tagOriginView));
     closeSidebarOnMobile();
   }
 
@@ -346,6 +348,41 @@ export function useLibraryApp() {
   function handleOpenLoosePages(): void {
     setView({ type: 'loosePages' });
     closeSidebarOnMobile();
+  }
+
+  function handleOpenTag(tag: string): void {
+    const normalizedTag = normalizeTag(tag);
+    if (!normalizedTag) {
+      return;
+    }
+
+    if (view.type === 'tag') {
+      const nextTags = normalizeTagList([...view.tags, normalizedTag]);
+      setView({ type: 'tag', tags: nextTags });
+      closeSidebarOnMobile();
+      return;
+    }
+
+    setTagOriginView(view);
+    setView({ type: 'tag', tags: [normalizedTag] });
+    closeSidebarOnMobile();
+  }
+
+  function handleRemoveActiveTag(tag: string): void {
+    if (view.type !== 'tag') {
+      return;
+    }
+
+    const normalizedTag = normalizeTag(tag);
+    const nextTags = view.tags.filter((activeTag) => activeTag !== normalizedTag);
+
+    if (nextTags.length === 0) {
+      setView({ type: 'root' });
+      closeSidebarOnMobile();
+      return;
+    }
+
+    setView({ type: 'tag', tags: nextTags });
   }
 
   function handleMoveLoosePage(
@@ -421,6 +458,7 @@ export function useLibraryApp() {
     movingPageId,
     searchQuery,
     searchOriginView,
+    tagOriginView,
     books,
     loosePages,
     chapterList,
@@ -463,6 +501,8 @@ export function useLibraryApp() {
     handleOpenChapter,
     handleOpenPage,
     handleOpenLoosePages,
+    handleOpenTag,
+    handleRemoveActiveTag,
     handleRenameBook,
     handleRenameChapter,
     handleRenamePage,

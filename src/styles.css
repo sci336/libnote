@@ -435,6 +435,30 @@ h1 {
   font-size: 0.95rem;
 }
 
+.active-tag-list {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.active-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.active-tag-remove {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: #6b7280;
+}
+
 .tag-input {
   width: min(240px, 100%);
   border-radius: 0.9rem;
@@ -527,6 +551,16 @@ h1 {
   box-shadow: 0 10px 30px rgba(17, 24, 39, 0.05);
 }
 
+.tag-result-main {
+  border: 0;
+  background: none;
+  padding: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 .search-result-head {
   display: flex;
   align-items: flex-start;
@@ -561,6 +595,21 @@ h1 {
 
 .search-result-snippet {
   line-height: 1.55;
+}
+
+.search-result-tags {
+  margin-top: 0.2rem;
+}
+
+.inline-tag-button {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.inline-tag-button.is-active {
+  background: rgba(215, 226, 243, 0.7);
 }
 
 mark {

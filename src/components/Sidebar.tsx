@@ -55,6 +55,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     currentView.type === 'root' ||
     currentView.type === 'book' ||
     currentView.type === 'search' ||
+    currentView.type === 'tag' ||
     currentView.type === 'loosePages' ||
     isLoose;
 
@@ -70,6 +71,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
   const showsLoose =
     currentView.type === 'root' ||
     currentView.type === 'search' ||
+    currentView.type === 'tag' ||
     currentView.type === 'loosePages' ||
     isLoose;
 
