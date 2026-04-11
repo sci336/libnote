@@ -12,7 +12,7 @@ import { getChapterCountForBook, getPageCountForChapter } from './store/libraryS
 import type { Book, Chapter, Page } from './types/domain';
 import { isLoosePage } from './utils/pageState';
 import { buildBacklinkIndex, buildPageTitleLookup, parseContentIntoSegments } from './utils/pageLinks';
-import { getTagResults } from './utils/tags';
+import { getAllTags, getTagResults } from './utils/tags';
 import { BookView } from './views/BookView';
 import { ChapterView } from './views/ChapterView';
 import { LoosePagesView } from './views/LoosePagesView';
@@ -57,6 +57,7 @@ export default function App(): JSX.Element {
     () => (app.view.type === 'tag' ? getTagResults(allPages, data?.chapters ?? [], data?.books ?? [], app.view.tags) : []),
     [allPages, app.view, data]
   );
+  const availableTags = useMemo(() => getAllTags(allPages), [allPages]);
 
   const openPageById = useCallback(
     (pageId: string) => {
@@ -148,7 +149,8 @@ export default function App(): JSX.Element {
         openPageById,
         activePageSegments,
         activePageBacklinks,
-        tagResults
+        tagResults,
+        availableTags
       })}
       <AppMenu
         isOpen={app.appMenuOpen}
@@ -168,6 +170,7 @@ function renderMainContent(
     activePageSegments: ReturnType<typeof parseContentIntoSegments>;
     activePageBacklinks: Array<{ pageId: string; title: string; path: string }>;
     tagResults: ReturnType<typeof getTagResults>;
+    availableTags: string[];
   }
 ): JSX.Element {
   // Keep route-to-view branching centralized here so individual view components
@@ -203,6 +206,8 @@ function renderMainContent(
       <TagResultsView
         tags={app.view.tags}
         results={pageLinkState.tagResults}
+        availableTags={pageLinkState.availableTags}
+        recentTags={app.recentTags}
         onOpenPage={pageLinkState.openPageById}
         onOpenTag={app.handleOpenTag}
         onRemoveTag={app.handleRemoveActiveTag}

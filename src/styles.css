@@ -630,6 +630,19 @@ h1 {
   font-size: 0.95rem;
 }
 
+.page-tag-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.page-tag-button:hover {
+  background: none;
+  border-color: transparent;
+  transform: none;
+}
+
 .active-tag-list {
   margin-top: 0.85rem;
   display: flex;
@@ -641,10 +654,12 @@ h1 {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  padding: 0.35rem 0.6rem;
-  border: 1px solid var(--border);
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgba(31, 41, 55, 0.14);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.86);
+  background: rgba(215, 226, 243, 0.72);
+  color: #1f2937;
+  font-weight: 600;
 }
 
 .active-tag-remove {
@@ -660,6 +675,77 @@ h1 {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.88);
   padding: 0.65rem 0.85rem;
+}
+
+.tag-results-header {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tag-filter-controls {
+  min-width: min(320px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.tag-filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.tag-filter-input-shell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tag-filter-label,
+.recent-tags-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.tag-filter-input {
+  width: 100%;
+  min-width: 0;
+}
+
+.tag-filter-submit {
+  min-width: 5rem;
+}
+
+.tag-filter-feedback {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.recent-tags-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.recent-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.recent-tag-button {
+  padding: 0.35rem 0.65rem;
 }
 
 .stack-list {
@@ -801,10 +887,18 @@ h1 {
   border-radius: 999px;
   padding: 0.25rem 0.55rem;
   background: rgba(255, 255, 255, 0.84);
+  transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+
+.inline-tag-button:hover {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(31, 41, 55, 0.2);
+  transform: translateY(-1px);
 }
 
 .inline-tag-button.is-active {
   background: rgba(215, 226, 243, 0.7);
+  border-color: rgba(31, 41, 55, 0.14);
 }
 
 mark {
@@ -1008,6 +1102,19 @@ mark {
   .editor-header,
   .list-card {
     flex-direction: column;
+  }
+
+  .tag-results-header,
+  .tag-filter-form {
+    flex-direction: column;
+  }
+
+  .tag-filter-controls {
+    min-width: 100%;
+  }
+
+  .tag-filter-submit {
+    width: 100%;
   }
 
   .topbar {

@@ -13,6 +13,10 @@ export function isValidTagToken(token: string): boolean {
   return /^\/[^\s/#,]+$/.test(token);
 }
 
+export function isValidTagValue(tag: string): boolean {
+  return /^[^\s/#,]+$/.test(tag);
+}
+
 /**
  * Normalizes user-entered tags into the canonical stored form.
  * This keeps typed input, clicked tags, persisted tags, and multi-tag filters
@@ -31,6 +35,24 @@ export function normalizeTagList(tags: string[]): string[] {
   }
 
   return normalizedTags;
+}
+
+/**
+ * Accepts a single tag from lightweight UI inputs and keeps it aligned with the
+ * slash-search format while still being forgiving about leading "/" or "#".
+ */
+export function parseSingleTagInput(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const normalizedTag = normalizeTag(trimmed.replace(/^[/#]+/, ''));
+  if (!isValidTag(normalizedTag) || !isValidTagValue(normalizedTag)) {
+    return null;
+  }
+
+  return normalizedTag;
 }
 
 /**
@@ -65,6 +87,12 @@ export function formatTagQuery(tags: string[]): string {
   return normalizeTagList(tags)
     .map((tag) => `/${tag}`)
     .join(' ');
+}
+
+export function getAllTags(pages: Page[]): string[] {
+  return [...new Set(pages.flatMap((page) => normalizeTagList(page.tags)))].sort((left, right) =>
+    left.localeCompare(right)
+  );
 }
 
 export interface TagResult {

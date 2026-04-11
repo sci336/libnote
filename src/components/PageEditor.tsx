@@ -122,10 +122,11 @@ export function PageEditor({
                 <span key={tag} className="tag-pill">
                   <button
                     type="button"
-                    className="tag-pill-label"
+                    className="tag-pill-label inline-tag-button page-tag-button"
+                    aria-label={`Open tag filter for ${tag}`}
                     onClick={() => onOpenTagSearch?.(tag)}
                   >
-                    {tag}
+                    #{tag}
                   </button>
                   <button
                     type="button"

@@ -3,7 +3,7 @@ import type { Book, Chapter, ID, LibraryData, Page } from '../types/domain';
 import { nowIso } from '../utils/date';
 import { createId } from '../utils/ids';
 import { isChapterPage, isLoosePage } from '../utils/pageState';
-import { isValidTag, normalizeTag } from '../utils/tags';
+import { normalizeTagList } from '../utils/tags';
 
 export const DEFAULT_TEXT_SIZE = 16;
 
@@ -566,13 +566,7 @@ function normalizeTags(tags: unknown): string[] {
     return [];
   }
 
-  return Array.from(
-    new Set(
-      // Normalize unknown persisted values defensively so corrupted snapshots
-      // do not break tag filtering or editor chips.
-      tags
-        .map((tag) => normalizeTag(typeof tag === 'string' ? tag : String(tag ?? '')))
-        .filter(isValidTag)
-    )
-  );
+  // Normalize unknown persisted values defensively so corrupted snapshots do
+  // not break tag filtering or editor chips.
+  return normalizeTagList(tags.map((tag) => (typeof tag === 'string' ? tag : String(tag ?? ''))));
 }

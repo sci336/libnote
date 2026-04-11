@@ -61,6 +61,7 @@ export function useLibraryApp() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOriginView, setSearchOriginView] = useState<ViewState>({ type: 'root' });
   const [tagOriginView, setTagOriginView] = useState<ViewState>({ type: 'root' });
+  const [recentTags, setRecentTags] = useState<string[]>([]);
   const latestDataRef = useRef<LibraryData | null>(null);
 
   useEffect(() => {
@@ -197,6 +198,57 @@ export function useLibraryApp() {
   function closeSidebarOnMobile(): void {
     if (window.innerWidth <= DESKTOP_WIDTH) {
       setSidebarOpen(false);
+    }
+  }
+
+  function rememberRecentTags(tags: string[]): void {
+    const normalizedTags = normalizeTagList(tags);
+    if (normalizedTags.length === 0) {
+      return;
+    }
+
+    setRecentTags((currentTags) => {
+      const nextTags = [...currentTags];
+
+      for (const tag of [...normalizedTags].reverse()) {
+        const existingIndex = nextTags.indexOf(tag);
+        if (existingIndex !== -1) {
+          nextTags.splice(existingIndex, 1);
+        }
+
+        nextTags.unshift(tag);
+      }
+
+      return nextTags;
+    });
+  }
+
+  function getTagViewExitTarget(): ViewState {
+    return tagOriginView.type === 'tag' ? { type: 'root' } : tagOriginView;
+  }
+
+  function applyTagView(nextRawTags: string[], options?: { shouldCloseSidebar?: boolean }): void {
+    const nextTags = normalizeTagList(nextRawTags);
+
+    if (nextTags.length === 0) {
+      setSearchQuery('');
+      setView(getTagViewExitTarget());
+      if (options?.shouldCloseSidebar) {
+        closeSidebarOnMobile();
+      }
+      return;
+    }
+
+    if (view.type !== 'tag') {
+      setTagOriginView(view.type === 'search' ? searchOriginView : view);
+    }
+
+    rememberRecentTags(nextTags);
+    setSearchQuery(formatTagQuery(nextTags));
+    setView({ type: 'tag', tags: nextTags });
+
+    if (options?.shouldCloseSidebar) {
+      closeSidebarOnMobile();
     }
   }
 
@@ -340,11 +392,7 @@ export function useLibraryApp() {
     if (parsedTags && parsedTags.length > 0) {
       // Route tag-only queries into the dedicated tag view so typed filters,
       // clicked tags, and tag removal all operate on the same source of truth.
-      if (view.type !== 'tag') {
-        setTagOriginView(view.type === 'search' ? searchOriginView : view);
-      }
-
-      setView({ type: 'tag', tags: parsedTags });
+      applyTagView(parsedTags);
       return;
     }
 
@@ -361,7 +409,7 @@ export function useLibraryApp() {
     }
 
     if (view.type === 'tag') {
-      setView({ type: 'root' });
+      setView(getTagViewExitTarget());
     }
 
     if (view.type === 'search') {
@@ -405,17 +453,11 @@ export function useLibraryApp() {
     if (view.type === 'tag') {
       // Clicking an additional tag refines the current intersection instead of
       // throwing away the active tag route.
-      const nextTags = normalizeTagList([...view.tags, normalizedTag]);
-      setSearchQuery(formatTagQuery(nextTags));
-      setView({ type: 'tag', tags: nextTags });
-      closeSidebarOnMobile();
+      applyTagView([...view.tags, normalizedTag], { shouldCloseSidebar: true });
       return;
     }
 
-    setTagOriginView(view);
-    setSearchQuery(formatTagQuery([normalizedTag]));
-    setView({ type: 'tag', tags: [normalizedTag] });
-    closeSidebarOnMobile();
+    applyTagView([normalizedTag], { shouldCloseSidebar: true });
   }
 
   function handleRemoveActiveTag(tag: string): void {
@@ -429,14 +471,11 @@ export function useLibraryApp() {
     if (nextTags.length === 0) {
       // Clearing the last tag exits tag mode entirely so the search bar and
       // visible route do not drift out of sync.
-      setSearchQuery('');
-      setView({ type: 'root' });
-      closeSidebarOnMobile();
+      applyTagView([], { shouldCloseSidebar: true });
       return;
     }
 
-    setSearchQuery(formatTagQuery(nextTags));
-    setView({ type: 'tag', tags: nextTags });
+    applyTagView(nextTags);
   }
 
   function handleMoveLoosePage(
@@ -515,6 +554,7 @@ export function useLibraryApp() {
     searchQuery,
     searchOriginView,
     tagOriginView,
+    recentTags,
     books,
     loosePages,
     chapterList,
