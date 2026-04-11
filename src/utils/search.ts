@@ -1,5 +1,5 @@
 import type { ID, LibraryData, Page } from '../types/domain';
-import { normalizeTag } from './tags';
+import { normalizeTag, parseTagQuery } from './tags';
 
 export interface SearchResult {
   page: Page;
@@ -36,7 +36,7 @@ export interface SearchIndex {
 
 export type SearchMode =
   | { type: 'emptyTag' }
-  | { type: 'tag'; tag: string }
+  | { type: 'tag'; tags: string[] }
   | { type: 'text'; query: string };
 
 export function normalizeSearchQuery(query: string): string {
@@ -47,13 +47,15 @@ export function parseSearchInput(raw: string): SearchMode {
   const trimmed = raw.trim();
 
   if (trimmed.startsWith('/')) {
-    const tag = normalizeTag(trimmed.slice(1));
+    const parsedTags = parseTagQuery(trimmed);
 
-    if (tag.length === 0) {
-      return { type: 'emptyTag' };
+    if (parsedTags && parsedTags.length > 0) {
+      return { type: 'tag', tags: parsedTags };
     }
 
-    return { type: 'tag', tag };
+    if (normalizeTag(trimmed.slice(1)).length === 0) {
+      return { type: 'emptyTag' };
+    }
   }
 
   return { type: 'text', query: trimmed };
@@ -127,7 +129,7 @@ export function searchPages(query: string, index: SearchIndex): SearchResult[] {
 
   if (mode.type === 'tag') {
     return [...index.pagesById.values()]
-      .filter((record) => record.page.tags.includes(mode.tag))
+      .filter((record) => mode.tags.every((tag) => record.page.tags.includes(tag)))
       .map((record) => ({
         page: record.page,
         path: record.path,

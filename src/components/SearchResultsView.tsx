@@ -26,7 +26,7 @@ export function SearchResultsView({
           <h1>Search Results</h1>
           <p className="search-subtitle">
             {isTagSearch
-              ? `Tag: ${mode.tag}`
+              ? `Tags: ${mode.tags.map((tag) => `/${tag}`).join(' ')}`
               : isEmptyTag
                 ? 'Enter a tag after "/" to search by tag.'
                 : trimmedQuery
@@ -51,7 +51,7 @@ export function SearchResultsView({
           <h2>No matches found</h2>
           <p>
             {isTagSearch
-              ? 'No pages currently use that tag.'
+              ? 'No pages match all selected tags.'
               : 'Try a shorter phrase, different wording, or another exact fragment from the page you remember.'}
           </p>
         </div>

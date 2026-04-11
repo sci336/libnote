@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { LibraryData, Page, ViewState } from '../types/domain';
+import type { AppMenuSection, LibraryData, Page, ViewState } from '../types/domain';
 import {
   createBook,
   createChapter,
@@ -48,6 +48,8 @@ export function useLibraryApp() {
   const [data, setData] = useState<LibraryData | null>(null);
   const [view, setView] = useState<ViewState>({ type: 'root' });
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [appMenuOpen, setAppMenuOpen] = useState(false);
+  const [appMenuSection, setAppMenuSection] = useState<AppMenuSection>('help');
   const [shouldAutoFocusEditor, setShouldAutoFocusEditor] = useState(false);
   const [movingChapterId, setMovingChapterId] = useState<string | null>(null);
   const [movingPageId, setMovingPageId] = useState<string | null>(null);
@@ -185,6 +187,21 @@ export function useLibraryApp() {
     if (window.innerWidth <= DESKTOP_WIDTH) {
       setSidebarOpen(false);
     }
+  }
+
+  function openAppMenu(section: AppMenuSection = 'help'): void {
+    setAppMenuSection(section);
+    setAppMenuOpen(true);
+    closeSidebarOnMobile();
+  }
+
+  function closeAppMenu(): void {
+    setAppMenuOpen(false);
+  }
+
+  function navigateAppMenu(section: AppMenuSection): void {
+    setAppMenuSection(section);
+    setAppMenuOpen(true);
   }
 
   function handleCreateBook(): void {
@@ -471,6 +488,8 @@ export function useLibraryApp() {
     data,
     view,
     sidebarOpen,
+    appMenuOpen,
+    appMenuSection,
     shouldAutoFocusEditor,
     movingChapterId,
     movingPageId,
@@ -497,9 +516,14 @@ export function useLibraryApp() {
     updateData,
     setView,
     setSidebarOpen,
+    setAppMenuOpen,
+    setAppMenuSection,
     setMovingChapterId,
     setMovingPageId,
     closeSidebarOnMobile,
+    openAppMenu,
+    closeAppMenu,
+    navigateAppMenu,
     goUpOneLevel,
     handleSearchChange,
     handleSearchFocus,

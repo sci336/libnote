@@ -35,6 +35,8 @@ export interface LibraryData {
   pages: Page[];
 }
 
+export type AppMenuSection = 'help' | 'shortcuts' | 'settings' | 'credits';
+
 export type ViewState =
   | { type: 'root' }
   | { type: 'book'; bookId: ID }

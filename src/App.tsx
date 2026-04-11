@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { AppMenu } from './components/AppMenu';
 import { EmptyState } from './components/EmptyState';
 import { PageEditor } from './components/PageEditor';
 import { SearchResultsView } from './components/SearchResultsView';
@@ -105,6 +106,7 @@ export default function App(): JSX.Element {
           parentLabel={app.nav.parentLabel}
           currentLabel={app.nav.currentLabel}
           searchValue={app.searchQuery}
+          onOpenAppMenu={() => app.openAppMenu()}
           onToggleSidebar={() => app.setSidebarOpen((open) => !open)}
           onGoBack={app.goUpOneLevel}
           onParentClick={app.goUpOneLevel}
@@ -146,6 +148,12 @@ export default function App(): JSX.Element {
         activePageBacklinks,
         tagResults
       })}
+      <AppMenu
+        isOpen={app.appMenuOpen}
+        activeSection={app.appMenuSection}
+        onClose={app.closeAppMenu}
+        onSelectSection={app.navigateAppMenu}
+      />
     </AppLayout>
   );
 }

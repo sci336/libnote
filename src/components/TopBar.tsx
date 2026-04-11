@@ -3,6 +3,7 @@ interface TopBarProps {
   parentLabel?: string;
   currentLabel: string;
   searchValue: string;
+  onOpenAppMenu: () => void;
   onToggleSidebar: () => void;
   onGoBack: () => void;
   onParentClick?: () => void;
@@ -15,6 +16,7 @@ export function TopBar({
   parentLabel,
   currentLabel,
   searchValue,
+  onOpenAppMenu,
   onToggleSidebar,
   onGoBack,
   onParentClick,
@@ -24,8 +26,16 @@ export function TopBar({
   return (
     <header className="topbar">
       <div className="topbar-leading">
-        <button type="button" className="icon-button" onClick={onToggleSidebar} aria-label="Toggle sidebar">
+        <button type="button" className="icon-button" onClick={onOpenAppMenu} aria-label="Open app menu">
           ☰
+        </button>
+        <button
+          type="button"
+          className="icon-button icon-button-label"
+          onClick={onToggleSidebar}
+          aria-label="Open library navigation"
+        >
+          Nav
         </button>
         {showBack ? (
           <button type="button" className="icon-button" onClick={onGoBack} aria-label="Go up one level">

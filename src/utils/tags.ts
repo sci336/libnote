@@ -10,7 +10,7 @@ export function isValidTag(tag: string): boolean {
 }
 
 export function isValidTagToken(token: string): boolean {
-  return /^#[^\s#,]+$/.test(token);
+  return /^\/[^\s/#,]+$/.test(token);
 }
 
 export function normalizeTagList(tags: string[]): string[] {
@@ -53,7 +53,7 @@ export function isTagOnlyQuery(raw: string): boolean {
 
 export function formatTagQuery(tags: string[]): string {
   return normalizeTagList(tags)
-    .map((tag) => `#${tag}`)
+    .map((tag) => `/${tag}`)
     .join(' ');
 }
 
