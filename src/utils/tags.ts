@@ -9,6 +9,10 @@ export function isValidTag(tag: string): boolean {
   return tag.length > 0;
 }
 
+export function isValidTagToken(token: string): boolean {
+  return /^#[^\s#,]+$/.test(token);
+}
+
 export function normalizeTagList(tags: string[]): string[] {
   const normalizedTags: string[] = [];
 
@@ -22,6 +26,35 @@ export function normalizeTagList(tags: string[]): string[] {
   }
 
   return normalizedTags;
+}
+
+export function parseTagQuery(raw: string): string[] | null {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const tokens = trimmed.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) {
+    return null;
+  }
+
+  if (!tokens.every(isValidTagToken)) {
+    return null;
+  }
+
+  return normalizeTagList(tokens.map((token) => token.slice(1)));
+}
+
+export function isTagOnlyQuery(raw: string): boolean {
+  const parsedTags = parseTagQuery(raw);
+  return Array.isArray(parsedTags) && parsedTags.length > 0;
+}
+
+export function formatTagQuery(tags: string[]): string {
+  return normalizeTagList(tags)
+    .map((tag) => `#${tag}`)
+    .join(' ');
 }
 
 export interface TagResult {

@@ -39,7 +39,7 @@ import {
 import { useDebouncedEffect } from './useDebouncedEffect';
 import { buildSearchIndex, normalizeSearchQuery, parseSearchInput, searchPages } from '../utils/search';
 import { isLoosePage } from '../utils/pageState';
-import { normalizeTag, normalizeTagList } from '../utils/tags';
+import { formatTagQuery, normalizeTag, normalizeTagList, parseTagQuery } from '../utils/tags';
 
 const DESKTOP_WIDTH = 920;
 const PERSISTENCE_DELAY_MS = 300;
@@ -308,6 +308,16 @@ export function useLibraryApp() {
 
   function handleSearchChange(value: string): void {
     setSearchQuery(value);
+    const parsedTags = parseTagQuery(value);
+    if (parsedTags && parsedTags.length > 0) {
+      if (view.type !== 'tag') {
+        setTagOriginView(view.type === 'search' ? searchOriginView : view);
+      }
+
+      setView({ type: 'tag', tags: parsedTags });
+      return;
+    }
+
     const normalizedQuery = normalizeSearchQuery(value);
 
     if (normalizedQuery) {
@@ -316,6 +326,10 @@ export function useLibraryApp() {
       }
       setView({ type: 'search', query: value });
       return;
+    }
+
+    if (view.type === 'tag') {
+      setView({ type: 'root' });
     }
 
     if (view.type === 'search') {
@@ -358,12 +372,14 @@ export function useLibraryApp() {
 
     if (view.type === 'tag') {
       const nextTags = normalizeTagList([...view.tags, normalizedTag]);
+      setSearchQuery(formatTagQuery(nextTags));
       setView({ type: 'tag', tags: nextTags });
       closeSidebarOnMobile();
       return;
     }
 
     setTagOriginView(view);
+    setSearchQuery(formatTagQuery([normalizedTag]));
     setView({ type: 'tag', tags: [normalizedTag] });
     closeSidebarOnMobile();
   }
@@ -377,11 +393,13 @@ export function useLibraryApp() {
     const nextTags = view.tags.filter((activeTag) => activeTag !== normalizedTag);
 
     if (nextTags.length === 0) {
+      setSearchQuery('');
       setView({ type: 'root' });
       closeSidebarOnMobile();
       return;
     }
 
+    setSearchQuery(formatTagQuery(nextTags));
     setView({ type: 'tag', tags: nextTags });
   }
 
