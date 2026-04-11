@@ -1,3 +1,4 @@
+import type { KeyboardEvent, SyntheticEvent } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { InlineEditableText } from '../components/InlineEditableText';
 import { ReorderableList } from '../components/ReorderableList';
@@ -27,6 +28,20 @@ export function RootView({
   onRenameBook,
   onOpenLoosePages
 }: RootViewProps): JSX.Element {
+  function stopCardOpen(event: SyntheticEvent) {
+    event.stopPropagation();
+  }
+
+  function handleCardKeyDown(
+    event: KeyboardEvent<HTMLElement>,
+    bookId: string
+  ) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onOpenBook(bookId);
+    }
+  }
+
   return (
     <section className="content-section">
       <div className="section-header">
@@ -48,7 +63,7 @@ export function RootView({
         <ReorderableList
           items={books}
           onReorder={onReorderBooks}
-          listClassName="stack-list"
+          listClassName="book-gallery"
           itemClassName="reorder-card"
           itemDraggingClassName="is-dragging"
           itemDropTopClassName="drop-top"
@@ -56,30 +71,52 @@ export function RootView({
           isEnabled={books.length > 1}
           renderItem={(book) => (
             <article className="book-card">
-              <div className="book-card-open">
-                <div className="list-card-row">
+              <div
+                className="book-card-surface"
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${book.title || 'Untitled'}`}
+                onClick={() => onOpenBook(book.id)}
+                onKeyDown={(event) => handleCardKeyDown(event, book.id)}
+              >
+                <div className="book-card-cover">
+                  <span className="book-card-label">Book</span>
+                  <span className="book-card-meta">{getChapterCountForBook(book.id)} chapters</span>
+                  <span className="book-card-meta">Updated {formatTimestamp(book.updatedAt)}</span>
+                  <span className="book-card-open-hint">Open book</span>
+                </div>
+              </div>
+              <div className="book-card-footer">
+                <div className="book-card-heading" onClick={stopCardOpen}>
                   <span className="drag-handle" aria-hidden="true">
                     ::
                   </span>
-                  <InlineEditableText
-                    value={book.title}
-                    onSave={(title) => onRenameBook(book.id, title)}
-                    className="book-card-title"
-                    inputClassName="inline-input block-input"
-                  />
+                  <div className="book-card-title-wrap" onClick={stopCardOpen}>
+                    <InlineEditableText
+                      value={book.title}
+                      onSave={(title) => onRenameBook(book.id, title)}
+                      className="book-card-title"
+                      inputClassName="inline-input block-input"
+                    />
+                  </div>
                 </div>
-                <span className="book-card-label">Book</span>
-                <span className="book-card-meta">{getChapterCountForBook(book.id)} chapters</span>
-                <span className="book-card-meta">Updated {formatTimestamp(book.updatedAt)}</span>
               </div>
-              <div className="card-actions">
-                <button type="button" className="primary-button" onClick={() => onOpenBook(book.id)}>
-                  Open Book
-                </button>
-                <button type="button" className="secondary-button" onClick={() => onCreateChapter(book.id)}>
+              <div
+                className="card-actions book-card-actions"
+                onClick={stopCardOpen}
+              >
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => onCreateChapter(book.id)}
+                >
                   Add Chapter
                 </button>
-                <button type="button" className="danger-button subtle" onClick={() => onDeleteBook(book.id)}>
+                <button
+                  type="button"
+                  className="danger-button subtle"
+                  onClick={() => onDeleteBook(book.id)}
+                >
                   Delete
                 </button>
               </div>
