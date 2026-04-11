@@ -55,6 +55,97 @@ export function parseSingleTagInput(raw: string): string | null {
   return normalizedTag;
 }
 
+export interface TagTokenMatch {
+  token: string;
+  normalizedQuery: string;
+  start: number;
+  end: number;
+}
+
+export function getActiveSlashTagToken(raw: string, caret: number): TagTokenMatch | null {
+  const safeCaret = Math.max(0, Math.min(caret, raw.length));
+  let start = safeCaret;
+  let end = safeCaret;
+
+  while (start > 0 && !/\s/.test(raw[start - 1])) {
+    start -= 1;
+  }
+
+  while (end < raw.length && !/\s/.test(raw[end])) {
+    end += 1;
+  }
+
+  const token = raw.slice(start, end);
+  if (!token.startsWith('/')) {
+    return null;
+  }
+
+  return {
+    token,
+    normalizedQuery: normalizeTag(token.slice(1)),
+    start,
+    end
+  };
+}
+
+export function getTagSuggestions(
+  allTags: string[],
+  rawQuery: string,
+  options?: { excludeTags?: string[]; limit?: number }
+): string[] {
+  const query = normalizeTag(rawQuery);
+  const excluded = new Set(normalizeTagList(options?.excludeTags ?? []));
+  const limit = options?.limit ?? 6;
+
+  const ranked = allTags
+    .filter((tag) => !excluded.has(tag))
+    .map((tag) => {
+      if (!query) {
+        return { tag, score: 3, index: 0 };
+      }
+
+      if (tag === query) {
+        return { tag, score: 0, index: 0 };
+      }
+
+      if (tag.startsWith(query)) {
+        return { tag, score: 1, index: 0 };
+      }
+
+      const containsIndex = tag.indexOf(query);
+      if (containsIndex !== -1) {
+        return { tag, score: 2, index: containsIndex };
+      }
+
+      return null;
+    })
+    .filter((entry): entry is { tag: string; score: number; index: number } => entry !== null)
+    .sort((left, right) => {
+      if (left.score !== right.score) {
+        return left.score - right.score;
+      }
+
+      if (left.index !== right.index) {
+        return left.index - right.index;
+      }
+
+      return left.tag.localeCompare(right.tag);
+    });
+
+  return ranked.slice(0, limit).map((entry) => entry.tag);
+}
+
+export function replaceSlashTagToken(raw: string, caret: number, tag: string): string {
+  const match = getActiveSlashTagToken(raw, caret);
+  const replacement = `/${normalizeTag(tag)}`;
+
+  if (!match) {
+    return raw;
+  }
+
+  return `${raw.slice(0, match.start)}${replacement}${raw.slice(match.end)}`;
+}
+
 /**
  * Parses slash-prefixed search input into tag filters.
  * Returning `null` instead of an empty array lets callers distinguish "not a tag

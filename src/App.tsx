@@ -109,6 +109,7 @@ export default function App(): JSX.Element {
           parentLabel={app.nav.parentLabel}
           currentLabel={app.nav.currentLabel}
           searchValue={app.searchQuery}
+          availableTags={availableTags}
           onOpenAppMenu={() => app.openAppMenu()}
           onToggleSidebar={() => app.setSidebarOpen((open) => !open)}
           onGoBack={app.goUpOneLevel}
