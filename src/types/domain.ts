@@ -41,6 +41,18 @@ export interface LibraryData {
   pages: Page[];
 }
 
+export type LibraryBooksPerRow = 2 | 3 | 4 | 5;
+export type LibraryBookCardSize = 'small' | 'medium' | 'large';
+
+export interface LibraryViewSettings {
+  booksPerRow: LibraryBooksPerRow;
+  bookCardSize: LibraryBookCardSize;
+}
+
+export interface AppSettings {
+  libraryView: LibraryViewSettings;
+}
+
 export type AppMenuSection = 'help' | 'shortcuts' | 'settings' | 'credits';
 
 /**
