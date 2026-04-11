@@ -1,20 +1,13 @@
 import { useEffect } from 'react';
-import type {
-  AppMenuSection,
-  AppSettings,
-  LibraryBookCardSize,
-  LibraryBooksPerRow
-} from '../types/domain';
+import type { AppMenuSection, AppSettings, LibraryBooksPerRow } from '../types/domain';
 
 const LIBRARY_ROW_OPTIONS: LibraryBooksPerRow[] = [2, 3, 4, 5];
-const LIBRARY_CARD_SIZE_OPTIONS: LibraryBookCardSize[] = ['small', 'medium', 'large'];
 
 interface AppMenuProps {
   isOpen: boolean;
   activeSection: AppMenuSection;
   settings: AppSettings;
   onUpdateLibraryBooksPerRow: (booksPerRow: LibraryBooksPerRow) => void;
-  onUpdateLibraryBookCardSize: (bookCardSize: LibraryBookCardSize) => void;
   onClose: () => void;
   onSelectSection: (section: AppMenuSection) => void;
 }
@@ -31,7 +24,6 @@ export function AppMenu({
   activeSection,
   settings,
   onUpdateLibraryBooksPerRow,
-  onUpdateLibraryBookCardSize,
   onClose,
   onSelectSection
 }: AppMenuProps): JSX.Element | null {
@@ -92,8 +84,7 @@ export function AppMenu({
           <div className="app-menu-content">
             {renderSection(activeSection, {
               settings,
-              onUpdateLibraryBooksPerRow,
-              onUpdateLibraryBookCardSize
+              onUpdateLibraryBooksPerRow
             })}
           </div>
         </div>
@@ -104,10 +95,7 @@ export function AppMenu({
 
 function renderSection(
   section: AppMenuSection,
-  settingsProps: Pick<
-    AppMenuProps,
-    'settings' | 'onUpdateLibraryBooksPerRow' | 'onUpdateLibraryBookCardSize'
-  >
+  settingsProps: Pick<AppMenuProps, 'settings' | 'onUpdateLibraryBooksPerRow'>
 ): JSX.Element {
   if (section === 'help') {
     return <HelpSection />;
@@ -238,12 +226,8 @@ function ShortcutsSection(): JSX.Element {
 
 function SettingsSection({
   settings,
-  onUpdateLibraryBooksPerRow,
-  onUpdateLibraryBookCardSize
-}: Pick<
-  AppMenuProps,
-  'settings' | 'onUpdateLibraryBooksPerRow' | 'onUpdateLibraryBookCardSize'
->): JSX.Element {
+  onUpdateLibraryBooksPerRow
+}: Pick<AppMenuProps, 'settings' | 'onUpdateLibraryBooksPerRow'>): JSX.Element {
   return (
     <div className="menu-section-stack">
       <section className="menu-card">
@@ -260,12 +244,12 @@ function SettingsSection({
             <strong>Library View</strong>
             <span className="search-result-badge">Live</span>
           </div>
-          <p>Choose how many books fit on each shelf and how large each card feels on the root books screen.</p>
+          <p>Choose how many books fit on each shelf. The root books screen now scales card size automatically from this layout setting.</p>
 
           <div className="settings-control-group">
             <div className="settings-control-copy">
               <strong>Books per row</strong>
-              <span>Controls how many shelf slots the main books screen aims to show when space allows.</span>
+              <span>Fewer books per row creates larger cards. More books per row creates a denser, more compact library shelf.</span>
             </div>
             <div className="settings-choice-row" role="group" aria-label="Books per row">
               {LIBRARY_ROW_OPTIONS.map((option) => (
@@ -278,28 +262,6 @@ function SettingsSection({
                   onClick={() => onUpdateLibraryBooksPerRow(option)}
                 >
                   {option}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="settings-control-group">
-            <div className="settings-control-copy">
-              <strong>Book card size</strong>
-              <span>Scales the width and density of the gallery cards without changing the click behavior.</span>
-            </div>
-            <div className="settings-choice-row" role="group" aria-label="Book card size">
-              {LIBRARY_CARD_SIZE_OPTIONS.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className={`settings-choice-button ${
-                    settings.libraryView.bookCardSize === option ? 'is-active' : ''
-                  }`}
-                  onClick={() => onUpdateLibraryBookCardSize(option)}
-                >
-                  {option[0].toUpperCase()}
-                  {option.slice(1)}
                 </button>
               ))}
             </div>

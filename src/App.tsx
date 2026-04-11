@@ -163,7 +163,6 @@ export default function App(): JSX.Element {
         activeSection={app.appMenuSection}
         settings={app.settings}
         onUpdateLibraryBooksPerRow={app.handleUpdateLibraryBooksPerRow}
-        onUpdateLibraryBookCardSize={app.handleUpdateLibraryBookCardSize}
         onClose={app.closeAppMenu}
         onSelectSection={app.navigateAppMenu}
       />
@@ -197,7 +196,6 @@ function renderMainContent(
         onRenameBook={app.handleRenameBook}
         onOpenLoosePages={app.handleOpenLoosePages}
         booksPerRow={app.settings.libraryView.booksPerRow}
-        bookCardSize={app.settings.libraryView.bookCardSize}
       />
     );
   }
