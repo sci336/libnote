@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   AppMenuSection,
   AppSettings,
-  LibraryBookCardSize,
   LibraryBooksPerRow,
   LibraryData,
   Page,
@@ -55,8 +54,7 @@ const DESKTOP_WIDTH = 920;
 const PERSISTENCE_DELAY_MS = 300;
 const DEFAULT_APP_SETTINGS: AppSettings = {
   libraryView: {
-    booksPerRow: 4,
-    bookCardSize: 'medium'
+    booksPerRow: 4
   }
 };
 
@@ -603,16 +601,6 @@ export function useLibraryApp() {
     }));
   }
 
-  function handleUpdateLibraryBookCardSize(bookCardSize: LibraryBookCardSize): void {
-    setSettings((currentSettings) => ({
-      ...currentSettings,
-      libraryView: {
-        ...currentSettings.libraryView,
-        bookCardSize
-      }
-    }));
-  }
-
   return {
     data,
     settings,
@@ -683,8 +671,7 @@ export function useLibraryApp() {
     handleUpdatePageContent,
     handleUpdatePageTextSize,
     handleUpdatePageTags,
-    handleUpdateLibraryBooksPerRow,
-    handleUpdateLibraryBookCardSize
+    handleUpdateLibraryBooksPerRow
   };
 }
 
@@ -695,18 +682,13 @@ async function hydrateAppSettings(): Promise<AppSettings> {
 
 function normalizeAppSettings(settings: AppSettings | null): AppSettings {
   const booksPerRow = settings?.libraryView?.booksPerRow;
-  const bookCardSize = settings?.libraryView?.bookCardSize;
 
   return {
     libraryView: {
       booksPerRow:
         booksPerRow === 2 || booksPerRow === 3 || booksPerRow === 4 || booksPerRow === 5
           ? booksPerRow
-          : DEFAULT_APP_SETTINGS.libraryView.booksPerRow,
-      bookCardSize:
-        bookCardSize === 'small' || bookCardSize === 'medium' || bookCardSize === 'large'
-          ? bookCardSize
-          : DEFAULT_APP_SETTINGS.libraryView.bookCardSize
+          : DEFAULT_APP_SETTINGS.libraryView.booksPerRow
     }
   };
 }

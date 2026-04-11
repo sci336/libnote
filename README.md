@@ -1,352 +1,341 @@
 # iNote
 
-A local-first note app built with React, TypeScript, and Vite.
+`iNote` is a local-first notes app organized like a small personal library.
 
-The app is organized as a personal library:
+Instead of a flat list of notes, the app uses a simple hierarchy:
 
-- Books contain chapters
-- Chapters contain pages
-- Pages hold the actual note content
-- Loose pages are still pages, but they are not assigned to a chapter
+- Books
+- Chapters inside books
+- Pages inside chapters
+- Loose pages that are not assigned to a chapter yet
 
-There is no backend, no authentication, and no URL routing. The app runs entirely in the browser and persists its data locally.
+The current UI is library-oriented rather than document-oriented. Navigation is built around a persistent top bar, a context-aware sidebar, and screen-level views for the root library, books, chapters, pages, search results, tag results, and loose pages.
 
-## Project Overview
+The app is designed for browsing and organizing notes through structure first:
 
-iNote is a structured note library rather than a collaborative workspace. It uses internal view state for navigation, a persistent top bar, a context-aware sidebar, and a dedicated page screen for editing and page-level navigation features.
+- the root screen acts like a library shelf
+- books act as top-level collections
+- chapters group related pages inside a book
+- loose pages work like an inbox or staging area for notes that have not been filed yet
 
-The current codebase supports:
+## Overview
 
-- Books, chapters, pages, and loose pages
-- Inline title editing
-- Plain-text page editing with auto-save
-- Page tags
-- Internal page links with `[[Page Title]]`
-- Derived backlinks (`Referenced by`)
-- Global text search
-- Dedicated tag filtering views
-- Reordering chapters and pages with drag and drop
+The app runs entirely in the browser with no backend, accounts, or sync layer. Data is stored locally in IndexedDB and the app uses internal view state instead of URL routing.
+
+At a high level, the current implementation supports:
+
+- Creating, renaming, and deleting books, chapters, pages, and loose pages
+- Reordering books, chapters, and chapter pages with drag and drop
 - Moving chapters between books
 - Moving pages between chapters
 - Moving loose pages into existing chapters
-- IndexedDB persistence
-- PWA shell caching in production
+- Plain-text page editing with inline title editing
+- Page tags and tag-based filtering
+- Wiki-style links with derived backlinks
+- Global page search
+- A settings screen for library density (`Books per row`)
+- An app menu with Help, Shortcuts, Settings, and Credits sections
 
-## Current Feature Set
+The implementation is intentionally client-side and self-contained. `useLibraryApp` acts as the main orchestration layer, while store helpers handle mutation logic and selectors derive read-only views of the current library state.
 
-### Library Model
+## Current Features
 
-- Books are top-level containers.
-- Chapters belong to a book.
-- Pages belong to a chapter or exist as loose pages.
-- Loose pages remain pages; they do not become chapters.
-- Converting a loose page moves it into an existing chapter and turns it into a regular chapter page.
+### Library structure
 
-### CRUD and Organization
+- Books are the top-level containers.
+- Chapters belong to a single book.
+- Pages belong to a chapter.
+- Loose pages are regular pages with no chapter assignment.
+- Loose pages can be moved into an existing chapter from the page editor.
+- Books, chapters, and pages all carry timestamps and persistent ordering information where applicable.
+- The persisted data model is normalized rather than nested, so relationships are rebuilt from IDs instead of being stored as deeply nested objects.
 
-- Create, rename, and delete books
-- Create, rename, and delete chapters
-- Create, rename, and delete pages
-- Create, rename, and delete loose pages
-- Move chapters between books
-- Move pages between chapters
-- Move loose pages into chapters
-- Reorder chapters within a book
-- Reorder pages within a chapter
+### Navigation
 
-### Page Editing
+- The top bar is always visible.
+- Navigation is view-state based rather than URL based.
+- The breadcrumb shows the current location and, when applicable, the parent location.
+- A back/up control appears when the current view has a parent.
+- The root screen presents books as gallery-style cards.
+- Opening a book leads to its chapter list.
+- Opening a chapter leads to its page list.
+- Opening a page leads to the editor.
 
-- Plain-text editing only
-- Auto-save through app state updates and debounced persistence
-- Auto-focus when a new page or new loose page is created
-- Adjustable text size
-- Inline links rendered from `[[Page Title]]` when the page is not actively being edited
-- Backlinks section shown when other pages reference the current page
-- Page-level tags:
-  - add by typing in the tag input and pressing `Enter`
-  - remove from the page editor
-  - click an existing tag to open or refine tag filtering
+The app currently renders these main view states:
 
-### Search and Tag Filtering
+- root library view
+- book view
+- chapter view
+- page view
+- loose pages view
+- search results view
+- tagged pages view
 
-- Global search bar in the top bar
-- Text search:
-  - searches page titles and page content
-  - uses case-insensitive, whitespace-normalized matching
-  - shows a dedicated Search Results view
-  - returns page-based results with path context and snippets
-- Tag filtering:
-  - uses the existing tag-view system rather than the generic search results screen
-  - supports multiple active tags with AND logic
-  - clicking tags adds to the active tag filter when already in tag view
-  - removing tags updates results immediately
+The top bar includes:
 
-## Library Structure / Data Model
-
-The core domain types are:
-
-- `Book`
-  - `id`
-  - `title`
-  - `createdAt`
-  - `updatedAt`
-- `Chapter`
-  - `id`
-  - `bookId`
-  - `title`
-  - `sortOrder`
-  - `createdAt`
-  - `updatedAt`
-- `Page`
-  - `id`
-  - `chapterId` (`null` for loose pages)
-  - `title`
-  - `content`
-  - `tags`
-  - `textSize`
-  - `isLoose`
-  - `sortOrder`
-  - `createdAt`
-  - `updatedAt`
-
-Important current behavior:
-
-- `tags` are always normalized to an array during hydration.
-- `sortOrder` persists manual ordering for chapters and chapter pages.
-- Backlinks and internal page links are derived from current content and are not stored in persisted page data.
-
-## Navigation Model
-
-Navigation is entirely state-based.
-
-The app uses these main view types:
-
-- Books root
-- Book view
-- Chapter view
-- Page view
-- Loose Pages view
-- Search Results view
-- Tagged Pages view
-
-The top bar is always visible and includes:
-
-- sidebar toggle
-- up-one-level/back control when relevant
-- `Parent | Current` location display
+- app menu button
+- sidebar toggle button
+- back/up button when relevant
+- breadcrumb-style location display
 - global search input
 
-The app uses one shared page-opening path when opening pages from:
+### Sidebar behavior
 
-- sidebar page lists
-- search results
-- tag results
-- backlinks
-- inline page links
+The sidebar changes with the current view instead of showing one static tree.
 
-## Sidebar Behavior
+- Root view: Books and a short Loose Pages list
+- Book view: Books plus chapters for the active book
+- Chapter view: Chapters for the active book plus pages for the active chapter
+- Chapter page view: Chapters for the parent book plus pages for the parent chapter
+- Loose page view: Books plus the full Loose Pages list
+- Search view: Books plus Loose Pages
+- Tag view: Books plus Loose Pages
 
-The sidebar is context-aware.
+The sidebar also supports:
 
-### Root view
+- Creating chapters in book context
+- Creating pages in chapter context
+- Creating loose pages in loose-page context
+- Reordering books, chapters, and chapter pages where applicable
 
-- Shows Books
-- Shows recent Loose Pages
+On smaller screens, the sidebar is toggleable instead of always visible. The app hook opens it automatically on desktop-width layouts and treats it as an overlay on narrower widths.
 
-### Book view
+### Root library view
 
-- Shows Books
-- Shows Chapters for the active book
-- Allows creating a chapter in context
-- Allows reordering chapters in the sidebar
+- The main books screen uses a shelf-like gallery layout.
+- Clicking the main card surface opens the book.
+- Inline rename, add chapter, delete, and book reordering are preserved on the card.
+- The gallery density is controlled by the `Books per row` setting.
+- Fewer books per row produce larger cards; more books per row produce more compact cards.
+- Additional books wrap into new rows naturally and the main content scrolls vertically as shelves accumulate.
 
-### Chapter view
+### Book and chapter organization
 
-- Shows Chapters for the active book
-- Shows Pages for the active chapter
-- Allows creating a page in context
-- Allows reordering pages in the sidebar
+- Book view lists chapters for the active book.
+- Chapter view lists pages for the active chapter.
+- Both views support inline renaming from the list surface.
+- Book view supports:
+  - creating chapters
+  - deleting the current book
+  - moving chapters to a different book
+  - drag-reordering chapters
+- Chapter view supports:
+  - creating pages
+  - deleting the current chapter
+  - moving pages to a different chapter
+  - drag-reordering pages
 
-### Page view
+### Loose pages
 
-- If the page belongs to a chapter:
-  - shows Chapters for the parent book
-  - shows Pages for the parent chapter
-- If the page is loose:
-  - shows Books
-  - shows Loose Pages
+- Loose pages have a dedicated screen.
+- The root/search/tag sidebar shows a short loose-page list by default.
+- The loose-pages screen shows the full loose-page list.
+- Loose pages can be opened, renamed, and deleted like chapter pages.
+- Loose pages can be moved into an existing chapter from the page editor.
 
-### Loose Pages view
+## Search and Tags
 
-- Shows Books
-- Shows the full Loose Pages list
-- Allows creating a loose page in context
+### Search
 
-### Search view
-
-- Keeps the library-oriented sidebar visible
-- Shows Books and recent Loose Pages
-
-### Tag view
-
-- Behaves like the search shell rather than a chapter/book shell
-- Shows Books and recent Loose Pages
-
-## Search and Tag Filtering
-
-There are currently two distinct search-related flows in the codebase:
-
-### Standard text search
-
-- Enter plain text in the top search bar
-- The app opens the Search Results view
-- Results are ranked using phrase-oriented text search over:
-  - page title
-  - page content
-- Results include:
+- Search lives in the top bar.
+- Search indexes pages only, not books or chapters directly.
+- Text search looks across page titles and page content.
+- Results appear in a dedicated Search Results view.
+- Search results show:
   - page title
   - path (`Book / Chapter` or `Loose Pages`)
-  - snippet
-  - match label
+  - a content snippet when available
+  - a match label
 
-### Tag-specific filtering
+Search matching is currently:
 
-- Clicking a tag pill opens the dedicated Tagged Pages view
-- When already in tag view, clicking another tag adds it to the active filter
-- Active tags use AND logic:
-  - a page must include every active tag to appear
-- Removing a tag updates results immediately
-- Removing the last active tag exits tag view and returns to the root view
+- case-insensitive
+- whitespace-normalized
+- phrase-aware, with token fallback
 
-### Typed tag queries
+Current search scope and output are intentionally narrow:
 
-The current app has mixed tag-query behavior:
+- search returns pages only
+- books and chapters are not returned as separate result types
+- results are sorted by score, then by most recently updated page
+- empty searches show an instructional empty state rather than an all-pages view
 
-- A query made entirely of space-separated `#tag` tokens is treated as a dedicated tag filter query and opens the Tagged Pages view.
-  - Example: `#history #mythology`
-- A query that starts with `/tag` still goes through the generic search path and is handled by the search utilities rather than the dedicated tag view.
+### Tag behavior
 
-This is the current implementation as it exists in code. The README reflects it as-is rather than smoothing it into one unified behavior.
+- Tags are stored in lowercase normalized form.
+- Tags are added from the page editor by typing into the tag input and pressing `Enter`.
+- Page editor tag pills support:
+  - opening tag search
+  - removing the tag from the page
+- Clicking tags in tag results can refine the active filter.
+- Recent tags are remembered in app state and surfaced as quick-add suggestions in the dedicated tag results view.
+
+### Tag query syntax
+
+There are two implemented tag flows:
+
+1. Click-driven tag filtering
+
+- Clicking a tag opens the dedicated Tagged Pages view.
+- The tag view supports multiple active tags.
+- Multiple active tags use AND logic: a page must contain every selected tag.
+- Removing an active tag updates the result set immediately.
+
+2. Slash-tag search from the top bar
+
+- Search input beginning with slash-prefixed tags such as `/history /mythology` is parsed as tag search.
+- Slash-tag search still renders through the Search Results screen rather than the dedicated Tagged Pages view.
+- The top-bar search input includes slash-tag autocomplete with keyboard navigation.
+- The top-bar autocomplete uses currently known tags and can be navigated with arrow keys and `Enter`.
 
 ## Editing Experience
 
-The page screen is editing-first, but it also renders page relationships:
+The page editor is plain text and textarea-based.
 
-- Titles are editable inline.
-- Content is plain text.
-- Clicking the main content surface enters edit mode.
-- Leaving the textarea exits edit mode and returns to the rendered view.
-- In rendered mode:
-  - `[[Page Title]]` references become clickable internal links when they resolve
-  - unresolved references remain visible but are not clickable
-- At the bottom of the page screen:
-  - `Referenced by` appears only when backlinks exist
-  - backlink rows are clickable and open the source page
+- Page titles are editable inline.
+- Page content is edited in a textarea.
+- Clicking the content preview enters edit mode.
+- Blurring the textarea exits edit mode and returns to preview mode.
+- New pages and new loose pages auto-focus the editor after creation.
+- Page text size is adjustable per page with a range control.
+- The page screen includes inline title editing, tag editing, content editing, delete actions, and loose-page move actions in one place.
+- The preview surface is also the entry point into edit mode, so the current experience is edit-in-place rather than split into separate read and edit screens.
 
-Loose-page editing also includes a move flow:
+### Links and backlinks
 
-- select a book
-- select a chapter in that book
-- move the loose page into that chapter
+Pages support wiki-style links in the form:
 
-## Links and Backlinks
-
-Internal links use double-bracket syntax:
-
-- `[[Some Page Title]]`
+- `[[Page Title]]`
 
 Current behavior:
 
-- Matching is based on page titles
+- Links are resolved from current page titles
 - Matching is case-insensitive
-- Extra whitespace inside the brackets is ignored
-- The first normalized title match wins if there are duplicates
-- Resolved links are clickable in rendered page content
-- Unresolved links stay visible and safe
+- Extra whitespace inside brackets is ignored
+- The first normalized title match wins if there are duplicate page titles
+- Resolved links are clickable in preview mode
+- Unresolved links remain visible but are not clickable
 
-Backlinks are derived, not stored:
+Backlinks are derived from current content and rendered in a `Referenced by` section on the page screen when present.
 
-- If Page A contains `[[Page B]]`, then Page B can show Page A in `Referenced by`
-- Repeated links from the same source page do not duplicate backlink rows
+### Tags in the editor
+
+- Tags are displayed as pills under the page title.
+- Each tag pill can:
+  - open tag filtering for that tag
+  - remove the tag from the page
+- The editor validates new tags before saving them and ignores duplicates.
 
 ## Organization Actions
 
 ### Reordering
 
-- Chapters can be drag-reordered within a book
-- Pages can be drag-reordered within a chapter
-- Reordering is available in:
-  - the sidebar
-  - the main content area
-- Reordering is persisted via `sortOrder`
+The current implementation supports drag-and-drop reordering for:
+
+- Books
+- Chapters within a book
+- Pages within a chapter
+
+Reordering is available in both the main content area and the sidebar where those lists are shown.
+
+The same shared `ReorderableList` primitive is used across these surfaces, so drag/drop behavior is consistent between sidebar lists and main content lists.
 
 ### Moving
 
-- Chapters can be moved between books
-- Pages can be moved between chapters
-- Loose pages can be moved into chapters from the page editor
-- Moved items receive valid ordering in their destination
-- The source and destination views update immediately because the UI reads from the same store data
+The current implementation supports:
 
-## Persistence / Offline Behavior
+- Moving chapters to a different book
+- Moving pages to a different chapter
+- Moving loose pages into an existing chapter
 
-Persistence uses IndexedDB.
+Move flows are context-specific:
 
-Current behavior:
+- chapter moves are initiated from book view
+- page moves are initiated from chapter view
+- loose-page moves are initiated from the page editor
+- destination choices are constrained to valid books/chapters in the current data set
 
-- Data is stored in the `note-library-db` IndexedDB database
-- The whole library snapshot is stored under a single key
-- Stored data is normalized on hydration
-  - missing tag arrays are backfilled to `[]`
-  - chapter and page sort orders are normalized
-- Persistence is debounced in the app hook
-- A `pagehide` flush attempts to persist the latest state when the browser page is being left
+## Settings and App Menu
 
-Offline / PWA behavior:
+The app menu currently includes:
 
-- In production, a service worker caches the app shell
-- In development, existing service workers and `note-library-*` caches are cleaned up on load to avoid stale-shell issues
-- The app remains local-first because the actual note data is stored in IndexedDB, not in the service-worker cache
+- Help
+- Shortcuts
+- Settings
+- Credits
+
+The implemented settings surface is still intentionally small. Right now it includes:
+
+- `Books per row` for the root books gallery
+
+The app menu is not just a placeholder shell anymore, but it is still lightweight. It currently functions as the home for:
+
+- usage/help copy
+- implemented keyboard shortcuts
+- the root-library density setting
+- a small project credits/about section
+
+## Persistence and Technical Notes
+
+- Library data is stored in IndexedDB under the `note-library-db` database.
+- The app stores:
+  - one snapshot for library data
+- one snapshot for app settings
+- Persistence is debounced during normal interaction.
+- A `pagehide` flush attempts to save the latest library data and settings when the page is being left.
+- Hydration normalizes persisted state defensively, including missing or invalid settings values.
+- Current persistence is coarse-grained: the library graph is written as a whole snapshot rather than being synced entity-by-entity.
+
+### Offline behavior
+
+- In production, the app registers a service worker.
+- The service worker caches the app shell and same-origin GET responses.
+- In development, existing service workers and `note-library-*` caches are cleaned up on load to avoid stale cached shells.
+- Note content still lives in IndexedDB rather than in the service worker cache.
+
+## Keyboard Shortcuts and Implemented Key Controls
+
+The current code clearly implements these keyboard interactions:
+
+- `Enter` commits inline title edits
+- `Escape` cancels inline title edits
+- `Enter` adds a tag from the page editor tag input
+- `Escape` closes the app menu
+- Search and tag suggestion inputs support:
+  - `ArrowDown`
+  - `ArrowUp`
+  - `Enter`
+  - `Escape`
+
+These are implemented as local interaction controls, not as a global command system. The app menu itself explicitly describes broader keyboard navigation as future work rather than current functionality.
 
 ## Project Structure
 
-Current top-level app structure:
+Key parts of the current codebase:
 
-- `src/hooks/`
-  - app orchestration
-  - debounced effects
+- `src/App.tsx`
+  - main shell composition and route-to-view rendering
+- `src/hooks/useLibraryApp.ts`
+  - central app orchestration, view state, persistence, search, and actions
 - `src/views/`
-  - root, book, chapter, and loose-page screen components
+  - root, book, chapter, and loose-page screens
 - `src/components/`
-  - top bar
-  - sidebar
-  - page editor
-  - search results
-  - tag results
-  - reorderable list
-  - move panels
-  - shared UI primitives
+  - top bar, sidebar, app menu, page editor, search results, tag results, and shared UI pieces
 - `src/store/`
-  - mutation helpers
-  - selectors
+  - library mutation helpers and selectors
 - `src/utils/`
-  - search
-  - tags
-  - page links/backlinks
-  - page-state helpers
-  - ids and dates
-- `src/db/`
-  - IndexedDB helpers
+  - search, tags, links/backlinks, IDs, dates, and page-state helpers
+- `src/db/indexedDb.ts`
+  - IndexedDB persistence helpers
 
-High-level architectural pattern:
+Contributors should look first at:
 
-- `useLibraryApp` is the main orchestration hook
-- store functions own mutations
-- selectors remain read-only
-- `App.tsx` coordinates derived state and screen rendering
-- derived features like backlinks and tag results are computed from current data rather than persisted separately
+- `src/hooks/useLibraryApp.ts` for app behavior and screen transitions
+- `src/store/libraryStore.ts` for mutations and persistence-facing data rules
+- `src/store/librarySelectors.ts` for derived lists and contextual navigation data
+- `src/utils/search.ts`, `src/utils/tags.ts`, and `src/utils/pageLinks.ts` for core derived behavior
 
-## Local Development
+## Development
 
 Install dependencies:
 
@@ -374,14 +363,16 @@ npm run preview
 
 ## Current Limitations
 
-- Books are not manually reorderable
-- The dedicated tag view and typed tag queries are not fully unified with slash-style tag input; the current code treats `#tag`-only queries as dedicated tag filters, while `/tag` still routes through the generic search path
-- Tag display is not fully consistent across the app:
-  - page editor tag pills render the raw stored tag text
-  - tagged-pages navigation metadata and tag results currently render tags with `#`
-- Regular chapter-page movement is initiated from chapter views, not from the page editor
-- Chapter movement is initiated from book views, not from the sidebar
-- Loose pages are shown by recency, not by manual ordering
-- Editing is plain text only
-- There is no sync, collaboration, or authentication
-- Navigation is internal state only; there are no URL-deep-linkable pages or views
+The following limitations are clearly visible in the current implementation:
+
+- Editing is plain text only; there is no rich text or block editor.
+- Navigation is internal state only; there are no deep-linkable URL routes.
+- There is no sync, collaboration, or authentication.
+- Search operates on pages only, not books or chapters as first-class search entities.
+- Clicked tag filters and typed slash-tag queries do not use the same result screen:
+  - clicked tags use the dedicated Tagged Pages view
+  - slash-tag queries render through Search Results
+- Loose pages are shown by recency rather than manual ordering.
+- Duplicate page titles can make link resolution ambiguous because the first normalized match wins.
+- The settings surface is still narrow and currently exposes only library density for the root books screen.
+- Search/tag behavior is useful but not fully unified into one filtering model.

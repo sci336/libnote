@@ -942,56 +942,35 @@ h1 {
 }
 
 .book-gallery-shell {
-  --book-gallery-gap: 0.55rem;
-}
-
-.book-gallery-shell.book-gallery-size-small {
-  --book-card-padding: 0.48rem;
-  --book-card-gap: 0.38rem;
-  --book-card-cover-ratio: 0.88;
-  --book-card-cover-padding: 0.55rem;
-  --book-card-cover-gap: 0.18rem;
-  --book-card-title-size: 0.88rem;
-  --book-card-label-size: 0.64rem;
-  --book-card-open-hint-size: 0.72rem;
-  --book-card-open-hint-margin-top: 0.05rem;
-  --book-card-footer-gap: 0.05rem;
-  --book-card-heading-gap: 0.34rem;
-  --book-card-action-gap: 0.3rem;
-  --book-card-action-height: 1.78rem;
-  --book-card-action-padding-y: 0.3rem;
-  --book-card-action-padding-x: 0.42rem;
-  --book-card-action-font-size: 0.76rem;
-  --book-card-drag-handle-size: 0.76rem;
-}
-
-.book-gallery-shell.book-gallery-size-large {
-  --book-card-padding: 0.64rem;
-  --book-card-gap: 0.5rem;
-  --book-card-cover-ratio: 0.95;
-  --book-card-cover-padding: 0.75rem;
-  --book-card-cover-gap: 0.28rem;
-  --book-card-title-size: 1rem;
-  --book-card-label-size: 0.7rem;
-  --book-card-open-hint-size: 0.8rem;
-  --book-card-open-hint-margin-top: 0.12rem;
-  --book-card-footer-gap: 0.12rem;
-  --book-card-heading-gap: 0.45rem;
-  --book-card-action-gap: 0.38rem;
-  --book-card-action-height: 2.05rem;
-  --book-card-action-padding-y: 0.42rem;
-  --book-card-action-padding-x: 0.6rem;
-  --book-card-action-font-size: 0.84rem;
-  --book-card-drag-handle-size: 0.86rem;
+  --book-gallery-gap: clamp(0.4rem, calc(0.8rem - (var(--books-per-row) * 0.06rem)), 0.68rem);
+  --book-card-width: clamp(
+    126px,
+    calc((100% - ((var(--books-per-row) - 1) * var(--book-gallery-gap))) / var(--books-per-row)),
+    236px
+  );
+  --book-card-padding: clamp(0.5rem, calc(var(--book-card-width) * 0.0045), 0.78rem);
+  --book-card-gap: clamp(0.38rem, calc(var(--book-card-width) * 0.0032), 0.58rem);
+  --book-card-cover-ratio: clamp(0.88, calc(0.98 - (var(--books-per-row) * 0.02)), 0.96);
+  --book-card-cover-padding: clamp(0.55rem, calc(var(--book-card-width) * 0.0048), 0.86rem);
+  --book-card-cover-gap: clamp(0.18rem, calc(var(--book-card-width) * 0.0018), 0.34rem);
+  --book-card-title-size: clamp(0.88rem, calc(var(--book-card-width) * 0.0058), 1.08rem);
+  --book-card-label-size: clamp(0.64rem, calc(var(--book-card-width) * 0.0039), 0.74rem);
+  --book-card-open-hint-size: clamp(0.72rem, calc(var(--book-card-width) * 0.0045), 0.84rem);
+  --book-card-open-hint-margin-top: clamp(0.05rem, calc(var(--book-card-width) * 0.0007), 0.12rem);
+  --book-card-footer-gap: clamp(0.05rem, calc(var(--book-card-width) * 0.0007), 0.14rem);
+  --book-card-heading-gap: clamp(0.34rem, calc(var(--book-card-width) * 0.0026), 0.48rem);
+  --book-card-action-gap: clamp(0.3rem, calc(var(--book-card-width) * 0.0023), 0.42rem);
+  --book-card-action-height: clamp(1.78rem, calc(var(--book-card-width) * 0.0115), 2.12rem);
+  --book-card-action-padding-y: clamp(0.3rem, calc(var(--book-card-width) * 0.0025), 0.46rem);
+  --book-card-action-padding-x: clamp(0.42rem, calc(var(--book-card-width) * 0.0036), 0.66rem);
+  --book-card-action-font-size: clamp(0.76rem, calc(var(--book-card-width) * 0.0047), 0.87rem);
+  --book-card-drag-handle-size: clamp(0.76rem, calc(var(--book-card-width) * 0.0049), 0.9rem);
 }
 
 .book-gallery {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--book-card-width), var(--book-card-width)));
-  max-width: calc(
-    (var(--books-per-row) * var(--book-card-width)) +
-    ((var(--books-per-row) - 1) * var(--book-gallery-gap))
-  );
+  width: 100%;
   justify-content: flex-start;
   gap: var(--book-gallery-gap);
 }

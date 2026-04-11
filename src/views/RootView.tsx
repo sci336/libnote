@@ -2,14 +2,8 @@ import type { CSSProperties, KeyboardEvent, SyntheticEvent } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { InlineEditableText } from '../components/InlineEditableText';
 import { ReorderableList } from '../components/ReorderableList';
-import type { Book, LibraryBookCardSize, LibraryBooksPerRow } from '../types/domain';
+import type { Book, LibraryBooksPerRow } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
-
-const CARD_WIDTH_BY_SIZE: Record<LibraryBookCardSize, string> = {
-  small: '132px',
-  medium: '150px',
-  large: '172px'
-};
 
 interface RootViewProps {
   books: Book[];
@@ -22,7 +16,6 @@ interface RootViewProps {
   onRenameBook: (bookId: string, title: string) => void;
   onOpenLoosePages: () => void;
   booksPerRow: LibraryBooksPerRow;
-  bookCardSize: LibraryBookCardSize;
 }
 
 export function RootView({
@@ -35,8 +28,7 @@ export function RootView({
   onDeleteBook,
   onRenameBook,
   onOpenLoosePages,
-  booksPerRow,
-  bookCardSize
+  booksPerRow
 }: RootViewProps): JSX.Element {
   function stopCardOpen(event: SyntheticEvent) {
     event.stopPropagation();
@@ -53,8 +45,7 @@ export function RootView({
   }
 
   const galleryStyle = {
-    '--books-per-row': String(booksPerRow),
-    '--book-card-width': CARD_WIDTH_BY_SIZE[bookCardSize]
+    '--books-per-row': String(booksPerRow)
   } as CSSProperties;
 
   return (
@@ -75,10 +66,7 @@ export function RootView({
       </div>
 
       {books.length > 0 ? (
-        <div
-          className={`book-gallery-shell book-gallery-size-${bookCardSize}`}
-          style={galleryStyle}
-        >
+        <div className="book-gallery-shell" style={galleryStyle}>
           <ReorderableList
             items={books}
             onReorder={onReorderBooks}
