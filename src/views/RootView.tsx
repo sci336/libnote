@@ -1,17 +1,28 @@
+import type { CSSProperties, KeyboardEvent, SyntheticEvent } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { InlineEditableText } from '../components/InlineEditableText';
-import type { Book } from '../types/domain';
+import { ReorderableList } from '../components/ReorderableList';
+import type { Book, LibraryBookCardSize, LibraryBooksPerRow } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
+
+const CARD_WIDTH_BY_SIZE: Record<LibraryBookCardSize, string> = {
+  small: '132px',
+  medium: '150px',
+  large: '172px'
+};
 
 interface RootViewProps {
   books: Book[];
   getChapterCountForBook: (bookId: string) => number;
   onCreateBook: () => void;
   onOpenBook: (bookId: string) => void;
+  onReorderBooks: (orderedBookIds: string[]) => void;
   onCreateChapter: (bookId: string) => void;
   onDeleteBook: (bookId: string) => void;
   onRenameBook: (bookId: string, title: string) => void;
   onOpenLoosePages: () => void;
+  booksPerRow: LibraryBooksPerRow;
+  bookCardSize: LibraryBookCardSize;
 }
 
 export function RootView({
@@ -19,11 +30,33 @@ export function RootView({
   getChapterCountForBook,
   onCreateBook,
   onOpenBook,
+  onReorderBooks,
   onCreateChapter,
   onDeleteBook,
   onRenameBook,
-  onOpenLoosePages
+  onOpenLoosePages,
+  booksPerRow,
+  bookCardSize
 }: RootViewProps): JSX.Element {
+  function stopCardOpen(event: SyntheticEvent) {
+    event.stopPropagation();
+  }
+
+  function handleCardKeyDown(
+    event: KeyboardEvent<HTMLElement>,
+    bookId: string
+  ) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onOpenBook(bookId);
+    }
+  }
+
+  const galleryStyle = {
+    '--books-per-row': String(booksPerRow),
+    '--book-card-width': CARD_WIDTH_BY_SIZE[bookCardSize]
+  } as CSSProperties;
+
   return (
     <section className="content-section">
       <div className="section-header">
@@ -42,33 +75,73 @@ export function RootView({
       </div>
 
       {books.length > 0 ? (
-        <div className="book-grid">
-          {books.map((book) => (
-            <article key={book.id} className="book-card">
-              <div className="book-card-open">
-                <span className="book-card-label">Book</span>
-                <InlineEditableText
-                  value={book.title}
-                  onSave={(title) => onRenameBook(book.id, title)}
-                  className="book-card-title"
-                  inputClassName="inline-input block-input"
-                />
-                <span className="book-card-meta">{getChapterCountForBook(book.id)} chapters</span>
-                <span className="book-card-meta">Updated {formatTimestamp(book.updatedAt)}</span>
-              </div>
-              <div className="card-actions">
-                <button type="button" className="primary-button" onClick={() => onOpenBook(book.id)}>
-                  Open Book
-                </button>
-                <button type="button" className="secondary-button" onClick={() => onCreateChapter(book.id)}>
-                  Add Chapter
-                </button>
-                <button type="button" className="danger-button subtle" onClick={() => onDeleteBook(book.id)}>
-                  Delete
-                </button>
-              </div>
-            </article>
-          ))}
+        <div
+          className={`book-gallery-shell book-gallery-size-${bookCardSize}`}
+          style={galleryStyle}
+        >
+          <ReorderableList
+            items={books}
+            onReorder={onReorderBooks}
+            listClassName="book-gallery"
+            itemClassName="reorder-card"
+            itemDraggingClassName="is-dragging"
+            itemDropTopClassName="drop-top"
+            itemDropBottomClassName="drop-bottom"
+            isEnabled={books.length > 1}
+            renderItem={(book) => (
+              <article className="book-card">
+                <div
+                  className="book-card-surface"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Open ${book.title || 'Untitled'}`}
+                  onClick={() => onOpenBook(book.id)}
+                  onKeyDown={(event) => handleCardKeyDown(event, book.id)}
+                >
+                  <div className="book-card-cover">
+                    <span className="book-card-label">Book</span>
+                    <span className="book-card-meta">{getChapterCountForBook(book.id)} chapters</span>
+                    <span className="book-card-meta">Updated {formatTimestamp(book.updatedAt)}</span>
+                    <span className="book-card-open-hint">Open book</span>
+                  </div>
+                </div>
+                <div className="book-card-footer">
+                  <div className="book-card-heading" onClick={stopCardOpen}>
+                    <span className="drag-handle" aria-hidden="true">
+                      ::
+                    </span>
+                    <div className="book-card-title-wrap" onClick={stopCardOpen}>
+                      <InlineEditableText
+                        value={book.title}
+                        onSave={(title) => onRenameBook(book.id, title)}
+                        className="book-card-title"
+                        inputClassName="inline-input block-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className="card-actions book-card-actions"
+                  onClick={stopCardOpen}
+                >
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => onCreateChapter(book.id)}
+                  >
+                    Add Chapter
+                  </button>
+                  <button
+                    type="button"
+                    className="danger-button subtle"
+                    onClick={() => onDeleteBook(book.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
+            )}
+          />
         </div>
       ) : (
         <EmptyState

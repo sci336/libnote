@@ -1,9 +1,20 @@
 import { useEffect } from 'react';
-import type { AppMenuSection } from '../types/domain';
+import type {
+  AppMenuSection,
+  AppSettings,
+  LibraryBookCardSize,
+  LibraryBooksPerRow
+} from '../types/domain';
+
+const LIBRARY_ROW_OPTIONS: LibraryBooksPerRow[] = [2, 3, 4, 5];
+const LIBRARY_CARD_SIZE_OPTIONS: LibraryBookCardSize[] = ['small', 'medium', 'large'];
 
 interface AppMenuProps {
   isOpen: boolean;
   activeSection: AppMenuSection;
+  settings: AppSettings;
+  onUpdateLibraryBooksPerRow: (booksPerRow: LibraryBooksPerRow) => void;
+  onUpdateLibraryBookCardSize: (bookCardSize: LibraryBookCardSize) => void;
   onClose: () => void;
   onSelectSection: (section: AppMenuSection) => void;
 }
@@ -18,6 +29,9 @@ const MENU_SECTIONS: Array<{ id: AppMenuSection; label: string; summary: string 
 export function AppMenu({
   isOpen,
   activeSection,
+  settings,
+  onUpdateLibraryBooksPerRow,
+  onUpdateLibraryBookCardSize,
   onClose,
   onSelectSection
 }: AppMenuProps): JSX.Element | null {
@@ -75,14 +89,26 @@ export function AppMenu({
             ))}
           </nav>
 
-          <div className="app-menu-content">{renderSection(activeSection)}</div>
+          <div className="app-menu-content">
+            {renderSection(activeSection, {
+              settings,
+              onUpdateLibraryBooksPerRow,
+              onUpdateLibraryBookCardSize
+            })}
+          </div>
         </div>
       </section>
     </div>
   );
 }
 
-function renderSection(section: AppMenuSection): JSX.Element {
+function renderSection(
+  section: AppMenuSection,
+  settingsProps: Pick<
+    AppMenuProps,
+    'settings' | 'onUpdateLibraryBooksPerRow' | 'onUpdateLibraryBookCardSize'
+  >
+): JSX.Element {
   if (section === 'help') {
     return <HelpSection />;
   }
@@ -92,7 +118,7 @@ function renderSection(section: AppMenuSection): JSX.Element {
   }
 
   if (section === 'settings') {
-    return <SettingsSection />;
+    return <SettingsSection {...settingsProps} />;
   }
 
   return <CreditsSection />;
@@ -210,25 +236,76 @@ function ShortcutsSection(): JSX.Element {
   );
 }
 
-function SettingsSection(): JSX.Element {
+function SettingsSection({
+  settings,
+  onUpdateLibraryBooksPerRow,
+  onUpdateLibraryBookCardSize
+}: Pick<
+  AppMenuProps,
+  'settings' | 'onUpdateLibraryBooksPerRow' | 'onUpdateLibraryBookCardSize'
+>): JSX.Element {
   return (
     <div className="menu-section-stack">
       <section className="menu-card">
         <h2>Settings</h2>
         <p>
-          App-wide preferences are intentionally minimal right now. Per-page text size already lives in each page editor,
-          and broader display or behavior settings can be added here without restructuring the app.
+          Adjust how dense the main books screen feels without changing how books open, rename, or reorder. These
+          library-view settings persist across reloads.
         </p>
       </section>
 
       <section className="menu-card settings-card-grid">
-        <article className="settings-placeholder-card">
+        <article className="settings-placeholder-card settings-control-card">
           <div className="settings-placeholder-head">
-            <strong>Display</strong>
-            <span className="search-result-badge">Coming later</span>
+            <strong>Library View</strong>
+            <span className="search-result-badge">Live</span>
           </div>
-          <p>Theme, density, and layout preferences can plug into this section once shared settings are introduced.</p>
+          <p>Choose how many books fit on each shelf and how large each card feels on the root books screen.</p>
+
+          <div className="settings-control-group">
+            <div className="settings-control-copy">
+              <strong>Books per row</strong>
+              <span>Controls how many shelf slots the main books screen aims to show when space allows.</span>
+            </div>
+            <div className="settings-choice-row" role="group" aria-label="Books per row">
+              {LIBRARY_ROW_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={`settings-choice-button ${
+                    settings.libraryView.booksPerRow === option ? 'is-active' : ''
+                  }`}
+                  onClick={() => onUpdateLibraryBooksPerRow(option)}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="settings-control-group">
+            <div className="settings-control-copy">
+              <strong>Book card size</strong>
+              <span>Scales the width and density of the gallery cards without changing the click behavior.</span>
+            </div>
+            <div className="settings-choice-row" role="group" aria-label="Book card size">
+              {LIBRARY_CARD_SIZE_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={`settings-choice-button ${
+                    settings.libraryView.bookCardSize === option ? 'is-active' : ''
+                  }`}
+                  onClick={() => onUpdateLibraryBookCardSize(option)}
+                >
+                  {option[0].toUpperCase()}
+                  {option.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
         </article>
+
         <article className="settings-placeholder-card">
           <div className="settings-placeholder-head">
             <strong>Behavior</strong>

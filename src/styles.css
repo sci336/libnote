@@ -475,6 +475,50 @@ kbd {
   gap: 0.75rem;
 }
 
+.settings-control-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.settings-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.settings-control-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.settings-control-copy span {
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.settings-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.settings-choice-button {
+  min-height: 2.4rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #374151;
+}
+
+.settings-choice-button.is-active {
+  background: rgba(31, 41, 55, 0.92);
+  color: #f9fafb;
+  border-color: rgba(31, 41, 55, 0.92);
+}
+
 .section-header,
 .editor-header {
   display: flex;
@@ -547,13 +591,32 @@ h1 {
 }
 
 .book-card {
-  padding: 1rem;
+  --book-card-padding: 0.55rem;
+  --book-card-gap: 0.45rem;
+  --book-card-cover-ratio: 0.9;
+  --book-card-cover-padding: 0.65rem;
+  --book-card-cover-gap: 0.22rem;
+  --book-card-title-size: 0.95rem;
+  --book-card-label-size: 0.68rem;
+  --book-card-open-hint-size: 0.76rem;
+  --book-card-open-hint-margin-top: 0.1rem;
+  --book-card-footer-gap: 0.1rem;
+  --book-card-heading-gap: 0.4rem;
+  --book-card-action-gap: 0.35rem;
+  --book-card-action-height: 1.95rem;
+  --book-card-action-padding-y: 0.38rem;
+  --book-card-action-padding-x: 0.55rem;
+  --book-card-action-font-size: 0.82rem;
+  --book-card-drag-handle-size: 0.82rem;
+  height: 100%;
+  padding: var(--book-card-padding);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--book-card-gap);
 }
 
 .book-card-open,
+.book-card-surface,
 .list-card-main {
   border: 0;
   background: none;
@@ -564,6 +627,63 @@ h1 {
   gap: 0.55rem;
 }
 
+.book-card-surface {
+  cursor: pointer;
+  border-radius: 1rem;
+  outline: none;
+}
+
+.book-card-surface:focus-visible .book-card-cover {
+  box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.18);
+}
+
+.book-card-cover {
+  aspect-ratio: var(--book-card-cover-ratio);
+  min-height: 0;
+  padding: var(--book-card-cover-padding);
+  border: 1px solid rgba(48, 33, 10, 0.08);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(244, 236, 225, 0.98) 100%),
+    linear-gradient(135deg, rgba(126, 88, 37, 0.08), rgba(255, 255, 255, 0));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 14px 30px rgba(73, 54, 23, 0.08);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--book-card-cover-gap);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.book-card-surface:hover .book-card-cover {
+  transform: translateY(-2px);
+  border-color: rgba(48, 33, 10, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 18px 36px rgba(73, 54, 23, 0.11);
+}
+
+.book-card-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--book-card-footer-gap);
+}
+
+.book-card-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--book-card-heading-gap);
+}
+
+.book-card-title-wrap {
+  min-width: 0;
+  flex: 1;
+}
+
 .list-card-row {
   display: flex;
   align-items: center;
@@ -571,7 +691,7 @@ h1 {
 }
 
 .book-card-label {
-  font-size: 0.8rem;
+  font-size: var(--book-card-label-size);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #6b7280;
@@ -579,9 +699,14 @@ h1 {
 
 .book-card-title,
 .list-card-title {
-  font-size: 1.15rem;
+  font-size: var(--book-card-title-size);
   font-weight: 600;
   text-align: left;
+}
+
+.book-card-title {
+  display: block;
+  width: 100%;
 }
 
 .book-card-meta,
@@ -589,6 +714,31 @@ h1 {
 .editor-meta {
   margin: 0;
   color: #6b7280;
+}
+
+.book-card-open-hint {
+  margin: 0;
+  color: #4b5563;
+  font-size: var(--book-card-open-hint-size);
+}
+
+.book-card-open-hint {
+  margin-top: var(--book-card-open-hint-margin-top);
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.book-card-actions {
+  justify-content: space-between;
+  gap: var(--book-card-action-gap);
+}
+
+.book-card-actions .secondary-button,
+.book-card-actions .danger-button {
+  flex: 1;
+  min-height: var(--book-card-action-height);
+  padding: var(--book-card-action-padding-y) var(--book-card-action-padding-x);
+  font-size: var(--book-card-action-font-size);
 }
 
 .tag-editor {
@@ -789,6 +939,66 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
+}
+
+.book-gallery-shell {
+  --book-gallery-gap: 0.55rem;
+}
+
+.book-gallery-shell.book-gallery-size-small {
+  --book-card-padding: 0.48rem;
+  --book-card-gap: 0.38rem;
+  --book-card-cover-ratio: 0.88;
+  --book-card-cover-padding: 0.55rem;
+  --book-card-cover-gap: 0.18rem;
+  --book-card-title-size: 0.88rem;
+  --book-card-label-size: 0.64rem;
+  --book-card-open-hint-size: 0.72rem;
+  --book-card-open-hint-margin-top: 0.05rem;
+  --book-card-footer-gap: 0.05rem;
+  --book-card-heading-gap: 0.34rem;
+  --book-card-action-gap: 0.3rem;
+  --book-card-action-height: 1.78rem;
+  --book-card-action-padding-y: 0.3rem;
+  --book-card-action-padding-x: 0.42rem;
+  --book-card-action-font-size: 0.76rem;
+  --book-card-drag-handle-size: 0.76rem;
+}
+
+.book-gallery-shell.book-gallery-size-large {
+  --book-card-padding: 0.64rem;
+  --book-card-gap: 0.5rem;
+  --book-card-cover-ratio: 0.95;
+  --book-card-cover-padding: 0.75rem;
+  --book-card-cover-gap: 0.28rem;
+  --book-card-title-size: 1rem;
+  --book-card-label-size: 0.7rem;
+  --book-card-open-hint-size: 0.8rem;
+  --book-card-open-hint-margin-top: 0.12rem;
+  --book-card-footer-gap: 0.12rem;
+  --book-card-heading-gap: 0.45rem;
+  --book-card-action-gap: 0.38rem;
+  --book-card-action-height: 2.05rem;
+  --book-card-action-padding-y: 0.42rem;
+  --book-card-action-padding-x: 0.6rem;
+  --book-card-action-font-size: 0.84rem;
+  --book-card-drag-handle-size: 0.86rem;
+}
+
+.book-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--book-card-width), var(--book-card-width)));
+  max-width: calc(
+    (var(--books-per-row) * var(--book-card-width)) +
+    ((var(--books-per-row) - 1) * var(--book-gallery-gap))
+  );
+  justify-content: flex-start;
+  gap: var(--book-gallery-gap);
+}
+
+.book-gallery > .reorder-card {
+  width: var(--book-card-width);
+  height: 100%;
 }
 
 .list-card {
@@ -1074,9 +1284,11 @@ mark {
 .drag-handle {
   flex-shrink: 0;
   color: #9ca3af;
+  font-size: var(--book-card-drag-handle-size);
   font-weight: 700;
   letter-spacing: -0.08em;
   user-select: none;
+  cursor: grab;
 }
 
 .sidebar-reorder-item.is-dragging,
@@ -1146,6 +1358,10 @@ mark {
     flex-direction: column;
   }
 
+  .settings-choice-row {
+    width: 100%;
+  }
+
   .tag-filter-controls {
     min-width: 100%;
   }
@@ -1199,6 +1415,16 @@ mark {
 
   .book-grid {
     grid-template-columns: 1fr;
+  }
+
+  .book-gallery {
+    grid-template-columns: repeat(auto-fill, minmax(min(var(--book-card-width), 100%), 1fr));
+    max-width: 100%;
+    justify-content: stretch;
+  }
+
+  .book-gallery > .reorder-card {
+    width: auto;
   }
 
   .shortcut-row {

@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AppMenuSection, LibraryData, Page, ViewState } from '../types/domain';
+import type {
+  AppMenuSection,
+  AppSettings,
+  LibraryBookCardSize,
+  LibraryBooksPerRow,
+  LibraryData,
+  Page,
+  ViewState
+} from '../types/domain';
+import { loadAppSettings, saveAppSettings } from '../db/indexedDb';
 import {
   createBook,
   createChapter,
@@ -13,6 +22,7 @@ import {
   moveLoosePageToChapter,
   movePageToChapter,
   persistLibraryData,
+  reorderBooks,
   reorderChaptersInBook,
   reorderPagesInChapter,
   updateBook,
@@ -43,6 +53,12 @@ import { formatTagQuery, normalizeTag, normalizeTagList, parseTagQuery } from '.
 
 const DESKTOP_WIDTH = 920;
 const PERSISTENCE_DELAY_MS = 300;
+const DEFAULT_APP_SETTINGS: AppSettings = {
+  libraryView: {
+    booksPerRow: 4,
+    bookCardSize: 'medium'
+  }
+};
 
 /**
  * Central application controller for the note library.
@@ -51,6 +67,8 @@ const PERSISTENCE_DELAY_MS = 300;
  */
 export function useLibraryApp() {
   const [data, setData] = useState<LibraryData | null>(null);
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
+  const [settingsHydrated, setSettingsHydrated] = useState(false);
   const [view, setView] = useState<ViewState>({ type: 'root' });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [appMenuOpen, setAppMenuOpen] = useState(false);
@@ -63,14 +81,25 @@ export function useLibraryApp() {
   const [tagOriginView, setTagOriginView] = useState<ViewState>({ type: 'root' });
   const [recentTags, setRecentTags] = useState<string[]>([]);
   const latestDataRef = useRef<LibraryData | null>(null);
+  const latestSettingsRef = useRef<AppSettings>(DEFAULT_APP_SETTINGS);
 
   useEffect(() => {
-    hydrateLibraryData().then(setData).catch(console.error);
+    Promise.all([hydrateLibraryData(), hydrateAppSettings()])
+      .then(([nextData, nextSettings]) => {
+        setData(nextData);
+        setSettings(nextSettings);
+        setSettingsHydrated(true);
+      })
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
     latestDataRef.current = data;
   }, [data]);
+
+  useEffect(() => {
+    latestSettingsRef.current = settings;
+  }, [settings]);
 
   useDebouncedEffect(
     () => {
@@ -86,6 +115,18 @@ export function useLibraryApp() {
     PERSISTENCE_DELAY_MS
   );
 
+  useDebouncedEffect(
+    () => {
+      if (!settingsHydrated) {
+        return;
+      }
+
+      saveAppSettings(settings).catch(console.error);
+    },
+    [settings, settingsHydrated],
+    PERSISTENCE_DELAY_MS
+  );
+
   useEffect(() => {
     if (!data) {
       return;
@@ -98,6 +139,8 @@ export function useLibraryApp() {
       if (latestData) {
         void persistLibraryData(latestData);
       }
+
+      void saveAppSettings(latestSettingsRef.current);
     };
 
     window.addEventListener('pagehide', flush);
@@ -359,6 +402,14 @@ export function useLibraryApp() {
     updateData(reorderPagesInChapter(data, chapterId, orderedPageIds));
   }
 
+  function handleReorderBooks(orderedBookIds: string[]): void {
+    if (!data) {
+      return;
+    }
+
+    updateData(reorderBooks(data, orderedBookIds));
+  }
+
   function handleMoveChapter(chapterId: string, destinationBookId: string): void {
     if (!data) {
       return;
@@ -542,8 +593,29 @@ export function useLibraryApp() {
     updateData(updatePage(data, pageId, { tags }));
   }
 
+  function handleUpdateLibraryBooksPerRow(booksPerRow: LibraryBooksPerRow): void {
+    setSettings((currentSettings) => ({
+      ...currentSettings,
+      libraryView: {
+        ...currentSettings.libraryView,
+        booksPerRow
+      }
+    }));
+  }
+
+  function handleUpdateLibraryBookCardSize(bookCardSize: LibraryBookCardSize): void {
+    setSettings((currentSettings) => ({
+      ...currentSettings,
+      libraryView: {
+        ...currentSettings.libraryView,
+        bookCardSize
+      }
+    }));
+  }
+
   return {
     data,
+    settings,
     view,
     sidebarOpen,
     appMenuOpen,
@@ -593,6 +665,7 @@ export function useLibraryApp() {
     handleDeleteBook,
     handleDeleteChapter,
     handleDeletePage,
+    handleReorderBooks,
     handleReorderChapters,
     handleReorderPages,
     handleMoveChapter,
@@ -609,6 +682,31 @@ export function useLibraryApp() {
     handleRenamePage,
     handleUpdatePageContent,
     handleUpdatePageTextSize,
-    handleUpdatePageTags
+    handleUpdatePageTags,
+    handleUpdateLibraryBooksPerRow,
+    handleUpdateLibraryBookCardSize
+  };
+}
+
+async function hydrateAppSettings(): Promise<AppSettings> {
+  const persistedSettings = await loadAppSettings();
+  return normalizeAppSettings(persistedSettings);
+}
+
+function normalizeAppSettings(settings: AppSettings | null): AppSettings {
+  const booksPerRow = settings?.libraryView?.booksPerRow;
+  const bookCardSize = settings?.libraryView?.bookCardSize;
+
+  return {
+    libraryView: {
+      booksPerRow:
+        booksPerRow === 2 || booksPerRow === 3 || booksPerRow === 4 || booksPerRow === 5
+          ? booksPerRow
+          : DEFAULT_APP_SETTINGS.libraryView.booksPerRow,
+      bookCardSize:
+        bookCardSize === 'small' || bookCardSize === 'medium' || bookCardSize === 'large'
+          ? bookCardSize
+          : DEFAULT_APP_SETTINGS.libraryView.bookCardSize
+    }
   };
 }

@@ -31,6 +31,10 @@ export function getBook(data: LibraryData, bookId: ID): Book | undefined {
   return data.books.find((book) => book.id === bookId);
 }
 
+export function getSortedBooks(data: LibraryData): Book[] {
+  return [...data.books].sort(compareBySortOrder);
+}
+
 export function getChapter(data: LibraryData, chapterId: ID): Chapter | undefined {
   return data.chapters.find((chapter) => chapter.id === chapterId);
 }
@@ -64,6 +68,7 @@ export function createBook(data: LibraryData): { data: LibraryData; book: Book }
   const book: Book = {
     id: createId('book'),
     title: 'Untitled Book',
+    sortOrder: getNextBookSortOrder(data),
     createdAt: timestamp,
     updatedAt: timestamp
   };
@@ -94,7 +99,7 @@ export function deleteBook(data: LibraryData, bookId: ID): LibraryData {
   );
 
   return {
-    books: data.books.filter((book) => book.id !== bookId),
+    books: normalizeBookOrders(data.books.filter((book) => book.id !== bookId)),
     chapters: data.chapters.filter((chapter) => chapter.bookId !== bookId),
     pages: data.pages.filter((page) => !page.chapterId || !chapterIds.has(page.chapterId))
   };
@@ -378,6 +383,31 @@ export function reorderChaptersInBook(
   };
 }
 
+export function reorderBooks(
+  data: LibraryData,
+  orderedBookIds: ID[]
+): LibraryData {
+  const validIds = new Set(data.books.map((book) => book.id));
+  const normalizedIds = orderedBookIds.filter((id) => validIds.has(id));
+
+  if (normalizedIds.length !== validIds.size) {
+    return data;
+  }
+
+  return {
+    ...data,
+    books: data.books.map((book) => {
+      const nextIndex = normalizedIds.indexOf(book.id);
+      return nextIndex === -1
+        ? book
+        : {
+            ...book,
+            sortOrder: nextIndex
+          };
+    })
+  };
+}
+
 export function reorderPagesInChapter(
   data: LibraryData,
   chapterId: ID,
@@ -446,6 +476,7 @@ function normalizeTitle(value: string, fallback: string): string {
 function normalizeLibraryData(data: LibraryData): LibraryData {
   return {
     ...data,
+    books: normalizeBookOrders(data.books),
     // Hydration is the one place we repair legacy or malformed snapshots so the
     // rest of the app can assume normalized sort order and tag data.
     chapters: normalizeChapterOrders(data.chapters),
@@ -456,6 +487,13 @@ function normalizeLibraryData(data: LibraryData): LibraryData {
       }))
     )
   };
+}
+
+function normalizeBookOrders(books: Book[]): Book[] {
+  return books.map((book) => ({
+    ...book,
+    sortOrder: resolveSortOrder(book, books)
+  }));
 }
 
 function normalizeChapterOrders(chapters: Chapter[]): Chapter[] {
@@ -543,6 +581,10 @@ function compareBySortOrder<T extends { sortOrder: number; createdAt: string; up
 function getNextChapterSortOrder(data: LibraryData, bookId: ID): number {
   const chapters = getChaptersForBook(data, bookId);
   return chapters.length;
+}
+
+function getNextBookSortOrder(data: LibraryData): number {
+  return getSortedBooks(data).length;
 }
 
 function getNextPageSortOrder(
