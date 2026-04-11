@@ -1,5 +1,6 @@
 import { EmptyState } from '../components/EmptyState';
 import { InlineEditableText } from '../components/InlineEditableText';
+import { ReorderableList } from '../components/ReorderableList';
 import type { Book } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
 
@@ -8,6 +9,7 @@ interface RootViewProps {
   getChapterCountForBook: (bookId: string) => number;
   onCreateBook: () => void;
   onOpenBook: (bookId: string) => void;
+  onReorderBooks: (orderedBookIds: string[]) => void;
   onCreateChapter: (bookId: string) => void;
   onDeleteBook: (bookId: string) => void;
   onRenameBook: (bookId: string, title: string) => void;
@@ -19,6 +21,7 @@ export function RootView({
   getChapterCountForBook,
   onCreateBook,
   onOpenBook,
+  onReorderBooks,
   onCreateChapter,
   onDeleteBook,
   onRenameBook,
@@ -42,17 +45,30 @@ export function RootView({
       </div>
 
       {books.length > 0 ? (
-        <div className="book-grid">
-          {books.map((book) => (
-            <article key={book.id} className="book-card">
+        <ReorderableList
+          items={books}
+          onReorder={onReorderBooks}
+          listClassName="stack-list"
+          itemClassName="reorder-card"
+          itemDraggingClassName="is-dragging"
+          itemDropTopClassName="drop-top"
+          itemDropBottomClassName="drop-bottom"
+          isEnabled={books.length > 1}
+          renderItem={(book) => (
+            <article className="book-card">
               <div className="book-card-open">
+                <div className="list-card-row">
+                  <span className="drag-handle" aria-hidden="true">
+                    ::
+                  </span>
+                  <InlineEditableText
+                    value={book.title}
+                    onSave={(title) => onRenameBook(book.id, title)}
+                    className="book-card-title"
+                    inputClassName="inline-input block-input"
+                  />
+                </div>
                 <span className="book-card-label">Book</span>
-                <InlineEditableText
-                  value={book.title}
-                  onSave={(title) => onRenameBook(book.id, title)}
-                  className="book-card-title"
-                  inputClassName="inline-input block-input"
-                />
                 <span className="book-card-meta">{getChapterCountForBook(book.id)} chapters</span>
                 <span className="book-card-meta">Updated {formatTimestamp(book.updatedAt)}</span>
               </div>
@@ -68,8 +84,8 @@ export function RootView({
                 </button>
               </div>
             </article>
-          ))}
-        </div>
+          )}
+        />
       ) : (
         <EmptyState
           title="No books yet"

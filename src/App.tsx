@@ -92,6 +92,10 @@ export default function App(): JSX.Element {
     sidebarChapterId === undefined
       ? undefined
       : () => app.handleCreatePage(sidebarChapterId);
+  const sidebarReorderBooks =
+    app.books.length <= 1
+      ? undefined
+      : (orderedBookIds: string[]) => app.handleReorderBooks(orderedBookIds);
   const sidebarReorderChapters =
     sidebarBookId === undefined || app.chapterList.length <= 1
       ? undefined
@@ -139,6 +143,7 @@ export default function App(): JSX.Element {
           onNavigatePage={openPageById}
           onCreateChapterInContext={sidebarCreateChapter}
           onCreatePageInContext={sidebarCreatePage}
+          onReorderBooks={sidebarReorderBooks}
           onReorderChapters={sidebarReorderChapters}
           onReorderPages={sidebarReorderPages}
           onCreateLoosePageInContext={app.handleCreateLoosePage}
@@ -183,6 +188,7 @@ function renderMainContent(
         getChapterCountForBook={(bookId) => getChapterCountForBook(data, bookId)}
         onCreateBook={app.handleCreateBook}
         onOpenBook={app.handleOpenBook}
+        onReorderBooks={app.handleReorderBooks}
         onCreateChapter={app.handleCreateChapter}
         onDeleteBook={app.handleDeleteBook}
         onRenameBook={app.handleRenameBook}

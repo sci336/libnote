@@ -20,6 +20,7 @@ interface SidebarProps {
   onCreatePageInContext?: () => void;
   onCreateLoosePageInContext?: () => void;
   onCreateChapterInContext?: () => void;
+  onReorderBooks?: (orderedBookIds: string[]) => void;
   onReorderChapters?: (orderedChapterIds: string[]) => void;
   onReorderPages?: (orderedPageIds: string[]) => void;
   onClose: () => void;
@@ -44,6 +45,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     onCreatePageInContext,
     onCreateLoosePageInContext,
     onCreateChapterInContext,
+    onReorderBooks,
     onReorderChapters,
     onReorderPages,
     onClose
@@ -102,6 +104,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
                 onClose();
               }
             }))}
+            onReorder={onReorderBooks}
           />
         )}
 

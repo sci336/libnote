@@ -1,13 +1,9 @@
 import type { Book, Chapter, LibraryData, Page, ViewState } from '../types/domain';
-import { getBook, getChapter, getChaptersForBook, getLoosePages, getPage, getPagesForChapter } from './libraryStore';
+import { getBook, getChapter, getChaptersForBook, getLoosePages, getPage, getPagesForChapter, getSortedBooks as getBooksInOrder } from './libraryStore';
 import { isChapterPage, isLoosePage } from '../utils/pageState';
 
-/**
- * Books are surfaced by recent activity instead of creation order so the root
- * view doubles as a "recently worked on" list.
- */
 export function getSortedBooks(data: LibraryData): Book[] {
-  return [...data.books].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  return getBooksInOrder(data);
 }
 
 export function getActiveBook(data: LibraryData, view: ViewState): Book | undefined {

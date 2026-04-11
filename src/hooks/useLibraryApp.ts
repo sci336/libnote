@@ -13,6 +13,7 @@ import {
   moveLoosePageToChapter,
   movePageToChapter,
   persistLibraryData,
+  reorderBooks,
   reorderChaptersInBook,
   reorderPagesInChapter,
   updateBook,
@@ -359,6 +360,14 @@ export function useLibraryApp() {
     updateData(reorderPagesInChapter(data, chapterId, orderedPageIds));
   }
 
+  function handleReorderBooks(orderedBookIds: string[]): void {
+    if (!data) {
+      return;
+    }
+
+    updateData(reorderBooks(data, orderedBookIds));
+  }
+
   function handleMoveChapter(chapterId: string, destinationBookId: string): void {
     if (!data) {
       return;
@@ -593,6 +602,7 @@ export function useLibraryApp() {
     handleDeleteBook,
     handleDeleteChapter,
     handleDeletePage,
+    handleReorderBooks,
     handleReorderChapters,
     handleReorderPages,
     handleMoveChapter,
