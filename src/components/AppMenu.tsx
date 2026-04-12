@@ -130,8 +130,8 @@ function HelpSection(): JSX.Element {
       <section className="menu-card">
         <h2>Search and tags</h2>
         <p>
-          The search bar looks through page titles and note content across books, chapters, and loose pages. Text search
-          highlights matching words or phrases and shows the page path so you know where each result lives.
+          The search bar looks through book titles, chapter titles, and page titles or note content. Results are grouped
+          by type so you can jump straight to a book, chapter, or page from one search surface.
         </p>
         <p>
           To add tags to a page, open that page and use the <strong>Add tag</strong> field under the title. Type a tag
@@ -169,7 +169,7 @@ function HelpSection(): JSX.Element {
           <li>Tag search is exact-match and lowercase-based, so <code>/History</code> becomes <code>/history</code>.</li>
           <li>Mixed queries like text plus slash tags are not combined yet; the search bar currently handles either text search or tag-only search.</li>
           <li>Backlinks only resolve from <code>[[Page Title]]</code> links, and duplicate page titles use the first matching page right now.</li>
-          <li>Shared app settings and global keyboard shortcuts are still minimal, but the new menu is ready for those additions.</li>
+          <li>The editor still uses the lightweight plain-text note flow rather than rich text formatting.</li>
         </ul>
       </section>
     </div>
@@ -210,15 +210,21 @@ function ShortcutsSection(): JSX.Element {
             </div>
             <kbd>Esc</kbd>
           </div>
+          <div className="shortcut-row">
+            <div>
+              <strong>Create a new loose page</strong>
+              <p>Works from anywhere in the app and opens the new loose page immediately.</p>
+            </div>
+            <kbd>Cmd/Ctrl + Alt + N</kbd>
+          </div>
+          <div className="shortcut-row">
+            <div>
+              <strong>Create a new page in the current chapter</strong>
+              <p>Only works while you are inside a chapter or viewing one of that chapter&apos;s pages.</p>
+            </div>
+            <kbd>Cmd/Ctrl + Shift + N</kbd>
+          </div>
         </div>
-      </section>
-
-      <section className="menu-card">
-        <h2>What will live here later</h2>
-        <p>
-          This section is ready for future global shortcuts like quick search focus, page creation, navigation jumps, and
-          editor commands. Right now the app only exposes a small set of field-level keyboard actions.
-        </p>
       </section>
     </div>
   );

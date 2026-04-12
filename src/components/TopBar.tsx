@@ -8,6 +8,7 @@ interface TopBarProps {
   currentLabel: string;
   searchValue: string;
   availableTags: string[];
+  onGoHome: () => void;
   onOpenAppMenu: () => void;
   onToggleSidebar: () => void;
   onGoBack: () => void;
@@ -22,6 +23,7 @@ export function TopBar({
   currentLabel,
   searchValue,
   availableTags,
+  onGoHome,
   onOpenAppMenu,
   onToggleSidebar,
   onGoBack,
@@ -89,10 +91,18 @@ export function TopBar({
           Nav
         </button>
         {showBack ? (
-          <button type="button" className="icon-button" onClick={onGoBack} aria-label="Go up one level">
+          <button type="button" className="icon-button" onClick={onGoBack} aria-label="Go back">
             ←
           </button>
         ) : null}
+        <button
+          type="button"
+          className="icon-button icon-button-label"
+          onClick={onGoHome}
+          aria-label="Go to library home"
+        >
+          Home
+        </button>
       </div>
 
       <div className="breadcrumb" aria-label="Current location">
@@ -169,8 +179,8 @@ export function TopBar({
               setSuggestionsVisible(false);
             }
           }}
-          placeholder="Search pages by title or phrase..."
-          aria-label="Search pages"
+          placeholder="Search books, chapters, pages, or /tags..."
+          aria-label="Search books, chapters, pages, or slash tags"
         />
         <TagSuggestionsDropdown
           suggestions={shouldShowSuggestions ? suggestions : []}

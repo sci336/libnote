@@ -1,18 +1,18 @@
 import type { SearchMode, SearchResult } from '../utils/search';
-import { getHighlightedParts } from '../utils/search';
+import { getHighlightedParts, getSearchResultBadgeLabel, getSearchResultPath } from '../utils/search';
 
 interface SearchResultsViewProps {
   query: string;
   mode: SearchMode;
   results: SearchResult[];
-  onOpenPage: (pageId: string) => void;
+  onOpenResult: (result: SearchResult) => void;
 }
 
 export function SearchResultsView({
   query,
   mode,
   results,
-  onOpenPage
+  onOpenResult
 }: SearchResultsViewProps): JSX.Element {
   const trimmedQuery = query.trim();
   const isTagSearch = mode.type === 'tag';
@@ -31,7 +31,7 @@ export function SearchResultsView({
                 ? 'Enter a tag after "/" to search by tag.'
                 : trimmedQuery
                   ? `Results for "${trimmedQuery}"`
-                  : 'Search page titles and note content.'}
+                  : 'Search book titles, chapter titles, and page titles or content.'}
           </p>
         </div>
       </div>
@@ -39,7 +39,7 @@ export function SearchResultsView({
       {!trimmedQuery ? (
         <div className="empty-state">
           <h2>Start a search</h2>
-          <p>Type a word or phrase in the search bar to find matching pages across books, chapters, and loose pages.</p>
+          <p>Type a word or phrase in the search bar to find matching books, chapters, and pages.</p>
         </div>
       ) : isEmptyTag ? (
         <div className="empty-state">
@@ -59,21 +59,21 @@ export function SearchResultsView({
         <div className="stack-list">
           {results.map((result) => (
             <button
-              key={result.page.id}
+              key={`${result.type}-${result.id}`}
               type="button"
               className="search-result-card"
-              onClick={() => onOpenPage(result.page.id)}
+              onClick={() => onOpenResult(result)}
             >
               <div className="search-result-head">
                 <div className="search-result-title">
-                  {getHighlightedParts(result.page.title || 'Untitled Page', query).map((part, index) =>
+                  {getHighlightedParts(result.title || 'Untitled', query).map((part, index) =>
                     part.isMatch ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>
                   )}
                 </div>
-                <span className="search-result-badge">{result.matchLabel}</span>
+                <span className="search-result-badge">{getSearchResultBadgeLabel(result)}</span>
               </div>
-              <p className="search-result-path">{result.path}</p>
-              {result.snippet ? (
+              {getSearchResultPath(result) ? <p className="search-result-path">{getSearchResultPath(result)}</p> : null}
+              {result.type === 'page' && result.snippet ? (
                 <p className="search-result-snippet">
                   {getHighlightedParts(result.snippet, query).map((part, index) =>
                     part.isMatch ? <mark key={index}>{part.text}</mark> : <span key={index}>{part.text}</span>

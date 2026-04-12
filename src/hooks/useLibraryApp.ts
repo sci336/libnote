@@ -68,6 +68,7 @@ export function useLibraryApp() {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_APP_SETTINGS);
   const [settingsHydrated, setSettingsHydrated] = useState(false);
   const [view, setView] = useState<ViewState>({ type: 'root' });
+  const [navigationHistory, setNavigationHistory] = useState<ViewState[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [appMenuOpen, setAppMenuOpen] = useState(false);
   const [appMenuSection, setAppMenuSection] = useState<AppMenuSection>('help');
@@ -80,6 +81,8 @@ export function useLibraryApp() {
   const [recentTags, setRecentTags] = useState<string[]>([]);
   const latestDataRef = useRef<LibraryData | null>(null);
   const latestSettingsRef = useRef<AppSettings>(DEFAULT_APP_SETTINGS);
+  const currentViewRef = useRef<ViewState>({ type: 'root' });
+  const navigationHistoryRef = useRef<ViewState[]>([]);
 
   useEffect(() => {
     Promise.all([hydrateLibraryData(), hydrateAppSettings()])
@@ -98,6 +101,14 @@ export function useLibraryApp() {
   useEffect(() => {
     latestSettingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    currentViewRef.current = view;
+  }, [view]);
+
+  useEffect(() => {
+    navigationHistoryRef.current = navigationHistory;
+  }, [navigationHistory]);
 
   useDebouncedEffect(
     () => {
@@ -205,8 +216,14 @@ export function useLibraryApp() {
     [activeChapter, activePage, view]
   );
   const nav = useMemo(
-    () => (data ? getNavigationMetadata(data, view) : { showBack: false, currentLabel: 'Books' }),
-    [data, view]
+    () => {
+      const metadata = data ? getNavigationMetadata(data, view) : { showBack: false, currentLabel: 'Books' };
+      return {
+        ...metadata,
+        showBack: metadata.showBack || navigationHistory.length > 0
+      };
+    },
+    [data, navigationHistory.length, view]
   );
   const normalizedSearchQuery = useMemo(() => normalizeSearchQuery(searchQuery), [searchQuery]);
   // Building the search index is the expensive part of search, so keep it lazy
@@ -234,6 +251,31 @@ export function useLibraryApp() {
 
   function updateData(nextData: LibraryData): void {
     setData(nextData);
+  }
+
+  function replaceView(nextView: ViewState, options?: { shouldCloseSidebar?: boolean }): void {
+    currentViewRef.current = nextView;
+    setView(nextView);
+
+    if (options?.shouldCloseSidebar) {
+      closeSidebarOnMobile();
+    }
+  }
+
+  function navigateToView(
+    nextView: ViewState,
+    options?: { pushHistory?: boolean; shouldCloseSidebar?: boolean }
+  ): void {
+    const currentView = currentViewRef.current;
+    const shouldPushHistory = options?.pushHistory ?? !areViewsEqual(currentView, nextView);
+
+    if (shouldPushHistory && !areViewsEqual(currentView, nextView)) {
+      const nextHistory = [...navigationHistoryRef.current, currentView];
+      navigationHistoryRef.current = nextHistory;
+      setNavigationHistory(nextHistory);
+    }
+
+    replaceView(nextView, { shouldCloseSidebar: options?.shouldCloseSidebar });
   }
 
   function closeSidebarOnMobile(): void {
@@ -268,12 +310,43 @@ export function useLibraryApp() {
     return tagOriginView.type === 'tag' ? { type: 'root' } : tagOriginView;
   }
 
+  function getParentNavigationTarget(currentView: ViewState = currentViewRef.current): ViewState {
+    if (!data) {
+      return { type: 'root' };
+    }
+
+    return getParentView(data, currentView, searchOriginView, tagOriginView);
+  }
+
+  function navigateBack(): void {
+    const history = navigationHistoryRef.current;
+
+    if (history.length > 0) {
+      const previousView = history[history.length - 1];
+      const nextHistory = history.slice(0, -1);
+      navigationHistoryRef.current = nextHistory;
+      setNavigationHistory(nextHistory);
+      replaceView(previousView, { shouldCloseSidebar: true });
+      return;
+    }
+
+    replaceView(getParentNavigationTarget(), { shouldCloseSidebar: true });
+  }
+
+  function navigateHome(): void {
+    navigateToView({ type: 'root' }, { shouldCloseSidebar: true });
+  }
+
+  function goToParentView(): void {
+    navigateToView(getParentNavigationTarget(), { shouldCloseSidebar: true });
+  }
+
   function applyTagView(nextRawTags: string[], options?: { shouldCloseSidebar?: boolean }): void {
     const nextTags = normalizeTagList(nextRawTags);
 
     if (nextTags.length === 0) {
       setSearchQuery('');
-      setView(getTagViewExitTarget());
+      replaceView(getTagViewExitTarget());
       if (options?.shouldCloseSidebar) {
         closeSidebarOnMobile();
       }
@@ -286,7 +359,11 @@ export function useLibraryApp() {
 
     rememberRecentTags(nextTags);
     setSearchQuery(formatTagQuery(nextTags));
-    setView({ type: 'tag', tags: nextTags });
+    if (view.type === 'tag') {
+      replaceView({ type: 'tag', tags: nextTags });
+    } else {
+      navigateToView({ type: 'tag', tags: nextTags }, { pushHistory: true });
+    }
 
     if (options?.shouldCloseSidebar) {
       closeSidebarOnMobile();
@@ -312,8 +389,7 @@ export function useLibraryApp() {
     runIfDataLoaded((currentData) => {
       const result = createBook(currentData);
       updateData(result.data);
-      setView({ type: 'book', bookId: result.book.id });
-      closeSidebarOnMobile();
+      navigateToView({ type: 'book', bookId: result.book.id }, { shouldCloseSidebar: true });
     });
   }
 
@@ -321,8 +397,7 @@ export function useLibraryApp() {
     runIfDataLoaded((currentData) => {
       const result = createChapter(currentData, bookId);
       updateData(result.data);
-      setView({ type: 'chapter', chapterId: result.chapter.id });
-      closeSidebarOnMobile();
+      navigateToView({ type: 'chapter', chapterId: result.chapter.id }, { shouldCloseSidebar: true });
     });
   }
 
@@ -331,8 +406,7 @@ export function useLibraryApp() {
       const result = createPage(currentData, { chapterId, isLoose: false });
       updateData(result.data);
       setShouldAutoFocusEditor(true);
-      setView({ type: 'page', pageId: result.page.id });
-      closeSidebarOnMobile();
+      navigateToView({ type: 'page', pageId: result.page.id }, { shouldCloseSidebar: true });
     });
   }
 
@@ -341,8 +415,7 @@ export function useLibraryApp() {
       const result = createPage(currentData, { chapterId: null, isLoose: true });
       updateData(result.data);
       setShouldAutoFocusEditor(true);
-      setView({ type: 'page', pageId: result.page.id });
-      closeSidebarOnMobile();
+      navigateToView({ type: 'page', pageId: result.page.id }, { shouldCloseSidebar: true });
     });
   }
 
@@ -352,7 +425,7 @@ export function useLibraryApp() {
     }
 
     updateData(deleteBook(data, bookId));
-    setView({ type: 'root' });
+    replaceView({ type: 'root' });
   }
 
   function handleDeleteChapter(chapterId: string, bookId: string): void {
@@ -361,7 +434,7 @@ export function useLibraryApp() {
     }
 
     updateData(deleteChapter(data, chapterId));
-    setView({ type: 'book', bookId });
+    replaceView({ type: 'book', bookId });
   }
 
   function handleDeletePage(page: Page): void {
@@ -372,16 +445,16 @@ export function useLibraryApp() {
     updateData(deletePage(data, page.id));
 
     if (isLoosePage(page)) {
-      setView({ type: 'loosePages' });
+      replaceView({ type: 'loosePages' });
       return;
     }
 
     if (page.chapterId) {
-      setView({ type: 'chapter', chapterId: page.chapterId });
+      replaceView({ type: 'chapter', chapterId: page.chapterId });
       return;
     }
 
-    setView({ type: 'root' });
+    replaceView({ type: 'root' });
   }
 
   function handleReorderChapters(bookId: string, orderedChapterIds: string[]): void {
@@ -426,15 +499,6 @@ export function useLibraryApp() {
     setMovingPageId(null);
   }
 
-  function goUpOneLevel(): void {
-    if (!data) {
-      return;
-    }
-
-    setView(getParentView(data, view, searchOriginView, tagOriginView));
-    closeSidebarOnMobile();
-  }
-
   function handleSearchChange(value: string): void {
     setSearchQuery(value);
     const parsedTags = parseTagQuery(value);
@@ -453,44 +517,45 @@ export function useLibraryApp() {
       if (view.type !== 'search') {
         setSearchOriginView(view);
       }
-      setView({ type: 'search', query: value });
+
+      if (view.type === 'search') {
+        replaceView({ type: 'search', query: value });
+      } else {
+        navigateToView({ type: 'search', query: value }, { pushHistory: true });
+      }
       return;
     }
 
     if (view.type === 'tag') {
-      setView(getTagViewExitTarget());
+      replaceView(getTagViewExitTarget());
     }
 
     if (view.type === 'search') {
-      setView({ type: 'search', query: '' });
+      replaceView({ type: 'search', query: '' });
     }
   }
 
   function handleSearchFocus(): void {
     if (view.type !== 'search') {
       setSearchOriginView(view);
-      setView({ type: 'search', query: searchQuery });
+      navigateToView({ type: 'search', query: searchQuery }, { pushHistory: true });
     }
   }
 
   function handleOpenBook(bookId: string): void {
-    setView({ type: 'book', bookId });
-    closeSidebarOnMobile();
+    navigateToView({ type: 'book', bookId }, { shouldCloseSidebar: true });
   }
 
   function handleOpenChapter(chapterId: string): void {
-    setView({ type: 'chapter', chapterId });
-    closeSidebarOnMobile();
+    navigateToView({ type: 'chapter', chapterId }, { shouldCloseSidebar: true });
   }
 
   function handleOpenPage(pageId: string): void {
-    setView({ type: 'page', pageId });
-    closeSidebarOnMobile();
+    navigateToView({ type: 'page', pageId }, { shouldCloseSidebar: true });
   }
 
   function handleOpenLoosePages(): void {
-    setView({ type: 'loosePages' });
-    closeSidebarOnMobile();
+    navigateToView({ type: 'loosePages' }, { shouldCloseSidebar: true });
   }
 
   function handleOpenTag(tag: string): void {
@@ -539,7 +604,7 @@ export function useLibraryApp() {
 
     updateData(result.data);
     if (result.chapterId) {
-      setView({ type: 'chapter', chapterId: result.chapterId });
+      replaceView({ type: 'chapter', chapterId: result.chapterId });
     }
   }
 
@@ -601,10 +666,42 @@ export function useLibraryApp() {
     }));
   }
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const hasPrimaryModifier = event.metaKey || event.ctrlKey;
+
+      if (!hasPrimaryModifier || key !== 'n') {
+        return;
+      }
+
+      if (event.altKey && !event.shiftKey) {
+        event.preventDefault();
+        handleCreateLoosePage();
+        return;
+      }
+
+      if (event.shiftKey && !event.altKey && sidebarChapterId) {
+        event.preventDefault();
+        handleCreatePage(sidebarChapterId);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleCreateLoosePage, handleCreatePage, sidebarChapterId]);
+
   return {
     data,
     settings,
     view,
+    navigationHistory,
     sidebarOpen,
     appMenuOpen,
     appMenuSection,
@@ -633,7 +730,8 @@ export function useLibraryApp() {
     allChapters,
     initialMoveBookId,
     updateData,
-    setView,
+    navigateToView,
+    replaceView,
     setSidebarOpen,
     setAppMenuOpen,
     setAppMenuSection,
@@ -643,7 +741,9 @@ export function useLibraryApp() {
     openAppMenu,
     closeAppMenu,
     navigateAppMenu,
-    goUpOneLevel,
+    navigateBack,
+    navigateHome,
+    goToParentView,
     handleSearchChange,
     handleSearchFocus,
     handleCreateBook,
@@ -673,6 +773,30 @@ export function useLibraryApp() {
     handleUpdatePageTags,
     handleUpdateLibraryBooksPerRow
   };
+}
+
+function areViewsEqual(left: ViewState, right: ViewState): boolean {
+  if (left.type !== right.type) {
+    return false;
+  }
+
+  switch (left.type) {
+    case 'root':
+    case 'loosePages':
+      return true;
+    case 'book':
+      return left.bookId === (right as Extract<ViewState, { type: 'book' }>).bookId;
+    case 'chapter':
+      return left.chapterId === (right as Extract<ViewState, { type: 'chapter' }>).chapterId;
+    case 'page':
+      return left.pageId === (right as Extract<ViewState, { type: 'page' }>).pageId;
+    case 'search':
+      return left.query === (right as Extract<ViewState, { type: 'search' }>).query;
+    case 'tag':
+      return left.tags.join('|') === (right as Extract<ViewState, { type: 'tag' }>).tags.join('|');
+    default:
+      return false;
+  }
 }
 
 async function hydrateAppSettings(): Promise<AppSettings> {
