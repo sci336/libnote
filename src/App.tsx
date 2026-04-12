@@ -12,6 +12,7 @@ import { getChapterCountForBook, getPageCountForChapter } from './store/libraryS
 import type { Book, Chapter, Page } from './types/domain';
 import { isLoosePage } from './utils/pageState';
 import { buildBacklinkIndex, buildPageTitleLookup, parseContentIntoSegments } from './utils/pageLinks';
+import type { SearchResult } from './utils/search';
 import { getAllTags, getTagResults } from './utils/tags';
 import { BookView } from './views/BookView';
 import { ChapterView } from './views/ChapterView';
@@ -77,6 +78,22 @@ export default function App(): JSX.Element {
     },
     [app.handleOpenPage, pageById]
   );
+  const openSearchResult = useCallback(
+    (result: SearchResult) => {
+      if (result.type === 'book') {
+        app.handleOpenBook(result.id);
+        return;
+      }
+
+      if (result.type === 'chapter') {
+        app.handleOpenChapter(result.id);
+        return;
+      }
+
+      openPageById(result.id);
+    },
+    [app.handleOpenBook, app.handleOpenChapter, openPageById]
+  );
 
   if (!data) {
     return <div className="loading-screen">Loading note library...</div>;
@@ -114,10 +131,11 @@ export default function App(): JSX.Element {
           currentLabel={app.nav.currentLabel}
           searchValue={app.searchQuery}
           availableTags={availableTags}
+          onGoHome={app.navigateHome}
           onOpenAppMenu={() => app.openAppMenu()}
           onToggleSidebar={() => app.setSidebarOpen((open) => !open)}
-          onGoBack={app.goUpOneLevel}
-          onParentClick={app.goUpOneLevel}
+          onGoBack={app.navigateBack}
+          onParentClick={app.goToParentView}
           onSearchChange={app.handleSearchChange}
           onSearchFocus={app.handleSearchFocus}
         />
@@ -133,10 +151,7 @@ export default function App(): JSX.Element {
           activeBookId={app.sidebarBookId}
           activeChapterId={app.activeChapter?.id ?? app.derivedChapterForPage?.id}
           activePageId={app.activePage?.id}
-          onNavigateRoot={() => {
-            app.setView({ type: 'root' });
-            app.closeSidebarOnMobile();
-          }}
+          onNavigateRoot={app.navigateHome}
           onNavigateLoosePages={app.handleOpenLoosePages}
           onNavigateBook={app.handleOpenBook}
           onNavigateChapter={app.handleOpenChapter}
@@ -153,6 +168,7 @@ export default function App(): JSX.Element {
     >
       {renderMainContent(app, data, {
         openPageById,
+        openSearchResult,
         activePageSegments,
         activePageBacklinks,
         tagResults,
@@ -175,6 +191,7 @@ function renderMainContent(
   data: NonNullable<ReturnType<typeof useLibraryApp>['data']>,
   pageLinkState: {
     openPageById: (pageId: string) => void;
+    openSearchResult: (result: SearchResult) => void;
     activePageSegments: ReturnType<typeof parseContentIntoSegments>;
     activePageBacklinks: Array<{ pageId: string; title: string; path: string }>;
     tagResults: ReturnType<typeof getTagResults>;
@@ -206,7 +223,7 @@ function renderMainContent(
         query={app.searchQuery}
         mode={app.searchMode}
         results={app.searchResults}
-        onOpenPage={pageLinkState.openPageById}
+        onOpenResult={pageLinkState.openSearchResult}
       />
     );
   }

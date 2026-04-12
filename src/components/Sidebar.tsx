@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Book, Chapter, Page, ViewState } from '../types/domain';
 import { ReorderableList } from './ReorderableList';
 import { isLoosePage } from '../utils/pageState';
@@ -80,6 +81,8 @@ export function Sidebar(props: SidebarProps): JSX.Element {
   const visibleChapters = activeBookId
     ? chapters.filter((chapter) => chapter.bookId === activeBookId)
     : [];
+  const [isLoosePagesExpanded, setIsLoosePagesExpanded] = useState(false);
+  const visibleLoosePages = isLoosePagesExpanded ? loosePages : loosePages.slice(0, 3);
 
   return (
     <>
@@ -148,35 +151,51 @@ export function Sidebar(props: SidebarProps): JSX.Element {
 
         {/* LOOSE PAGES */}
         {showsLoose && (
-          <SidebarSection
-            title="Loose Pages"
-            actionLabel={
-              onCreateLoosePageInContext
-                ? '+ New'
-                : currentView.type === 'loosePages'
-                  ? undefined
-                  : 'View All'
-            }
-            onAction={
-              onCreateLoosePageInContext
-                ? onCreateLoosePageInContext
-                : currentView.type === 'loosePages'
-                  ? undefined
-                  : onNavigateLoosePages
-            }
-            items={(currentView.type === 'loosePages'
-              ? loosePages
-              : loosePages.slice(0, 3)
-            ).map((page) => ({
-              id: page.id,
-              label: page.title,
-              isActive: page.id === activePageId,
-              onClick: () => {
-                onNavigatePage(page.id);
-                onClose();
-              }
-            }))}
-          />
+          <section className="sidebar-section">
+            <div className="sidebar-section-header">
+              <h2>Loose Pages</h2>
+              <div className="sidebar-section-actions">
+                {loosePages.length > 3 ? (
+                  <button
+                    type="button"
+                    className="sidebar-link-button"
+                    onClick={() => setIsLoosePagesExpanded((expanded) => !expanded)}
+                  >
+                    {isLoosePagesExpanded ? 'Show less' : 'Show more'}
+                  </button>
+                ) : null}
+                {onCreateLoosePageInContext ? (
+                  <button type="button" className="sidebar-link-button" onClick={onCreateLoosePageInContext}>
+                    + New
+                  </button>
+                ) : currentView.type === 'loosePages' ? null : (
+                  <button type="button" className="sidebar-link-button" onClick={onNavigateLoosePages}>
+                    View All
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className={`sidebar-list ${isLoosePagesExpanded ? 'sidebar-list-scrollable' : ''}`}>
+              {visibleLoosePages.length > 0 ? (
+                visibleLoosePages.map((page) => (
+                  <button
+                    key={page.id}
+                    type="button"
+                    className={`sidebar-item ${page.id === activePageId ? 'is-active' : ''}`}
+                    onClick={() => {
+                      onNavigatePage(page.id);
+                      onClose();
+                    }}
+                  >
+                    {page.title}
+                  </button>
+                ))
+              ) : (
+                <p className="sidebar-empty">Nothing here yet.</p>
+              )}
+            </div>
+          </section>
         )}
       </aside>
     </>

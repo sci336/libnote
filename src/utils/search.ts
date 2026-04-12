@@ -1,37 +1,74 @@
-import type { ID, LibraryData, Page } from '../types/domain';
+import type { Book, Chapter, ID, LibraryData, Page } from '../types/domain';
 import { normalizeTag, parseTagQuery } from './tags';
+import { isLoosePage } from './pageState';
 
-export interface SearchResult {
-  page: Page;
-  path: string;
-  snippet: string;
-  matchLabel: string;
+export type SearchMatchKind = 'title-exact' | 'title-partial' | 'content-exact' | 'content-partial' | 'tag';
+
+export interface BookSearchResult {
+  type: 'book';
+  id: ID;
+  title: string;
   score: number;
+  matchKind: Extract<SearchMatchKind, 'title-exact' | 'title-partial'>;
 }
 
-export interface SearchIndexedPageRecord {
-  pageId: ID;
+export interface ChapterSearchResult {
+  type: 'chapter';
+  id: ID;
+  title: string;
+  parentBookId: ID;
+  parentBookTitle: string;
+  score: number;
+  matchKind: Extract<SearchMatchKind, 'title-exact' | 'title-partial'>;
+}
+
+export interface PageSearchResult {
+  type: 'page';
+  id: ID;
+  title: string;
+  snippet?: string;
+  parentBookId?: ID;
+  parentBookTitle?: string;
+  parentChapterId?: ID;
+  parentChapterTitle?: string;
+  path: string;
+  score: number;
+  matchKind: SearchMatchKind;
+}
+
+export type SearchResult = BookSearchResult | ChapterSearchResult | PageSearchResult;
+
+interface SearchIndexedBookRecord {
+  book: Book;
+  title: string;
+  normalizedTitle: string;
+}
+
+interface SearchIndexedChapterRecord {
+  chapter: Chapter;
+  title: string;
+  normalizedTitle: string;
+  parentBookId: ID;
+  parentBookTitle: string;
+}
+
+interface SearchIndexedPageRecord {
   page: Page;
   title: string;
   content: string;
   normalizedTitle: string;
   normalizedContent: string;
-  normalizedCombined: string;
-  titleTokens: string[];
-  contentTokens: string[];
-  combinedTokens: string[];
-  tokenSet: Set<string>;
-  isLoose: boolean;
-  bookId?: ID;
-  chapterId?: ID;
-  bookTitle?: string;
-  chapterTitle?: string;
   path: string;
+  parentBookId?: ID;
+  parentBookTitle?: string;
+  parentChapterId?: ID;
+  parentChapterTitle?: string;
 }
 
 export interface SearchIndex {
-  pagesById: Map<ID, SearchIndexedPageRecord>;
-  tokenToPageIds: Map<string, Set<ID>>;
+  books: SearchIndexedBookRecord[];
+  chapters: SearchIndexedChapterRecord[];
+  pages: SearchIndexedPageRecord[];
 }
 
 export type SearchMode =
@@ -71,7 +108,7 @@ export function parseSearchInput(raw: string): SearchMode {
 }
 
 export function normalizeSearchText(input: string): string {
-  return input.trim().toLowerCase().replace(/\s+/g, ' ');
+  return flattenText(input).toLowerCase();
 }
 
 export function tokenizeSearchText(input: string): string[] {
@@ -79,62 +116,59 @@ export function tokenizeSearchText(input: string): string[] {
 }
 
 /**
- * Precomputes searchable page records and a token lookup table.
+ * Precomputes searchable records for books, chapters, and pages.
  * The index is only built when the user is searching so regular editing flows
  * do not pay for search-specific normalization on every render.
  */
 export function buildSearchIndex(data: LibraryData): SearchIndex {
-  const pagesById = new Map<ID, SearchIndexedPageRecord>();
-  const tokenToPageIds = new Map<string, Set<ID>>();
   const chapterMap = new Map(data.chapters.map((chapter) => [chapter.id, chapter] as const));
   const bookMap = new Map(data.books.map((book) => [book.id, book] as const));
 
-  for (const page of data.pages) {
-    const title = flattenText(page.title);
-    const content = flattenText(page.content);
-    const normalizedTitle = normalizeSearchText(title);
-    const normalizedContent = normalizeSearchText(content);
-    const normalizedCombined = normalizeSearchText(`${title} ${content}`);
-    const titleTokens = tokenizeSearchText(title);
-    const contentTokens = tokenizeSearchText(content);
-    const combinedTokens = Array.from(new Set([...titleTokens, ...contentTokens]));
-    const tokenSet = new Set(combinedTokens);
-    const chapter = page.chapterId ? chapterMap.get(page.chapterId) : undefined;
-    const book = chapter ? bookMap.get(chapter.bookId) : undefined;
+  return {
+    books: data.books.map((book) => {
+      const title = flattenText(book.title);
 
-    const record: SearchIndexedPageRecord = {
-      pageId: page.id,
-      page,
-      title,
-      content,
-      normalizedTitle,
-      normalizedContent,
-      normalizedCombined,
-      titleTokens,
-      contentTokens,
-      combinedTokens,
-      tokenSet,
-      isLoose: page.isLoose,
-      bookId: book?.id,
-      chapterId: chapter?.id,
-      bookTitle: book?.title,
-      chapterTitle: chapter?.title,
-      path: page.isLoose || !chapter ? 'Loose Pages' : `${book?.title ?? 'Book'} / ${chapter.title}`
-    };
+      return {
+        book,
+        title,
+        normalizedTitle: normalizeSearchText(title)
+      };
+    }),
+    chapters: data.chapters.map((chapter) => {
+      const title = flattenText(chapter.title);
+      const parentBook = bookMap.get(chapter.bookId);
 
-    pagesById.set(page.id, record);
+      return {
+        chapter,
+        title,
+        normalizedTitle: normalizeSearchText(title),
+        parentBookId: chapter.bookId,
+        parentBookTitle: parentBook?.title ?? 'Book'
+      };
+    }),
+    pages: data.pages.map((page) => {
+      const title = flattenText(page.title);
+      const content = flattenText(page.content);
+      const chapter = page.chapterId ? chapterMap.get(page.chapterId) : undefined;
+      const book = chapter ? bookMap.get(chapter.bookId) : undefined;
 
-    for (const token of tokenSet) {
-      const pageIds = tokenToPageIds.get(token) ?? new Set<ID>();
-      pageIds.add(page.id);
-      tokenToPageIds.set(token, pageIds);
-    }
-  }
-
-  return { pagesById, tokenToPageIds };
+      return {
+        page,
+        title,
+        content,
+        normalizedTitle: normalizeSearchText(title),
+        normalizedContent: normalizeSearchText(content),
+        path: isLoosePage(page) || !chapter ? 'Loose Pages' : `${book?.title ?? 'Book'} / ${chapter.title}`,
+        parentBookId: book?.id,
+        parentBookTitle: book?.title,
+        parentChapterId: chapter?.id,
+        parentChapterTitle: chapter?.title
+      };
+    })
+  };
 }
 
-export function searchPages(query: string, index: SearchIndex): SearchResult[] {
+export function searchLibraryEntities(query: string, index: SearchIndex): SearchResult[] {
   const mode = parseSearchInput(query);
 
   if (mode.type === 'emptyTag') {
@@ -142,16 +176,22 @@ export function searchPages(query: string, index: SearchIndex): SearchResult[] {
   }
 
   if (mode.type === 'tag') {
-    return [...index.pagesById.values()]
+    return index.pages
       .filter((record) => mode.tags.every((tag) => record.page.tags.includes(tag)))
-      .map((record) => ({
-        page: record.page,
-        path: record.path,
+      .map<PageSearchResult>((record) => ({
+        type: 'page',
+        id: record.page.id,
+        title: record.page.title,
         snippet: '',
-        matchLabel: 'Tag match',
-        score: 1
+        parentBookId: record.parentBookId,
+        parentBookTitle: record.parentBookTitle,
+        parentChapterId: record.parentChapterId,
+        parentChapterTitle: record.parentChapterTitle,
+        path: record.path,
+        score: 1,
+        matchKind: 'tag'
       }))
-      .sort((left, right) => left.page.title.localeCompare(right.page.title));
+      .sort((left, right) => left.title.localeCompare(right.title));
   }
 
   const normalizedQuery = normalizeSearchText(mode.query);
@@ -160,31 +200,63 @@ export function searchPages(query: string, index: SearchIndex): SearchResult[] {
   }
 
   const tokens = tokenizeSearchText(mode.query);
-  // Start with token hits when possible, but fall back to scanning every page so
-  // exact substring matches still work for punctuation-heavy fragments.
-  const candidatePageIds = getCandidatePageIds(tokens, index);
-  const candidateRecords =
-    candidatePageIds.size > 0
-      ? [...candidatePageIds]
-          .map((pageId) => index.pagesById.get(pageId))
-          .filter((record): record is SearchIndexedPageRecord => !!record)
-      : [...index.pagesById.values()];
+  const results: SearchResult[] = [];
 
-  return candidateRecords
-    .map((record) => scoreIndexedPage(record, normalizedQuery, tokens))
-    .filter((result): result is SearchResult => result !== null)
-    .sort((left, right) => {
-      if (left.score !== right.score) {
-        return right.score - left.score;
-      }
+  for (const book of index.books) {
+    const score = scoreTitleMatch(book.normalizedTitle, normalizedQuery, tokens);
+    if (!score) {
+      continue;
+    }
 
-      return right.page.updatedAt.localeCompare(left.page.updatedAt);
+    results.push({
+      type: 'book',
+      id: book.book.id,
+      title: book.book.title,
+      score: score.value,
+      matchKind: score.matchKind
     });
+  }
+
+  for (const chapter of index.chapters) {
+    const score = scoreTitleMatch(chapter.normalizedTitle, normalizedQuery, tokens);
+    if (!score) {
+      continue;
+    }
+
+    results.push({
+      type: 'chapter',
+      id: chapter.chapter.id,
+      title: chapter.chapter.title,
+      parentBookId: chapter.parentBookId,
+      parentBookTitle: chapter.parentBookTitle,
+      score: score.value,
+      matchKind: score.matchKind
+    });
+  }
+
+  for (const page of index.pages) {
+    const result = scorePageMatch(page, normalizedQuery, tokens);
+    if (result) {
+      results.push(result);
+    }
+  }
+
+  return results.sort(compareSearchResults);
+}
+
+export function searchPages(query: string, index: SearchIndex): SearchResult[] {
+  return searchLibraryEntities(query, index);
 }
 
 export function getHighlightedParts(text: string, query: string): Array<{ text: string; isMatch: boolean }> {
-  const displayText = text || 'Untitled Page';
-  const normalizedQuery = normalizeSearchText(query);
+  const displayText = text || 'Untitled';
+  const mode = parseSearchInput(query);
+
+  if (mode.type !== 'text') {
+    return [{ text: displayText, isMatch: false }];
+  }
+
+  const normalizedQuery = normalizeSearchText(mode.query);
   if (!normalizedQuery) {
     return [{ text: displayText, isMatch: false }];
   }
@@ -214,16 +286,150 @@ export function getHighlightedParts(text: string, query: string): Array<{ text: 
   return splitByRanges(flattened, ranges);
 }
 
-function buildSnippet(page: Page, normalizedQuery: string, tokens: string[]): string {
-  return buildSnippetFromRecord(
-    {
-      content: flattenText(page.content),
-      normalizedContent: normalizeSearchText(page.content),
-      normalizedTitle: normalizeSearchText(page.title)
-    },
-    normalizedQuery,
-    tokens
-  );
+export function getSearchResultBadgeLabel(result: SearchResult): string {
+  if (result.type === 'book') {
+    return 'Book';
+  }
+
+  if (result.type === 'chapter') {
+    return 'Chapter';
+  }
+
+  return 'Page';
+}
+
+export function getSearchResultPath(result: SearchResult): string | undefined {
+  if (result.type === 'book') {
+    return undefined;
+  }
+
+  if (result.type === 'chapter') {
+    return `${result.parentBookTitle} / ${result.title}`;
+  }
+
+  return result.path;
+}
+
+function scorePageMatch(
+  record: SearchIndexedPageRecord,
+  normalizedQuery: string,
+  tokens: string[]
+): PageSearchResult | null {
+  const titleMatch = scoreTitleMatch(record.normalizedTitle, normalizedQuery, tokens);
+
+  if (titleMatch) {
+    return {
+      type: 'page',
+      id: record.page.id,
+      title: record.page.title,
+      snippet: buildSnippetFromRecord(record, normalizedQuery, tokens),
+      parentBookId: record.parentBookId,
+      parentBookTitle: record.parentBookTitle,
+      parentChapterId: record.parentChapterId,
+      parentChapterTitle: record.parentChapterTitle,
+      path: record.path,
+      score: titleMatch.value,
+      matchKind: titleMatch.matchKind
+    };
+  }
+
+  const exactContentIndex = record.normalizedContent.indexOf(normalizedQuery);
+  if (exactContentIndex !== -1) {
+    return {
+      type: 'page',
+      id: record.page.id,
+      title: record.page.title,
+      snippet: buildSnippetFromRecord(record, normalizedQuery, tokens),
+      parentBookId: record.parentBookId,
+      parentBookTitle: record.parentBookTitle,
+      parentChapterId: record.parentChapterId,
+      parentChapterTitle: record.parentChapterTitle,
+      path: record.path,
+      score: 3000 - exactContentIndex,
+      matchKind: 'content-exact'
+    };
+  }
+
+  const tokenHits = tokens.reduce((count, token) => {
+    return record.normalizedContent.includes(token) ? count + 1 : count;
+  }, 0);
+
+  if (tokenHits === 0) {
+    return null;
+  }
+
+  return {
+    type: 'page',
+    id: record.page.id,
+    title: record.page.title,
+    snippet: buildSnippetFromRecord(record, normalizedQuery, tokens),
+    parentBookId: record.parentBookId,
+    parentBookTitle: record.parentBookTitle,
+    parentChapterId: record.parentChapterId,
+    parentChapterTitle: record.parentChapterTitle,
+    path: record.path,
+    score: 2000 + tokenHits,
+    matchKind: 'content-partial'
+  };
+}
+
+function scoreTitleMatch(
+  normalizedTitle: string,
+  normalizedQuery: string,
+  tokens: string[]
+): { value: number; matchKind: Extract<SearchMatchKind, 'title-exact' | 'title-partial'> } | null {
+  if (!normalizedTitle) {
+    return null;
+  }
+
+  if (normalizedTitle === normalizedQuery) {
+    return { value: 5000, matchKind: 'title-exact' };
+  }
+
+  const phraseIndex = normalizedTitle.indexOf(normalizedQuery);
+  if (phraseIndex !== -1) {
+    return { value: 4000 - phraseIndex, matchKind: 'title-partial' };
+  }
+
+  const tokenHits = tokens.reduce((count, token) => {
+    return normalizedTitle.includes(token) ? count + 1 : count;
+  }, 0);
+
+  if (tokens.length > 0 && tokenHits === tokens.length) {
+    return { value: 3900 + tokenHits, matchKind: 'title-partial' };
+  }
+
+  return null;
+}
+
+function compareSearchResults(left: SearchResult, right: SearchResult): number {
+  if (left.score !== right.score) {
+    return right.score - left.score;
+  }
+
+  const typeOrder = getSearchResultTypeOrder(left.type) - getSearchResultTypeOrder(right.type);
+  if (typeOrder !== 0) {
+    return typeOrder;
+  }
+
+  const titleOrder = left.title.localeCompare(right.title);
+  if (titleOrder !== 0) {
+    return titleOrder;
+  }
+
+  return left.id.localeCompare(right.id);
+}
+
+function getSearchResultTypeOrder(type: SearchResult['type']): number {
+  if (type === 'book') {
+    return 0;
+  }
+
+  if (type === 'chapter') {
+    return 1;
+  }
+
+  return 2;
 }
 
 function buildSnippetFromRecord(
@@ -231,31 +437,28 @@ function buildSnippetFromRecord(
   normalizedQuery: string,
   tokens: string[]
 ): string {
-  const flattenedContent = record.content;
-  if (!flattenedContent) {
+  if (!record.content) {
     return 'No content yet.';
   }
 
   const exactIndex = record.normalizedContent.indexOf(normalizedQuery);
 
   if (exactIndex !== -1) {
-    return clipSnippet(flattenedContent, exactIndex, normalizedQuery.length);
+    return clipSnippet(record.content, exactIndex, normalizedQuery.length);
   }
 
   for (const token of tokens) {
     const index = record.normalizedContent.indexOf(token);
     if (index !== -1) {
-      return clipSnippet(flattenedContent, index, token.length);
+      return clipSnippet(record.content, index, token.length);
     }
   }
 
-  // Title-only matches still show a content preview so results remain useful
-  // even when the matching words never appear in the body text.
   if (record.normalizedTitle.includes(normalizedQuery)) {
-    return clipSnippet(flattenedContent, 0, 0);
+    return clipSnippet(record.content, 0, 0);
   }
 
-  return clipSnippet(flattenedContent, 0, 0);
+  return clipSnippet(record.content, 0, 0);
 }
 
 function clipSnippet(text: string, matchStart: number, matchLength: number): string {
@@ -287,67 +490,6 @@ function clipSnippet(text: string, matchStart: number, matchLength: number): str
 
 function flattenText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
-}
-
-function getCandidatePageIds(tokens: string[], index: SearchIndex): Set<ID> {
-  const candidates = new Set<ID>();
-
-  for (const token of tokens) {
-    const pageIds = index.tokenToPageIds.get(token);
-    if (!pageIds) {
-      continue;
-    }
-
-    for (const pageId of pageIds) {
-      candidates.add(pageId);
-    }
-  }
-
-  return candidates;
-}
-
-function scoreIndexedPage(
-  record: SearchIndexedPageRecord,
-  normalizedQuery: string,
-  tokens: string[]
-): SearchResult | null {
-  const titlePhraseIndex = record.normalizedTitle.indexOf(normalizedQuery);
-  const contentPhraseIndex = record.normalizedContent.indexOf(normalizedQuery);
-  const allWordsInTitle = tokens.length > 0 && tokens.every((token) => record.normalizedTitle.includes(token));
-  const allWordsInContent = tokens.length > 0 && tokens.every((token) => record.normalizedContent.includes(token));
-  const tokenHits = tokens.reduce((count, token) => {
-    return record.tokenSet.has(token) ? count + 1 : count;
-  }, 0);
-
-  let score = 0;
-  let matchLabel = '';
-
-  if (titlePhraseIndex !== -1) {
-    score = 5000 - titlePhraseIndex;
-    matchLabel = 'Exact phrase in title';
-  } else if (contentPhraseIndex !== -1) {
-    score = 4000 - contentPhraseIndex;
-    matchLabel = 'Exact phrase in content';
-  } else if (allWordsInTitle) {
-    score = 3000 + tokenHits;
-    matchLabel = 'All words in title';
-  } else if (allWordsInContent) {
-    score = 2000 + tokenHits;
-    matchLabel = 'All words in content';
-  } else if (tokenHits > 0) {
-    score = 1000 + tokenHits;
-    matchLabel = 'Partial match';
-  } else {
-    return null;
-  }
-
-  return {
-    page: record.page,
-    path: record.path,
-    snippet: buildSnippetFromRecord(record, normalizedQuery, tokens),
-    matchLabel,
-    score
-  };
 }
 
 function splitByRange(text: string, start: number, end: number): Array<{ text: string; isMatch: boolean }> {
