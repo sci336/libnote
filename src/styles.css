@@ -514,6 +514,10 @@ kbd {
   gap: 1rem;
 }
 
+.settings-shortcuts-card {
+  grid-column: 1 / -1;
+}
+
 .settings-control-group {
   display: flex;
   flex-direction: column;
@@ -550,6 +554,66 @@ kbd {
   background: rgba(31, 41, 55, 0.92);
   color: #f9fafb;
   border-color: rgba(31, 41, 55, 0.92);
+}
+
+.shortcut-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.shortcut-editor-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.shortcut-editor-row.is-capturing {
+  border-color: rgba(61, 90, 128, 0.5);
+  background: rgba(215, 226, 243, 0.58);
+}
+
+.shortcut-editor-copy {
+  display: flex;
+  flex: 1;
+  min-width: 12rem;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.shortcut-editor-copy span {
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+.shortcut-editor-controls,
+.shortcut-editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.shortcut-capture-button {
+  min-height: 2.4rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid rgba(61, 90, 128, 0.45);
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1f2937;
+  font-weight: 700;
+}
+
+.shortcut-error {
+  color: #9f1239 !important;
+  font-weight: 700;
 }
 
 .section-header,
@@ -1371,6 +1435,16 @@ mark {
   }
 
   .settings-choice-row {
+    width: 100%;
+  }
+
+  .shortcut-editor-row,
+  .shortcut-editor-controls {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .shortcut-editor-controls {
     width: 100%;
   }
 

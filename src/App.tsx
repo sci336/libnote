@@ -179,6 +179,9 @@ export default function App(): JSX.Element {
         activeSection={app.appMenuSection}
         settings={app.settings}
         onUpdateLibraryBooksPerRow={app.handleUpdateLibraryBooksPerRow}
+        onUpdateShortcut={app.handleUpdateShortcut}
+        onResetShortcut={app.handleResetShortcut}
+        onResetAllShortcuts={app.handleResetAllShortcuts}
         onClose={app.closeAppMenu}
         onSelectSection={app.navigateAppMenu}
       />
