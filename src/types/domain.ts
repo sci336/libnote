@@ -47,8 +47,26 @@ export interface LibraryViewSettings {
   booksPerRow: LibraryBooksPerRow;
 }
 
+export type ShortcutAction =
+  | 'newLoosePage'
+  | 'newChapterPage'
+  | 'toggleSidebar'
+  | 'goHome'
+  | 'goBack';
+
+export interface ShortcutBinding {
+  key: string;
+  meta?: boolean;
+  ctrl?: boolean;
+  shift?: boolean;
+  alt?: boolean;
+}
+
+export type ShortcutSettings = Record<ShortcutAction, ShortcutBinding | null>;
+
 export interface AppSettings {
   libraryView: LibraryViewSettings;
+  shortcuts: ShortcutSettings;
 }
 
 export type AppMenuSection = 'help' | 'shortcuts' | 'settings' | 'credits';

@@ -1,5 +1,21 @@
-import { useEffect } from 'react';
-import type { AppMenuSection, AppSettings, LibraryBooksPerRow } from '../types/domain';
+import { useEffect, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type {
+  AppMenuSection,
+  AppSettings,
+  LibraryBooksPerRow,
+  ShortcutAction,
+  ShortcutBinding
+} from '../types/domain';
+import {
+  DEFAULT_SHORTCUTS,
+  SHORTCUT_ACTION_LABELS,
+  SHORTCUT_ACTIONS,
+  areShortcutBindingsEqual,
+  bindingFromKeyboardEvent,
+  formatShortcut,
+  validateShortcutBinding
+} from '../utils/shortcuts';
 
 const LIBRARY_ROW_OPTIONS: LibraryBooksPerRow[] = [2, 3, 4, 5];
 
@@ -8,14 +24,17 @@ interface AppMenuProps {
   activeSection: AppMenuSection;
   settings: AppSettings;
   onUpdateLibraryBooksPerRow: (booksPerRow: LibraryBooksPerRow) => void;
+  onUpdateShortcut: (action: ShortcutAction, binding: ShortcutBinding | null) => void;
+  onResetShortcut: (action: ShortcutAction) => void;
+  onResetAllShortcuts: () => void;
   onClose: () => void;
   onSelectSection: (section: AppMenuSection) => void;
 }
 
 const MENU_SECTIONS: Array<{ id: AppMenuSection; label: string; summary: string }> = [
   { id: 'help', label: 'Help', summary: 'How the library, tags, search, and links work.' },
-  { id: 'shortcuts', label: 'Shortcuts', summary: 'Current keyboard controls and future room to grow.' },
-  { id: 'settings', label: 'Settings', summary: 'A small shell for preferences and app behavior.' },
+  { id: 'shortcuts', label: 'Shortcuts', summary: 'Current keyboard controls and customizable defaults.' },
+  { id: 'settings', label: 'Settings', summary: 'Library density, shortcuts, and app behavior.' },
   { id: 'credits', label: 'Credits', summary: 'A lightweight note about the project.' }
 ];
 
@@ -24,6 +43,9 @@ export function AppMenu({
   activeSection,
   settings,
   onUpdateLibraryBooksPerRow,
+  onUpdateShortcut,
+  onResetShortcut,
+  onResetAllShortcuts,
   onClose,
   onSelectSection
 }: AppMenuProps): JSX.Element | null {
@@ -84,7 +106,10 @@ export function AppMenu({
           <div className="app-menu-content">
             {renderSection(activeSection, {
               settings,
-              onUpdateLibraryBooksPerRow
+              onUpdateLibraryBooksPerRow,
+              onUpdateShortcut,
+              onResetShortcut,
+              onResetAllShortcuts
             })}
           </div>
         </div>
@@ -95,14 +120,17 @@ export function AppMenu({
 
 function renderSection(
   section: AppMenuSection,
-  settingsProps: Pick<AppMenuProps, 'settings' | 'onUpdateLibraryBooksPerRow'>
+  settingsProps: Pick<
+    AppMenuProps,
+    'settings' | 'onUpdateLibraryBooksPerRow' | 'onUpdateShortcut' | 'onResetShortcut' | 'onResetAllShortcuts'
+  >
 ): JSX.Element {
   if (section === 'help') {
     return <HelpSection />;
   }
 
   if (section === 'shortcuts') {
-    return <ShortcutsSection />;
+    return <ShortcutsSection settings={settingsProps.settings} />;
   }
 
   if (section === 'settings') {
@@ -170,18 +198,32 @@ function HelpSection(): JSX.Element {
           <li>Mixed queries like text plus slash tags are not combined yet; the search bar currently handles either text search or tag-only search.</li>
           <li>Backlinks only resolve from <code>[[Page Title]]</code> links, and duplicate page titles use the first matching page right now.</li>
           <li>The editor still uses the lightweight plain-text note flow rather than rich text formatting.</li>
+          <li>Global shortcuts can be changed in Settings, but browser and system-reserved combinations are blocked.</li>
         </ul>
       </section>
     </div>
   );
 }
 
-function ShortcutsSection(): JSX.Element {
+function ShortcutsSection({ settings }: Pick<AppMenuProps, 'settings'>): JSX.Element {
   return (
     <div className="menu-section-stack">
       <section className="menu-card">
-        <h2>Current keyboard controls</h2>
+        <h2>Keyboard controls</h2>
+        <p>
+          Global shortcuts can be changed in Settings. Some browser and system combinations are unavailable so the app
+          does not intercept tab, reload, close, or address-bar commands.
+        </p>
         <div className="shortcut-list" aria-label="Current keyboard controls">
+          {SHORTCUT_ACTIONS.map((action) => (
+            <div className="shortcut-row" key={action}>
+              <div>
+                <strong>{SHORTCUT_ACTION_LABELS[action]}</strong>
+                <p>Default: {formatShortcut(DEFAULT_SHORTCUTS[action])}</p>
+              </div>
+              <kbd>{formatShortcut(settings.shortcuts[action])}</kbd>
+            </div>
+          ))}
           <div className="shortcut-row">
             <div>
               <strong>Commit an inline title edit</strong>
@@ -210,20 +252,6 @@ function ShortcutsSection(): JSX.Element {
             </div>
             <kbd>Esc</kbd>
           </div>
-          <div className="shortcut-row">
-            <div>
-              <strong>Create a new loose page</strong>
-              <p>Works from anywhere in the app and opens the new loose page immediately.</p>
-            </div>
-            <kbd>Cmd/Ctrl + Alt + N</kbd>
-          </div>
-          <div className="shortcut-row">
-            <div>
-              <strong>Create a new page in the current chapter</strong>
-              <p>Only works while you are inside a chapter or viewing one of that chapter&apos;s pages.</p>
-            </div>
-            <kbd>Cmd/Ctrl + Shift + N</kbd>
-          </div>
         </div>
       </section>
     </div>
@@ -232,15 +260,21 @@ function ShortcutsSection(): JSX.Element {
 
 function SettingsSection({
   settings,
-  onUpdateLibraryBooksPerRow
-}: Pick<AppMenuProps, 'settings' | 'onUpdateLibraryBooksPerRow'>): JSX.Element {
+  onUpdateLibraryBooksPerRow,
+  onUpdateShortcut,
+  onResetShortcut,
+  onResetAllShortcuts
+}: Pick<
+  AppMenuProps,
+  'settings' | 'onUpdateLibraryBooksPerRow' | 'onUpdateShortcut' | 'onResetShortcut' | 'onResetAllShortcuts'
+>): JSX.Element {
   return (
     <div className="menu-section-stack">
       <section className="menu-card">
         <h2>Settings</h2>
         <p>
-          Adjust how dense the main books screen feels without changing how books open, rename, or reorder. These
-          library-view settings persist across reloads.
+          Adjust how dense the main books screen feels and customize the global shortcuts that help you move through
+          the app. These settings persist across reloads.
         </p>
       </section>
 
@@ -274,21 +308,161 @@ function SettingsSection({
           </div>
         </article>
 
+        <article className="settings-placeholder-card settings-shortcuts-card">
+          <div className="settings-placeholder-head">
+            <strong>Keyboard Shortcuts</strong>
+            <span className="search-result-badge">Live</span>
+          </div>
+          <p>Change, clear, or reset the global shortcuts used for page creation and navigation.</p>
+          <ShortcutEditor
+            settings={settings}
+            onUpdateShortcut={onUpdateShortcut}
+            onResetShortcut={onResetShortcut}
+            onResetAllShortcuts={onResetAllShortcuts}
+          />
+        </article>
         <article className="settings-placeholder-card">
           <div className="settings-placeholder-head">
             <strong>Behavior</strong>
             <span className="search-result-badge">Coming later</span>
           </div>
-          <p>Good future fits include startup view, sidebar behavior, and search defaults.</p>
-        </article>
-        <article className="settings-placeholder-card">
-          <div className="settings-placeholder-head">
-            <strong>Editor</strong>
-            <span className="search-result-badge">Coming later</span>
-          </div>
-          <p>Editor-wide preferences can live here when settings need to apply across every page instead of one note at a time.</p>
+          <p>Good future fits include startup view, sidebar behavior, search defaults, and editor-wide preferences.</p>
         </article>
       </section>
+    </div>
+  );
+}
+
+function ShortcutEditor({
+  settings,
+  onUpdateShortcut,
+  onResetShortcut,
+  onResetAllShortcuts
+}: Pick<AppMenuProps, 'settings' | 'onUpdateShortcut' | 'onResetShortcut' | 'onResetAllShortcuts'>): JSX.Element {
+  const [capturingAction, setCapturingAction] = useState<ShortcutAction | null>(null);
+  const [errors, setErrors] = useState<Partial<Record<ShortcutAction, string>>>({});
+
+  function setError(action: ShortcutAction, message: string | null): void {
+    setErrors((currentErrors) => {
+      const nextErrors = { ...currentErrors };
+
+      if (message) {
+        nextErrors[action] = message;
+      } else {
+        delete nextErrors[action];
+      }
+
+      return nextErrors;
+    });
+  }
+
+  function handleCaptureKeyDown(action: ShortcutAction, event: ReactKeyboardEvent<HTMLButtonElement>): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (event.key === 'Escape') {
+      setCapturingAction(null);
+      setError(action, null);
+      return;
+    }
+
+    const binding = bindingFromKeyboardEvent(event);
+    const validationMessage = validateShortcutBinding(action, binding, settings.shortcuts);
+
+    if (validationMessage) {
+      setError(action, validationMessage);
+      return;
+    }
+
+    onUpdateShortcut(action, binding);
+    setCapturingAction(null);
+    setError(action, null);
+  }
+
+  function clearShortcut(action: ShortcutAction): void {
+    onUpdateShortcut(action, null);
+    setError(action, null);
+    if (capturingAction === action) {
+      setCapturingAction(null);
+    }
+  }
+
+  function resetShortcut(action: ShortcutAction): void {
+    onResetShortcut(action);
+    setError(action, null);
+    if (capturingAction === action) {
+      setCapturingAction(null);
+    }
+  }
+
+  function resetAllShortcuts(): void {
+    onResetAllShortcuts();
+    setCapturingAction(null);
+    setErrors({});
+  }
+
+  return (
+    <div className="shortcut-editor">
+      {SHORTCUT_ACTIONS.map((action) => {
+        const currentBinding = settings.shortcuts[action];
+        const isCapturing = capturingAction === action;
+        const isDefault = areShortcutBindingsEqual(currentBinding, DEFAULT_SHORTCUTS[action]);
+
+        return (
+          <div className={`shortcut-editor-row ${isCapturing ? 'is-capturing' : ''}`} key={action}>
+            <div className="shortcut-editor-copy">
+              <strong>{SHORTCUT_ACTION_LABELS[action]}</strong>
+              {isCapturing ? (
+                <span>Press a new shortcut. Esc to cancel.</span>
+              ) : (
+                <span>Current: {formatShortcut(currentBinding)}</span>
+              )}
+              {errors[action] ? <p className="shortcut-error">{errors[action]}</p> : null}
+            </div>
+
+            <div className="shortcut-editor-controls">
+              {isCapturing ? (
+                <button
+                  type="button"
+                  className="shortcut-capture-button"
+                  autoFocus
+                  onKeyDown={(event) => handleCaptureKeyDown(action, event)}
+                >
+                  Press shortcut
+                </button>
+              ) : (
+                <kbd>{formatShortcut(currentBinding)}</kbd>
+              )}
+              <button
+                type="button"
+                className="settings-choice-button"
+                onClick={() => {
+                  setCapturingAction(action);
+                  setError(action, null);
+                }}
+              >
+                Change
+              </button>
+              {currentBinding ? (
+                <button type="button" className="settings-choice-button" onClick={() => clearShortcut(action)}>
+                  Clear
+                </button>
+              ) : null}
+              {!isDefault ? (
+                <button type="button" className="settings-choice-button" onClick={() => resetShortcut(action)}>
+                  Reset
+                </button>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="shortcut-editor-footer">
+        <button type="button" className="settings-choice-button" onClick={resetAllShortcuts}>
+          Reset all shortcuts
+        </button>
+      </div>
     </div>
   );
 }

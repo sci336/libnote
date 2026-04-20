@@ -5,6 +5,8 @@ import type {
   LibraryBooksPerRow,
   LibraryData,
   Page,
+  ShortcutAction,
+  ShortcutBinding,
   ViewState
 } from '../types/domain';
 import { loadAppSettings, saveAppSettings } from '../db/indexedDb';
@@ -48,6 +50,11 @@ import {
 import { useDebouncedEffect } from './useDebouncedEffect';
 import { buildSearchIndex, normalizeSearchQuery, parseSearchInput, searchPages } from '../utils/search';
 import { isLoosePage } from '../utils/pageState';
+import {
+  DEFAULT_SHORTCUTS,
+  eventMatchesShortcut,
+  normalizeShortcutSettings
+} from '../utils/shortcuts';
 import { formatTagQuery, normalizeTag, normalizeTagList, parseTagQuery } from '../utils/tags';
 
 const DESKTOP_WIDTH = 920;
@@ -55,7 +62,8 @@ const PERSISTENCE_DELAY_MS = 300;
 const DEFAULT_APP_SETTINGS: AppSettings = {
   libraryView: {
     booksPerRow: 4
-  }
+  },
+  shortcuts: DEFAULT_SHORTCUTS
 };
 
 /**
@@ -666,28 +674,64 @@ export function useLibraryApp() {
     }));
   }
 
+  function handleUpdateShortcut(action: ShortcutAction, binding: ShortcutBinding | null): void {
+    setSettings((currentSettings) => ({
+      ...currentSettings,
+      shortcuts: {
+        ...currentSettings.shortcuts,
+        [action]: binding
+      }
+    }));
+  }
+
+  function handleResetShortcut(action: ShortcutAction): void {
+    handleUpdateShortcut(action, DEFAULT_SHORTCUTS[action]);
+  }
+
+  function handleResetAllShortcuts(): void {
+    setSettings((currentSettings) => ({
+      ...currentSettings,
+      shortcuts: normalizeShortcutSettings(DEFAULT_SHORTCUTS)
+    }));
+  }
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.isComposing) {
+      if (event.isComposing || appMenuOpen) {
         return;
       }
 
-      const key = event.key.toLowerCase();
-      const hasPrimaryModifier = event.metaKey || event.ctrlKey;
+      const shortcuts = settings.shortcuts;
 
-      if (!hasPrimaryModifier || key !== 'n') {
-        return;
-      }
-
-      if (event.altKey && !event.shiftKey) {
+      if (eventMatchesShortcut(event, shortcuts.newLoosePage)) {
         event.preventDefault();
         handleCreateLoosePage();
         return;
       }
 
-      if (event.shiftKey && !event.altKey && sidebarChapterId) {
+      if (eventMatchesShortcut(event, shortcuts.newChapterPage)) {
+        if (sidebarChapterId) {
+          event.preventDefault();
+          handleCreatePage(sidebarChapterId);
+        }
+        return;
+      }
+
+      if (eventMatchesShortcut(event, shortcuts.toggleSidebar)) {
         event.preventDefault();
-        handleCreatePage(sidebarChapterId);
+        setSidebarOpen((open) => !open);
+        return;
+      }
+
+      if (eventMatchesShortcut(event, shortcuts.goHome)) {
+        event.preventDefault();
+        navigateHome();
+        return;
+      }
+
+      if (eventMatchesShortcut(event, shortcuts.goBack)) {
+        event.preventDefault();
+        navigateBack();
       }
     };
 
@@ -695,7 +739,7 @@ export function useLibraryApp() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [handleCreateLoosePage, handleCreatePage, sidebarChapterId]);
+  }, [appMenuOpen, handleCreateLoosePage, handleCreatePage, settings.shortcuts, sidebarChapterId]);
 
   return {
     data,
@@ -771,7 +815,10 @@ export function useLibraryApp() {
     handleUpdatePageContent,
     handleUpdatePageTextSize,
     handleUpdatePageTags,
-    handleUpdateLibraryBooksPerRow
+    handleUpdateLibraryBooksPerRow,
+    handleUpdateShortcut,
+    handleResetShortcut,
+    handleResetAllShortcuts
   };
 }
 
@@ -813,6 +860,7 @@ function normalizeAppSettings(settings: AppSettings | null): AppSettings {
         booksPerRow === 2 || booksPerRow === 3 || booksPerRow === 4 || booksPerRow === 5
           ? booksPerRow
           : DEFAULT_APP_SETTINGS.libraryView.booksPerRow
-    }
+    },
+    shortcuts: normalizeShortcutSettings(settings?.shortcuts)
   };
 }
