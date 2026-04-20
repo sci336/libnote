@@ -379,6 +379,24 @@ function ShortcutEditor({
     setError(action, null);
   }
 
+  function handleShortcutFieldKeyDown(action: ShortcutAction, event: ReactKeyboardEvent<HTMLButtonElement>): void {
+    if (capturingAction === action) {
+      handleCaptureKeyDown(action, event);
+      return;
+    }
+
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setCapturingAction(action);
+      setError(action, null);
+    }
+  }
+
+  function startCapture(action: ShortcutAction): void {
+    setCapturingAction(action);
+    setError(action, null);
+  }
+
   function clearShortcut(action: ShortcutAction): void {
     onUpdateShortcut(action, null);
     setError(action, null);
@@ -415,33 +433,26 @@ function ShortcutEditor({
               {isCapturing ? (
                 <span>Press a new shortcut. Esc to cancel.</span>
               ) : (
-                <span>Current: {formatShortcut(currentBinding)}</span>
+                <span>Click the shortcut field to edit.</span>
               )}
-              {errors[action] ? <p className="shortcut-error">{errors[action]}</p> : null}
+              {errors[action] ? (
+                <p className="shortcut-error" id={`shortcut-error-${action}`}>
+                  {errors[action]}
+                </p>
+              ) : null}
             </div>
 
             <div className="shortcut-editor-controls">
-              {isCapturing ? (
-                <button
-                  type="button"
-                  className="shortcut-capture-button"
-                  autoFocus
-                  onKeyDown={(event) => handleCaptureKeyDown(action, event)}
-                >
-                  Press shortcut
-                </button>
-              ) : (
-                <kbd>{formatShortcut(currentBinding)}</kbd>
-              )}
               <button
                 type="button"
-                className="settings-choice-button"
-                onClick={() => {
-                  setCapturingAction(action);
-                  setError(action, null);
-                }}
+                className={`shortcut-field ${isCapturing ? 'is-capturing' : ''} ${errors[action] ? 'has-error' : ''}`}
+                aria-label={`Edit shortcut for ${SHORTCUT_ACTION_LABELS[action]}`}
+                aria-describedby={errors[action] ? `shortcut-error-${action}` : undefined}
+                autoFocus={isCapturing}
+                onClick={() => startCapture(action)}
+                onKeyDown={(event) => handleShortcutFieldKeyDown(action, event)}
               >
-                Change
+                {isCapturing ? 'Press shortcut...' : formatShortcut(currentBinding)}
               </button>
               {currentBinding ? (
                 <button type="button" className="settings-choice-button" onClick={() => clearShortcut(action)}>
