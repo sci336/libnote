@@ -53,6 +53,7 @@ import { isLoosePage } from '../utils/pageState';
 import {
   DEFAULT_SHORTCUTS,
   eventMatchesShortcut,
+  isTypingInEditableTarget,
   normalizeShortcutSettings
 } from '../utils/shortcuts';
 import { formatTagQuery, normalizeTag, normalizeTagList, parseTagQuery } from '../utils/tags';
@@ -697,7 +698,7 @@ export function useLibraryApp() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.isComposing || appMenuOpen) {
+      if (event.isComposing || appMenuOpen || isTypingInEditableTarget(event.target)) {
         return;
       }
 

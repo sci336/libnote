@@ -34,7 +34,7 @@ export function eventMatchesShortcut(event: KeyboardEvent, binding: ShortcutBind
   }
 
   const normalizedBinding = normalizeShortcutBinding(binding);
-  if (isShortcutBindingEmpty(normalizedBinding)) {
+  if (!isValidGlobalShortcutBinding(normalizedBinding)) {
     return false;
   }
 
@@ -121,6 +121,63 @@ export function isShortcutBindingEmpty(binding: ShortcutBinding | null | undefin
   return normalizedKey.length === 0 || MODIFIER_KEYS.has(normalizedKey);
 }
 
+export function hasNonShiftModifier(binding: ShortcutBinding | null | undefined): boolean {
+  if (!binding) {
+    return false;
+  }
+
+  return Boolean(binding.meta || binding.ctrl || binding.alt);
+}
+
+export function isValidGlobalShortcutBinding(binding: ShortcutBinding | null | undefined): boolean {
+  if (!binding) {
+    return false;
+  }
+
+  const normalizedBinding = normalizeShortcutBinding(binding);
+  return !isShortcutBindingEmpty(normalizedBinding) && hasNonShiftModifier(normalizedBinding);
+}
+
+export function isTypingInEditableTarget(target: EventTarget | null): boolean {
+  if (!target) {
+    return false;
+  }
+
+  let currentTarget: EventTarget | null = target;
+
+  if (currentTarget instanceof Node && currentTarget.nodeType === Node.TEXT_NODE) {
+    currentTarget = currentTarget.parentElement;
+  }
+
+  if (!(currentTarget instanceof Element)) {
+    return false;
+  }
+
+  let currentElement: Element | null = currentTarget;
+
+  while (currentElement) {
+    if (
+      currentElement instanceof HTMLInputElement ||
+      currentElement instanceof HTMLTextAreaElement ||
+      currentElement instanceof HTMLSelectElement
+    ) {
+      return true;
+    }
+
+    if (currentElement instanceof HTMLElement && currentElement.isContentEditable) {
+      return true;
+    }
+
+    if (currentElement.getAttribute('contenteditable') === 'true') {
+      return true;
+    }
+
+    currentElement = currentElement.parentElement;
+  }
+
+  return false;
+}
+
 export function areShortcutBindingsEqual(
   left: ShortcutBinding | null | undefined,
   right: ShortcutBinding | null | undefined
@@ -154,8 +211,8 @@ export function validateShortcutBinding(
     return 'Press a key together with a modifier.';
   }
 
-  if (isPlainSingleCharacterShortcut(normalizedBinding)) {
-    return 'Single-letter shortcuts need Ctrl, Cmd, Alt, or Shift.';
+  if (!hasNonShiftModifier(normalizedBinding)) {
+    return 'Global shortcuts must include Ctrl, Cmd, or Alt.';
   }
 
   if (isReservedShortcut(normalizedBinding)) {
@@ -210,7 +267,7 @@ function normalizePersistedBinding(
   }
 
   const normalizedBinding = normalizeShortcutBinding(binding);
-  if (isShortcutBindingEmpty(normalizedBinding)) {
+  if (!isValidGlobalShortcutBinding(normalizedBinding)) {
     return fallback ? normalizeShortcutBinding(fallback) : null;
   }
 
@@ -239,16 +296,6 @@ function getComparableBinding(binding: ShortcutBinding): ShortcutBinding {
     meta: undefined,
     ctrl: Boolean(binding.meta || binding.ctrl) || undefined
   };
-}
-
-function isPlainSingleCharacterShortcut(binding: ShortcutBinding): boolean {
-  return (
-    binding.key.length === 1 &&
-    !binding.meta &&
-    !binding.ctrl &&
-    !binding.shift &&
-    !binding.alt
-  );
 }
 
 function normalizeKey(key: string): string {
