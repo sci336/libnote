@@ -3,7 +3,7 @@ import { AppMenu } from './components/AppMenu';
 import { EmptyState } from './components/EmptyState';
 import { PageEditor } from './components/PageEditor';
 import { SearchResultsView } from './components/SearchResultsView';
-import { Sidebar } from './components/Sidebar';
+import { Sidebar, type RecentSidebarPage } from './components/Sidebar';
 import { TagResultsView } from './components/TagResultsView';
 import { TopBar } from './components/TopBar';
 import { useLibraryApp } from './hooks/useLibraryApp';
@@ -59,6 +59,18 @@ export default function App(): JSX.Element {
     [allPages, app.view, data]
   );
   const availableTags = useMemo(() => getAllTags(allPages), [allPages]);
+  const recentPages = useMemo<RecentSidebarPage[]>(
+    () =>
+      app.recentPageIds
+        .map((pageId) => pageById.get(pageId))
+        .filter((page): page is Page => Boolean(page))
+        .map((page) => ({
+          id: page.id,
+          title: page.title,
+          contextLabel: getPagePathLabel(page, chapterById, bookById)
+        })),
+    [app.recentPageIds, bookById, chapterById, pageById]
+  );
 
   const openPageById = useCallback(
     (pageId: string) => {
@@ -148,6 +160,7 @@ export default function App(): JSX.Element {
           chapters={app.chapterList}
           pages={app.pageList}
           loosePages={app.loosePages}
+          recentPages={recentPages}
           activeBookId={app.sidebarBookId}
           activeChapterId={app.activeChapter?.id ?? app.derivedChapterForPage?.id}
           activePageId={app.activePage?.id}

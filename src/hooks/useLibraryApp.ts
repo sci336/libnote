@@ -60,11 +60,13 @@ import { formatTagQuery, normalizeTag, normalizeTagList, parseTagQuery } from '.
 
 const DESKTOP_WIDTH = 920;
 const PERSISTENCE_DELAY_MS = 300;
+const RECENT_PAGES_LIMIT = 8;
 const DEFAULT_APP_SETTINGS: AppSettings = {
   libraryView: {
     booksPerRow: 4
   },
-  shortcuts: DEFAULT_SHORTCUTS
+  shortcuts: DEFAULT_SHORTCUTS,
+  recentPageIds: []
 };
 
 /**
@@ -250,6 +252,30 @@ export function useLibraryApp() {
   const allChapters = useMemo(() => (data ? getAllChapters(data) : []), [data]);
   const initialMoveBookId = books[0]?.id ?? '';
 
+  useEffect(() => {
+    if (!activePage) {
+      return;
+    }
+
+    recordRecentPage(activePage.id);
+  }, [activePage?.id]);
+
+  useEffect(() => {
+    if (!data || !settingsHydrated) {
+      return;
+    }
+
+    const existingPageIds = new Set(data.pages.map((page) => page.id));
+    const cleanedRecentPageIds = settings.recentPageIds.filter((pageId) => existingPageIds.has(pageId));
+
+    if (!areStringArraysEqual(cleanedRecentPageIds, settings.recentPageIds)) {
+      setSettings((currentSettings) => ({
+        ...currentSettings,
+        recentPageIds: currentSettings.recentPageIds.filter((pageId) => existingPageIds.has(pageId))
+      }));
+    }
+  }, [data, settings.recentPageIds, settingsHydrated]);
+
   function runIfDataLoaded(callback: (currentData: LibraryData) => void): void {
     if (!data) {
       return;
@@ -312,6 +338,24 @@ export function useLibraryApp() {
       }
 
       return nextTags;
+    });
+  }
+
+  function recordRecentPage(pageId: string): void {
+    setSettings((currentSettings) => {
+      const nextRecentPageIds = [
+        pageId,
+        ...currentSettings.recentPageIds.filter((recentPageId) => recentPageId !== pageId)
+      ].slice(0, RECENT_PAGES_LIMIT);
+
+      if (areStringArraysEqual(nextRecentPageIds, currentSettings.recentPageIds)) {
+        return currentSettings;
+      }
+
+      return {
+        ...currentSettings,
+        recentPageIds: nextRecentPageIds
+      };
     });
   }
 
@@ -452,6 +496,10 @@ export function useLibraryApp() {
     }
 
     updateData(deletePage(data, page.id));
+    setSettings((currentSettings) => ({
+      ...currentSettings,
+      recentPageIds: currentSettings.recentPageIds.filter((pageId) => pageId !== page.id)
+    }));
 
     if (isLoosePage(page)) {
       replaceView({ type: 'loosePages' });
@@ -757,6 +805,7 @@ export function useLibraryApp() {
     searchOriginView,
     tagOriginView,
     recentTags,
+    recentPageIds: settings.recentPageIds,
     books,
     loosePages,
     chapterList,
@@ -862,6 +911,33 @@ function normalizeAppSettings(settings: AppSettings | null): AppSettings {
           ? booksPerRow
           : DEFAULT_APP_SETTINGS.libraryView.booksPerRow
     },
-    shortcuts: normalizeShortcutSettings(settings?.shortcuts)
+    shortcuts: normalizeShortcutSettings(settings?.shortcuts),
+    recentPageIds: normalizeRecentPageIds(settings?.recentPageIds)
   };
+}
+
+function normalizeRecentPageIds(recentPageIds: unknown): string[] {
+  if (!Array.isArray(recentPageIds)) {
+    return [];
+  }
+
+  const normalizedIds: string[] = [];
+
+  for (const pageId of recentPageIds) {
+    if (typeof pageId !== 'string' || pageId.length === 0 || normalizedIds.includes(pageId)) {
+      continue;
+    }
+
+    normalizedIds.push(pageId);
+
+    if (normalizedIds.length === RECENT_PAGES_LIMIT) {
+      break;
+    }
+  }
+
+  return normalizedIds;
+}
+
+function areStringArraysEqual(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }

@@ -67,6 +67,7 @@ export type ShortcutSettings = Record<ShortcutAction, ShortcutBinding | null>;
 export interface AppSettings {
   libraryView: LibraryViewSettings;
   shortcuts: ShortcutSettings;
+  recentPageIds: ID[];
 }
 
 export type AppMenuSection = 'help' | 'shortcuts' | 'settings' | 'credits';
