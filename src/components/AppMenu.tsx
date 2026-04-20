@@ -356,37 +356,51 @@ function ShortcutEditor({
     });
   }
 
-  function handleCaptureKeyDown(action: ShortcutAction, event: ReactKeyboardEvent<HTMLButtonElement>): void {
-    event.preventDefault();
-    event.stopPropagation();
+  useEffect(() => {
+    if (!capturingAction) {
+      return;
+    }
 
-    if (event.key === 'Escape') {
+    function handleCaptureKeyDown(event: KeyboardEvent): void {
+      if (!capturingAction) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      if (event.key === 'Escape') {
+        setCapturingAction(null);
+        setError(capturingAction, null);
+        return;
+      }
+
+      const binding = bindingFromKeyboardEvent(event);
+      const validationMessage = validateShortcutBinding(capturingAction, binding, settings.shortcuts);
+
+      if (validationMessage) {
+        setError(capturingAction, validationMessage);
+        return;
+      }
+
+      onUpdateShortcut(capturingAction, binding);
       setCapturingAction(null);
-      setError(action, null);
-      return;
+      setError(capturingAction, null);
     }
 
-    const binding = bindingFromKeyboardEvent(event);
-    const validationMessage = validateShortcutBinding(action, binding, settings.shortcuts);
-
-    if (validationMessage) {
-      setError(action, validationMessage);
-      return;
-    }
-
-    onUpdateShortcut(action, binding);
-    setCapturingAction(null);
-    setError(action, null);
-  }
+    window.addEventListener('keydown', handleCaptureKeyDown, true);
+    return () => window.removeEventListener('keydown', handleCaptureKeyDown, true);
+  }, [capturingAction, onUpdateShortcut, settings.shortcuts]);
 
   function handleShortcutFieldKeyDown(action: ShortcutAction, event: ReactKeyboardEvent<HTMLButtonElement>): void {
     if (capturingAction === action) {
-      handleCaptureKeyDown(action, event);
       return;
     }
 
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
+      event.stopPropagation();
       setCapturingAction(action);
       setError(action, null);
     }
