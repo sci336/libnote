@@ -256,11 +256,27 @@ button {
   width: 100%;
 }
 
+.sidebar-item-stacked {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .sidebar-item-label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%;
+}
+
+.sidebar-item-secondary {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #6b7280;
+  font-size: 0.82rem;
 }
 
 .sidebar-item.is-active {

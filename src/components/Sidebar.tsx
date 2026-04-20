@@ -3,6 +3,12 @@ import type { Book, Chapter, Page, ViewState } from '../types/domain';
 import { ReorderableList } from './ReorderableList';
 import { isLoosePage } from '../utils/pageState';
 
+export interface RecentSidebarPage {
+  id: string;
+  title: string;
+  contextLabel: string;
+}
+
 interface SidebarProps {
   isOpen: boolean;
   currentView: ViewState;
@@ -10,6 +16,7 @@ interface SidebarProps {
   chapters: Chapter[];
   pages: Page[];
   loosePages: Page[];
+  recentPages: RecentSidebarPage[];
   activeBookId?: string;
   activeChapterId?: string;
   activePageId?: string;
@@ -35,6 +42,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     chapters,
     pages,
     loosePages,
+    recentPages,
     activeBookId,
     activeChapterId,
     activePageId,
@@ -110,6 +118,31 @@ export function Sidebar(props: SidebarProps): JSX.Element {
             onReorder={onReorderBooks}
           />
         )}
+
+        {recentPages.length > 0 ? (
+          <section className="sidebar-section">
+            <div className="sidebar-section-header">
+              <h2>Recent Pages</h2>
+            </div>
+
+            <div className="sidebar-list">
+              {recentPages.map((page) => (
+                <button
+                  key={page.id}
+                  type="button"
+                  className={`sidebar-item sidebar-item-stacked ${page.id === activePageId ? 'is-active' : ''}`}
+                  onClick={() => {
+                    onNavigatePage(page.id);
+                    onClose();
+                  }}
+                >
+                  <span className="sidebar-item-label">{page.title}</span>
+                  <span className="sidebar-item-secondary">{page.contextLabel}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {/* CHAPTERS */}
         {showsChapters && (
