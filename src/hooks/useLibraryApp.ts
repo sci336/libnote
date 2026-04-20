@@ -60,7 +60,7 @@ import { formatTagQuery, normalizeTag, normalizeTagList, parseTagQuery } from '.
 
 const DESKTOP_WIDTH = 920;
 const PERSISTENCE_DELAY_MS = 300;
-const RECENT_PAGES_LIMIT = 8;
+const RECENT_PAGES_LIMIT = 4;
 const DEFAULT_APP_SETTINGS: AppSettings = {
   libraryView: {
     booksPerRow: 4
