@@ -119,31 +119,6 @@ export function Sidebar(props: SidebarProps): JSX.Element {
           />
         )}
 
-        {recentPages.length > 0 ? (
-          <section className="sidebar-section">
-            <div className="sidebar-section-header">
-              <h2>Recent Pages</h2>
-            </div>
-
-            <div className="sidebar-list">
-              {recentPages.map((page) => (
-                <button
-                  key={page.id}
-                  type="button"
-                  className={`sidebar-item sidebar-item-stacked ${page.id === activePageId ? 'is-active' : ''}`}
-                  onClick={() => {
-                    onNavigatePage(page.id);
-                    onClose();
-                  }}
-                >
-                  <span className="sidebar-item-label">{page.title}</span>
-                  <span className="sidebar-item-secondary">{page.contextLabel}</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
         {/* CHAPTERS */}
         {showsChapters && (
           <SidebarSection
@@ -230,6 +205,31 @@ export function Sidebar(props: SidebarProps): JSX.Element {
             </div>
           </section>
         )}
+
+        {recentPages.length > 0 ? (
+          <section className="sidebar-section">
+            <div className="sidebar-section-header">
+              <h2>Recent Pages</h2>
+            </div>
+
+            <div className="sidebar-list">
+              {recentPages.map((page) => (
+                <button
+                  key={page.id}
+                  type="button"
+                  className={`sidebar-item sidebar-item-stacked ${page.id === activePageId ? 'is-active' : ''}`}
+                  onClick={() => {
+                    onNavigatePage(page.id);
+                    onClose();
+                  }}
+                >
+                  <span className="sidebar-item-label">{page.title}</span>
+                  <span className="sidebar-item-secondary">{page.contextLabel}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </aside>
     </>
   );
