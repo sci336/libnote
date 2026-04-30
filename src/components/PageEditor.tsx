@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { InlineEditableText } from './InlineEditableText';
-import type { Book, Chapter, Page } from '../types/domain';
+import { SaveStatusIndicator } from './SaveStatusIndicator';
+import type { Book, Chapter, Page, SaveStatus } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
 import { isLoosePage } from '../utils/pageState';
 import type { ContentSegment } from '../utils/pageLinks';
@@ -13,11 +14,13 @@ interface PageEditorProps {
   initialMoveBookId: string;
   contentSegments: ContentSegment[];
   backlinks: Array<{ pageId: string; title: string; path: string }>;
+  saveStatus: SaveStatus;
   shouldAutoFocus?: boolean;
   onChangeTitle: (title: string) => void;
   onChangeContent: (content: string) => void;
   onChangeTextSize: (size: number) => void;
   onChangeTags: (tags: string[]) => void;
+  onRetrySave?: () => void;
   onDelete: () => void;
   onMoveLoosePage: (payload: { chapterId: string }) => void;
   onOpenPage: (pageId: string) => void;
@@ -31,11 +34,13 @@ export function PageEditor({
   initialMoveBookId,
   contentSegments,
   backlinks,
+  saveStatus,
   shouldAutoFocus = false,
   onChangeTitle,
   onChangeContent,
   onChangeTextSize,
   onChangeTags,
+  onRetrySave,
   onDelete,
   onMoveLoosePage,
   onOpenPage,
@@ -116,6 +121,7 @@ export function PageEditor({
             Updated {formatTimestamp(page.updatedAt)}
             {pageIsLoose ? ' - Loose Page' : ''}
           </p>
+          <SaveStatusIndicator status={saveStatus} onRetry={onRetrySave} />
           <div className="tag-editor" aria-label="Page tags">
             <div className="tag-list">
               {page.tags.map((tag) => (

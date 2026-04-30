@@ -849,6 +849,45 @@ h1 {
   color: #6b7280;
 }
 
+.save-status-indicator {
+  margin-top: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid rgba(31, 41, 55, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #4b5563;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.save-status-indicator.is-failed {
+  border-color: rgba(185, 28, 28, 0.18);
+  background: rgba(255, 244, 244, 0.94);
+  color: #991b1b;
+}
+
+.save-status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.75;
+}
+
+.save-status-retry {
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.18rem;
+}
+
 .book-card-open-hint {
   margin: 0;
   color: #4b5563;

@@ -41,6 +41,12 @@ export interface LibraryData {
   pages: Page[];
 }
 
+export type SaveStatus =
+  | { state: 'idle' }
+  | { state: 'saving' }
+  | { state: 'saved'; lastSavedAt: number }
+  | { state: 'failed'; error?: string };
+
 export type LibraryBooksPerRow = 2 | 3 | 4 | 5;
 
 export interface LibraryViewSettings {

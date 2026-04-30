@@ -5,6 +5,7 @@ import type {
   LibraryBooksPerRow,
   LibraryData,
   Page,
+  SaveStatus,
   ShortcutAction,
   ShortcutBinding,
   ViewState
@@ -69,6 +70,17 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   recentPageIds: []
 };
 
+type TrackedPageSaveStatus =
+  | { state: 'idle'; pageId?: string }
+  | { state: 'saving'; pageId: string }
+  | { state: 'saved'; pageId: string; lastSavedAt: number }
+  | { state: 'failed'; pageId: string; error?: string };
+
+interface PendingPageSave {
+  pageId: string;
+  editSeq: number;
+}
+
 /**
  * Central application controller for the note library.
  * It coordinates view routing, derived navigation context, persistence, search,
@@ -90,10 +102,15 @@ export function useLibraryApp() {
   const [searchOriginView, setSearchOriginView] = useState<ViewState>({ type: 'root' });
   const [tagOriginView, setTagOriginView] = useState<ViewState>({ type: 'root' });
   const [recentTags, setRecentTags] = useState<string[]>([]);
+  const [pageSaveStatus, setPageSaveStatus] = useState<TrackedPageSaveStatus>({ state: 'idle' });
   const latestDataRef = useRef<LibraryData | null>(null);
   const latestSettingsRef = useRef<AppSettings>(DEFAULT_APP_SETTINGS);
   const currentViewRef = useRef<ViewState>({ type: 'root' });
   const navigationHistoryRef = useRef<ViewState[]>([]);
+  const latestPageEditRef = useRef<PendingPageSave | null>(null);
+  const nextPageEditSeqRef = useRef(0);
+  const latestPageSaveRequestIdRef = useRef(0);
+  const latestSavedPageEditSeqRef = useRef(0);
 
   useEffect(() => {
     Promise.all([hydrateLibraryData(), hydrateAppSettings()])
@@ -129,7 +146,7 @@ export function useLibraryApp() {
 
       // Typing in the editor updates state immediately, then persistence trails
       // behind slightly so edits stay responsive.
-      persistLibraryData(data).catch(console.error);
+      void persistLibrarySnapshot(data);
     },
     [data],
     PERSISTENCE_DELAY_MS
@@ -286,6 +303,99 @@ export function useLibraryApp() {
 
   function updateData(nextData: LibraryData): void {
     setData(nextData);
+  }
+
+  function queuePageSave(pageId: string): void {
+    nextPageEditSeqRef.current += 1;
+    latestPageEditRef.current = {
+      pageId,
+      editSeq: nextPageEditSeqRef.current
+    };
+  }
+
+  async function persistLibrarySnapshot(snapshot: LibraryData): Promise<void> {
+    const requestId = latestPageSaveRequestIdRef.current + 1;
+    const trackedPageSave = latestPageEditRef.current;
+    const hasPendingPageEdits =
+      trackedPageSave !== null && trackedPageSave.editSeq > latestSavedPageEditSeqRef.current;
+
+    latestPageSaveRequestIdRef.current = requestId;
+
+    if (trackedPageSave && hasPendingPageEdits) {
+      setPageSaveStatus({
+        state: 'saving',
+        pageId: trackedPageSave.pageId
+      });
+    }
+
+    try {
+      await persistLibraryData(snapshot);
+
+      if (!trackedPageSave || !hasPendingPageEdits) {
+        return;
+      }
+
+      const latestPageSave = latestPageEditRef.current;
+      if (
+        requestId !== latestPageSaveRequestIdRef.current ||
+        !latestPageSave ||
+        latestPageSave.pageId !== trackedPageSave.pageId ||
+        latestPageSave.editSeq !== trackedPageSave.editSeq
+      ) {
+        return;
+      }
+
+      latestSavedPageEditSeqRef.current = trackedPageSave.editSeq;
+      setPageSaveStatus({
+        state: 'saved',
+        pageId: trackedPageSave.pageId,
+        lastSavedAt: Date.now()
+      });
+    } catch (error) {
+      console.error(error);
+
+      if (!trackedPageSave || !hasPendingPageEdits) {
+        return;
+      }
+
+      const latestPageSave = latestPageEditRef.current;
+      if (
+        requestId !== latestPageSaveRequestIdRef.current ||
+        !latestPageSave ||
+        latestPageSave.pageId !== trackedPageSave.pageId ||
+        latestPageSave.editSeq !== trackedPageSave.editSeq
+      ) {
+        return;
+      }
+
+      setPageSaveStatus({
+        state: 'failed',
+        pageId: trackedPageSave.pageId,
+        error: 'Save failed'
+      });
+    }
+  }
+
+  function getActivePageSaveStatus(): SaveStatus {
+    if (!activePage) {
+      return { state: 'idle' };
+    }
+
+    if (pageSaveStatus.pageId === activePage.id) {
+      if (pageSaveStatus.state === 'saving') {
+        return { state: 'saving' };
+      }
+
+      if (pageSaveStatus.state === 'saved') {
+        return { state: 'saved', lastSavedAt: pageSaveStatus.lastSavedAt };
+      }
+
+      if (pageSaveStatus.state === 'failed') {
+        return { state: 'failed', error: pageSaveStatus.error };
+      }
+    }
+
+    return { state: 'idle' };
   }
 
   function replaceView(nextView: ViewState, options?: { shouldCloseSidebar?: boolean }): void {
@@ -686,6 +796,7 @@ export function useLibraryApp() {
       return;
     }
 
+    queuePageSave(pageId);
     updateData(updatePage(data, pageId, { title }));
   }
 
@@ -694,6 +805,7 @@ export function useLibraryApp() {
       return;
     }
 
+    queuePageSave(pageId);
     updateData(updatePage(data, pageId, { content }));
   }
 
@@ -702,6 +814,7 @@ export function useLibraryApp() {
       return;
     }
 
+    queuePageSave(pageId);
     updateData(updatePage(data, pageId, { textSize }));
   }
 
@@ -710,7 +823,23 @@ export function useLibraryApp() {
       return;
     }
 
+    queuePageSave(pageId);
     updateData(updatePage(data, pageId, { tags }));
+  }
+
+  function handleRetryPageSave(): void {
+    const latestData = latestDataRef.current;
+    const trackedPageSave = latestPageEditRef.current;
+
+    if (
+      !latestData ||
+      !trackedPageSave ||
+      trackedPageSave.editSeq <= latestSavedPageEditSeqRef.current
+    ) {
+      return;
+    }
+
+    void persistLibrarySnapshot(latestData);
   }
 
   function handleUpdateLibraryBooksPerRow(booksPerRow: LibraryBooksPerRow): void {
@@ -823,6 +952,7 @@ export function useLibraryApp() {
     nav,
     allChapters,
     initialMoveBookId,
+    activePageSaveStatus: getActivePageSaveStatus(),
     updateData,
     navigateToView,
     replaceView,
@@ -862,6 +992,7 @@ export function useLibraryApp() {
     handleRenameBook,
     handleRenameChapter,
     handleRenamePage,
+    handleRetryPageSave,
     handleUpdatePageContent,
     handleUpdatePageTextSize,
     handleUpdatePageTags,

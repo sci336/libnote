@@ -347,11 +347,13 @@ function renderMainContent(
         initialMoveBookId={app.initialMoveBookId}
         contentSegments={pageLinkState.activePageSegments}
         backlinks={pageLinkState.activePageBacklinks}
+        saveStatus={app.activePageSaveStatus}
         shouldAutoFocus={app.shouldAutoFocusEditor}
         onChangeTitle={(title) => app.handleRenamePage(activePage.id, title)}
         onChangeContent={(content) => app.handleUpdatePageContent(activePage.id, content)}
         onChangeTextSize={(textSize) => app.handleUpdatePageTextSize(activePage.id, textSize)}
         onChangeTags={(tags) => app.handleUpdatePageTags(activePage.id, tags)}
+        onRetrySave={app.handleRetryPageSave}
         onDelete={() => app.handleDeletePage(activePage)}
         onMoveLoosePage={(payload) => app.handleMoveLoosePage(activePage.id, payload)}
         onOpenPage={pageLinkState.openPageById}
