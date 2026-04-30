@@ -362,6 +362,8 @@ function renderMainContent(
         page={activePage}
         books={app.books}
         chapters={app.allChapters}
+        parentBook={app.derivedBookForPage}
+        parentChapter={app.derivedChapterForPage}
         initialMoveBookId={app.initialMoveBookId}
         contentSegments={pageLinkState.activePageSegments}
         backlinks={pageLinkState.activePageBacklinks}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { InlineEditableText } from './InlineEditableText';
 import { EditorToolbar, type EditorFormatAction } from './EditorToolbar';
+import { PageMetadataPanel } from './PageMetadataPanel';
 import type { Book, Chapter, Page } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
 import { isLoosePage } from '../utils/pageState';
@@ -12,6 +13,8 @@ interface PageEditorProps {
   page: Page;
   books: Book[];
   chapters: Chapter[];
+  parentBook?: Book;
+  parentChapter?: Chapter;
   initialMoveBookId: string;
   contentSegments: ContentSegment[];
   backlinks: Array<{ pageId: string; title: string; path: string }>;
@@ -31,6 +34,8 @@ export function PageEditor({
   page,
   books,
   chapters,
+  parentBook,
+  parentChapter,
   initialMoveBookId,
   contentSegments,
   backlinks,
@@ -47,6 +52,7 @@ export function PageEditor({
 }: PageEditorProps): JSX.Element {
   const pageIsLoose = isLoosePage(page);
   const [showMovePanel, setShowMovePanel] = useState(false);
+  const [isMetadataCollapsed, setIsMetadataCollapsed] = useState(false);
   const [selectedBookId, setSelectedBookId] = useState(initialMoveBookId);
   const [selectedChapterId, setSelectedChapterId] = useState('');
   const [tagInput, setTagInput] = useState('');
@@ -487,65 +493,60 @@ export function PageEditor({
         </div>
       ) : null}
 
-      <div
-        className="editor-content-surface is-editing"
-        style={{ fontSize: `${page.textSize}px` }}
-      >
-        <EditorToolbar onFormat={applyFormattingAction} />
-        <div className="editor-editing-pane">
-          <div
-            ref={editorRef}
-            className="editor-rich-text"
-            contentEditable
-            suppressContentEditableWarning
-            role="textbox"
-            aria-multiline="true"
-            aria-label="Page content"
-            data-placeholder="Start typing..."
-            spellCheck
-            onInput={() => {
-              // Rich content is stored as HTML so formatting survives autosave and
-              // reloads, while search/export/backlink code reads visible plain text
-              // through shared conversion helpers instead of parsing raw tags.
-              normalizeCurrentList();
-              syncEditorContent();
-              saveSelection();
-            }}
-            onBlur={() => {
-              syncEditorContent();
-              saveSelection();
-            }}
-            onFocus={() => {
-              updateEditorEmptyState(editorRef.current);
-              saveSelection();
-            }}
-            onKeyDown={handleEditorKeyDown}
-            onKeyUp={saveSelection}
-            onMouseUp={saveSelection}
-            onClick={handleEditorClick}
-            style={{ fontSize: `${page.textSize}px` }}
-          />
-        </div>
-      </div>
-
-      {backlinks.length > 0 ? (
-        <section className="backlinks-section" aria-label="Referenced by">
-          <h3>Referenced by</h3>
-          <div className="backlinks-list">
-            {backlinks.map((backlink) => (
-              <button
-                key={backlink.pageId}
-                type="button"
-                className="backlink-item"
-                onClick={() => onOpenPage(backlink.pageId)}
-              >
-                <span className="backlink-title">{backlink.title}</span>
-                <span className="backlink-path">{backlink.path}</span>
-              </button>
-            ))}
+      <div className={`editor-workspace${isMetadataCollapsed ? ' is-metadata-collapsed' : ''}`}>
+        <div
+          className="editor-content-surface is-editing"
+          style={{ fontSize: `${page.textSize}px` }}
+        >
+          <EditorToolbar onFormat={applyFormattingAction} />
+          <div className="editor-editing-pane">
+            <div
+              ref={editorRef}
+              className="editor-rich-text"
+              contentEditable
+              suppressContentEditableWarning
+              role="textbox"
+              aria-multiline="true"
+              aria-label="Page content"
+              data-placeholder="Start typing..."
+              spellCheck
+              onInput={() => {
+                // Rich content is stored as HTML so formatting survives autosave and
+                // reloads, while search/export/backlink code reads visible plain text
+                // through shared conversion helpers instead of parsing raw tags.
+                normalizeCurrentList();
+                syncEditorContent();
+                saveSelection();
+              }}
+              onBlur={() => {
+                syncEditorContent();
+                saveSelection();
+              }}
+              onFocus={() => {
+                updateEditorEmptyState(editorRef.current);
+                saveSelection();
+              }}
+              onKeyDown={handleEditorKeyDown}
+              onKeyUp={saveSelection}
+              onMouseUp={saveSelection}
+              onClick={handleEditorClick}
+              style={{ fontSize: `${page.textSize}px` }}
+            />
           </div>
-        </section>
-      ) : null}
+        </div>
+
+        <PageMetadataPanel
+          page={page}
+          parentBook={parentBook}
+          parentChapter={parentChapter}
+          contentSegments={contentSegments}
+          backlinks={backlinks}
+          isCollapsed={isMetadataCollapsed}
+          onToggleCollapsed={() => setIsMetadataCollapsed((collapsed) => !collapsed)}
+          onOpenPage={onOpenPage}
+          onOpenTagSearch={onOpenTagSearch}
+        />
+      </div>
     </section>
   );
 }
