@@ -473,7 +473,7 @@ function normalizeTitle(value: string, fallback: string): string {
   return trimmed.length > 0 ? trimmed : fallback;
 }
 
-function normalizeLibraryData(data: LibraryData): LibraryData {
+export function normalizeLibraryData(data: LibraryData): LibraryData {
   return {
     ...data,
     books: normalizeBookOrders(data.books),

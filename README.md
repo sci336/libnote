@@ -11,6 +11,7 @@ This README reflects the current implementation in the codebase today.
 - Pages belong to chapters.
 - Loose Pages are standalone pages that are not inside a chapter.
 - The app is local-first: there is no backend, account system, or cloud sync.
+- Full-library backups can be exported to local JSON files and restored later on the same browser or another browser.
 - Navigation is handled with in-memory app state rather than URL-based routing.
 
 ## Current Features
@@ -137,17 +138,31 @@ Tag behavior to be aware of:
   - Help
   - Shortcuts
   - Settings
+  - Backup & Restore
   - Credits
 - The Help section explains the current library, search, tag, and link model.
 - The Shortcuts section currently documents inline-edit commit/cancel, tag-entry `Enter`, and menu-close `Esc`.
-- The Settings section currently acts as a placeholder shell for future app-wide preferences.
+- The Settings section includes library layout controls and shortcut customization.
+- The Backup & Restore section lets you export the full library to a local JSON backup and import that backup later.
 - The Credits section is informational.
 
 ### Settings
 
-Current implemented settings are minimal:
+Current implemented settings are:
 
+- Root library books-per-row layout.
+- Global keyboard shortcuts.
+- Recent pages.
 - Per-page text size is implemented in the page editor and saved on each page.
+
+### Backup and Restore
+
+- The app can export the full library to a local `.json` backup file.
+- Backups include books, chapters, pages, loose pages, and current saved settings.
+- Importing a backup replaces the current in-browser library after a confirmation prompt.
+- Invalid backup files are rejected without modifying existing data.
+- Individual pages can also be exported as plain `.txt` files from the page editor.
+- Because notes are stored locally in the browser, regular manual backups are strongly recommended.
 
 Not currently implemented as app-wide settings:
 
@@ -161,6 +176,7 @@ Not currently implemented as app-wide settings:
 
 - Library data is persisted in IndexedDB.
 - The app stores the library as a single local snapshot in the browser.
+- App settings are also stored locally in IndexedDB.
 - A web app manifest is present at [public/manifest.webmanifest](/Users/matthewcampbell/Documents/note%20app/public/manifest.webmanifest).
 - A service worker is present at [public/sw.js](/Users/matthewcampbell/Documents/note%20app/public/sw.js) and is registered in production builds.
 - In production, the service worker caches the app shell and same-origin assets it fetches.
@@ -168,7 +184,7 @@ Not currently implemented as app-wide settings:
 
 Practical limitation:
 
-- Notes are local to the current browser profile/device unless you build your own export/import or sync flow.
+- Notes are local to the current browser profile/device unless you export and import backups manually.
 
 ## Tech Stack
 
@@ -213,7 +229,6 @@ These commands come from [package.json](/Users/matthewcampbell/Documents/note%20
 - No cloud sync.
 - No account system or authentication.
 - No multi-user collaboration.
-- No built-in export/import flow.
 - No multi-device sync beyond whatever the browser itself keeps locally.
 - Search is page-focused and does not search books or chapters as standalone records.
 - Mixed text-plus-tag queries are not supported as one combined search mode; the search bar currently treats input as either text search or slash-tag filtering.

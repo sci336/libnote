@@ -191,10 +191,13 @@ export default function App(): JSX.Element {
         isOpen={app.appMenuOpen}
         activeSection={app.appMenuSection}
         settings={app.settings}
+        backupStatus={app.backupStatus}
         onUpdateLibraryBooksPerRow={app.handleUpdateLibraryBooksPerRow}
         onUpdateShortcut={app.handleUpdateShortcut}
         onResetShortcut={app.handleResetShortcut}
         onResetAllShortcuts={app.handleResetAllShortcuts}
+        onExportLibrary={app.handleExportLibrary}
+        onImportLibrary={app.handleImportLibrary}
         onClose={app.closeAppMenu}
         onSelectSection={app.navigateAppMenu}
       />
@@ -355,6 +358,7 @@ function renderMainContent(
         onDelete={() => app.handleDeletePage(activePage)}
         onMoveLoosePage={(payload) => app.handleMoveLoosePage(activePage.id, payload)}
         onOpenPage={pageLinkState.openPageById}
+        onExportPage={() => app.handleExportPage(activePage.id)}
         onOpenTagSearch={app.handleOpenTag}
       />
     );
