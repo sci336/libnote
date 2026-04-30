@@ -1,7 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { InlineEditableText } from './InlineEditableText';
+import { EditorToolbar, type EditorFormatAction } from './EditorToolbar';
 import type { Book, Chapter, Page } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
+import {
+  applyBulletList,
+  applyCheckbox,
+  applyHeading,
+  applyNumberedList,
+  wrapSelection,
+  type EditorFormattingResult
+} from '../utils/editorFormatting';
 import { isLoosePage } from '../utils/pageState';
 import type { ContentSegment } from '../utils/pageLinks';
 import { isValidTag, normalizeTag } from '../utils/tags';
@@ -50,6 +59,8 @@ export function PageEditor({
   const [isEditingContent, setIsEditingContent] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null);
+  const queuedFormatActionRef = useRef<{ action: EditorFormatAction; start: number; end: number } | null>(null);
 
   useEffect(() => {
     setSelectedBookId(initialMoveBookId);
@@ -94,6 +105,28 @@ export function PageEditor({
     return () => window.clearTimeout(timeoutId);
   }, [isEditingContent]);
 
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    const pendingSelection = pendingSelectionRef.current;
+    if (!textarea || !pendingSelection) {
+      return;
+    }
+
+    pendingSelectionRef.current = null;
+    textarea.focus();
+    textarea.setSelectionRange(pendingSelection.start, pendingSelection.end);
+  }, [page.content, isEditingContent]);
+
+  useEffect(() => {
+    if (!isEditingContent || !textareaRef.current || !queuedFormatActionRef.current) {
+      return;
+    }
+
+    const queuedAction = queuedFormatActionRef.current;
+    queuedFormatActionRef.current = null;
+    commitFormatting(buildFormattingResult(queuedAction.action, queuedAction.start, queuedAction.end));
+  }, [isEditingContent, page.content]);
+
   const canMove = useMemo(() => {
     return Boolean(selectedBookId && selectedChapterId);
   }, [selectedBookId, selectedChapterId]);
@@ -102,6 +135,94 @@ export function PageEditor({
     () => chapters.filter((chapter) => chapter.bookId === selectedBookId),
     [chapters, selectedBookId]
   );
+
+  function commitFormatting(result: EditorFormattingResult): void {
+    pendingSelectionRef.current = {
+      start: result.selectionStart,
+      end: result.selectionEnd
+    };
+    onChangeContent(result.text);
+  }
+
+  function buildFormattingResult(
+    action: EditorFormatAction,
+    explicitSelectionStart?: number,
+    explicitSelectionEnd?: number
+  ): EditorFormattingResult {
+    const textarea = textareaRef.current;
+    const selectionStart = explicitSelectionStart ?? textarea?.selectionStart ?? page.content.length;
+    const selectionEnd = explicitSelectionEnd ?? textarea?.selectionEnd ?? page.content.length;
+
+    switch (action) {
+      case 'bold':
+        return wrapSelection(page.content, selectionStart, selectionEnd, '**', '**', 'bold text');
+      case 'italic':
+        return wrapSelection(page.content, selectionStart, selectionEnd, '*', '*', 'italic text');
+      case 'underline':
+        return wrapSelection(page.content, selectionStart, selectionEnd, '<u>', '</u>', 'underlined text');
+      case 'heading':
+        return applyHeading(page.content, selectionStart, selectionEnd, 2);
+      case 'bulletList':
+        return applyBulletList(page.content, selectionStart, selectionEnd);
+      case 'numberedList':
+        return applyNumberedList(page.content, selectionStart, selectionEnd);
+      case 'checkbox':
+        return applyCheckbox(page.content, selectionStart, selectionEnd);
+    }
+  }
+
+  function applyFormattingAction(action: EditorFormatAction): void {
+    if (!isEditingContent || !textareaRef.current) {
+      const fallbackCaret = page.content.length;
+      queuedFormatActionRef.current = { action, start: fallbackCaret, end: fallbackCaret };
+      setIsEditingContent(true);
+      return;
+    }
+
+    commitFormatting(buildFormattingResult(action));
+  }
+
+  function handleEditorKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>): void {
+    if (event.nativeEvent.isComposing || event.altKey) {
+      return;
+    }
+
+    const usesPrimaryModifier = event.metaKey || event.ctrlKey;
+    if (!usesPrimaryModifier) {
+      return;
+    }
+
+    const key = event.key.toLowerCase();
+
+    if (!event.shiftKey && key === 'b') {
+      event.preventDefault();
+      applyFormattingAction('bold');
+      return;
+    }
+
+    if (!event.shiftKey && key === 'i') {
+      event.preventDefault();
+      applyFormattingAction('italic');
+      return;
+    }
+
+    if (!event.shiftKey && key === 'u') {
+      event.preventDefault();
+      applyFormattingAction('underline');
+      return;
+    }
+
+    if (event.shiftKey && (key === '8' || key === '*')) {
+      event.preventDefault();
+      applyFormattingAction('bulletList');
+      return;
+    }
+
+    if (event.shiftKey && (key === '7' || key === '&')) {
+      event.preventDefault();
+      applyFormattingAction('numberedList');
+    }
+  }
 
   return (
     <section className="editor-shell">
@@ -262,16 +383,20 @@ export function PageEditor({
           }
         }}
       >
+        <EditorToolbar onFormat={applyFormattingAction} />
         {isEditingContent ? (
-          <textarea
-            ref={textareaRef}
-            className="editor-textarea"
-            value={page.content}
-            onChange={(event) => onChangeContent(event.target.value)}
-            onBlur={() => setIsEditingContent(false)}
-            placeholder="Start typing..."
-            style={{ fontSize: `${page.textSize}px` }}
-          />
+          <div className="editor-editing-pane">
+            <textarea
+              ref={textareaRef}
+              className="editor-textarea"
+              value={page.content}
+              onChange={(event) => onChangeContent(event.target.value)}
+              onKeyDown={handleEditorKeyDown}
+              onBlur={() => setIsEditingContent(false)}
+              placeholder="Start typing..."
+              style={{ fontSize: `${page.textSize}px` }}
+            />
+          </div>
         ) : (
           <div className="editor-content-preview" aria-label="Page content">
             {page.content.trim().length > 0 ? (
