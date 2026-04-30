@@ -195,7 +195,7 @@ export function PageEditor({
           ) : null}
 
           <button type="button" className="danger-button" onClick={onDelete}>
-            Delete Page
+            Move to Trash
           </button>
         </div>
       </div>

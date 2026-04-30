@@ -129,6 +129,14 @@ export function getNavigationMetadata(
     };
   }
 
+  if (view.type === 'trash') {
+    return {
+      showBack: true,
+      parentLabel: 'Library',
+      currentLabel: 'Trash'
+    };
+  }
+
   if (view.type === 'tag') {
     return {
       showBack: true,
@@ -199,6 +207,10 @@ export function getParentView(
     return tagOriginView.type === 'tag' ? { type: 'root' } : tagOriginView;
   }
 
+  if (view.type === 'trash') {
+    return { type: 'root' };
+  }
+
   if (view.type === 'chapter') {
     const chapter = getChapter(data, view.chapterId);
     return chapter ? { type: 'book', bookId: chapter.bookId } : { type: 'root' };
@@ -225,7 +237,7 @@ export function getParentView(
 }
 
 export function getAllChapters(data: LibraryData): Chapter[] {
-  return data.chapters;
+  return data.chapters.filter((chapter) => !chapter.deletedAt);
 }
 
 export function getLoosePagesList(data: LibraryData): Page[] {
@@ -233,9 +245,9 @@ export function getLoosePagesList(data: LibraryData): Page[] {
 }
 
 export function getChapterCountForBook(data: LibraryData, bookId: string): number {
-  return data.chapters.filter((chapter) => chapter.bookId === bookId).length;
+  return data.chapters.filter((chapter) => chapter.bookId === bookId && !chapter.deletedAt).length;
 }
 
 export function getPageCountForChapter(data: LibraryData, chapterId: string): number {
-  return data.pages.filter((page) => page.chapterId === chapterId && isChapterPage(page)).length;
+  return data.pages.filter((page) => page.chapterId === chapterId && isChapterPage(page) && !page.deletedAt).length;
 }

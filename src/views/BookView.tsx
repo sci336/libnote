@@ -58,7 +58,7 @@ export function BookView({
             New Chapter
           </button>
           <button type="button" className="danger-button subtle" onClick={() => onDeleteBook(book.id)}>
-            Delete Book
+            Move Book to Trash
           </button>
         </div>
       </div>
@@ -101,7 +101,7 @@ export function BookView({
                   Move to...
                 </button>
                 <button type="button" className="danger-button subtle" onClick={() => onDeleteChapter(chapter.id, book.id)}>
-                  Delete
+                  Move to Trash
                 </button>
               </div>
               {movingChapterId === chapter.id ? (

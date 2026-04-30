@@ -1,11 +1,22 @@
 export type ID = string;
 
+export interface DeletedFrom {
+  bookId?: ID;
+  chapterId?: ID;
+  wasLoose?: boolean;
+}
+
+export interface Trashable {
+  deletedAt?: string | null;
+  deletedFrom?: DeletedFrom | null;
+}
+
 /**
  * The app persists a normalized library graph instead of nested book objects.
  * Relationships are reconstructed through ids so books, chapters, pages, search,
  * and move flows can all derive context from one shared source of truth.
  */
-export interface Book {
+export interface Book extends Trashable {
   id: ID;
   title: string;
   sortOrder: number;
@@ -13,7 +24,7 @@ export interface Book {
   updatedAt: string;
 }
 
-export interface Chapter {
+export interface Chapter extends Trashable {
   id: ID;
   bookId: ID;
   title: string;
@@ -22,7 +33,7 @@ export interface Chapter {
   updatedAt: string;
 }
 
-export interface Page {
+export interface Page extends Trashable {
   id: ID;
   chapterId: ID | null;
   title: string;
@@ -39,6 +50,16 @@ export interface LibraryData {
   books: Book[];
   chapters: Chapter[];
   pages: Page[];
+}
+
+export type TrashItemType = 'book' | 'chapter' | 'page' | 'loosePage';
+
+export interface TrashItem {
+  id: ID;
+  type: TrashItemType;
+  title: string;
+  deletedAt: string;
+  originalLocation?: string;
 }
 
 export type LibraryBooksPerRow = 2 | 3 | 4 | 5;
@@ -83,5 +104,6 @@ export type ViewState =
   | { type: 'chapter'; chapterId: ID }
   | { type: 'page'; pageId: ID }
   | { type: 'loosePages' }
+  | { type: 'trash' }
   | { type: 'tag'; tags: string[] }
   | { type: 'search'; query: string };

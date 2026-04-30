@@ -124,7 +124,7 @@ export function RootView({
                     className="danger-button subtle"
                     onClick={() => onDeleteBook(book.id)}
                   >
-                    Delete
+                    Move to Trash
                   </button>
                 </div>
               </article>

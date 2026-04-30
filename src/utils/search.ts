@@ -121,11 +121,14 @@ export function tokenizeSearchText(input: string): string[] {
  * do not pay for search-specific normalization on every render.
  */
 export function buildSearchIndex(data: LibraryData): SearchIndex {
-  const chapterMap = new Map(data.chapters.map((chapter) => [chapter.id, chapter] as const));
-  const bookMap = new Map(data.books.map((book) => [book.id, book] as const));
+  const liveBooks = data.books.filter((book) => !book.deletedAt);
+  const liveChapters = data.chapters.filter((chapter) => !chapter.deletedAt);
+  const livePages = data.pages.filter((page) => !page.deletedAt);
+  const chapterMap = new Map(liveChapters.map((chapter) => [chapter.id, chapter] as const));
+  const bookMap = new Map(liveBooks.map((book) => [book.id, book] as const));
 
   return {
-    books: data.books.map((book) => {
+    books: liveBooks.map((book) => {
       const title = flattenText(book.title);
 
       return {
@@ -134,7 +137,7 @@ export function buildSearchIndex(data: LibraryData): SearchIndex {
         normalizedTitle: normalizeSearchText(title)
       };
     }),
-    chapters: data.chapters.map((chapter) => {
+    chapters: liveChapters.map((chapter) => {
       const title = flattenText(chapter.title);
       const parentBook = bookMap.get(chapter.bookId);
 
@@ -146,7 +149,7 @@ export function buildSearchIndex(data: LibraryData): SearchIndex {
         parentBookTitle: parentBook?.title ?? 'Book'
       };
     }),
-    pages: data.pages.map((page) => {
+    pages: livePages.map((page) => {
       const title = flattenText(page.title);
       const content = flattenText(page.content);
       const chapter = page.chapterId ? chapterMap.get(page.chapterId) : undefined;

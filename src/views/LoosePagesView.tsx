@@ -52,7 +52,7 @@ export function LoosePagesView({
                   Open
                 </button>
                 <button type="button" className="danger-button subtle" onClick={() => onDeletePage(page)}>
-                  Delete
+                  Move to Trash
                 </button>
               </div>
             </article>

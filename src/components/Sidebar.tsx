@@ -22,6 +22,7 @@ interface SidebarProps {
   activePageId?: string;
   onNavigateRoot: () => void;
   onNavigateLoosePages: () => void;
+  onNavigateTrash: () => void;
   onNavigateBook: (bookId: string) => void;
   onNavigateChapter: (chapterId: string) => void;
   onNavigatePage: (pageId: string) => void;
@@ -48,6 +49,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     activePageId,
     onNavigateRoot,
     onNavigateLoosePages,
+    onNavigateTrash,
     onNavigateBook,
     onNavigateChapter,
     onNavigatePage,
@@ -67,6 +69,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     currentView.type === 'book' ||
     currentView.type === 'search' ||
     currentView.type === 'tag' ||
+    currentView.type === 'trash' ||
     currentView.type === 'loosePages' ||
     isViewingLoosePage;
 
@@ -83,8 +86,11 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     currentView.type === 'root' ||
     currentView.type === 'search' ||
     currentView.type === 'tag' ||
+    currentView.type === 'trash' ||
     currentView.type === 'loosePages' ||
     isViewingLoosePage;
+
+  const isTrashActive = currentView.type === 'trash';
 
   const visibleChapters = activeBookId
     ? chapters.filter((chapter) => chapter.bookId === activeBookId)
@@ -205,6 +211,24 @@ export function Sidebar(props: SidebarProps): JSX.Element {
             </div>
           </section>
         )}
+
+        <section className="sidebar-section">
+          <div className="sidebar-section-header">
+            <h2>Trash</h2>
+          </div>
+          <div className="sidebar-list">
+            <button
+              type="button"
+              className={`sidebar-item ${isTrashActive ? 'is-active' : ''}`}
+              onClick={() => {
+                onNavigateTrash();
+                onClose();
+              }}
+            >
+              Open Trash
+            </button>
+          </div>
+        </section>
 
         {recentPages.length > 0 ? (
           <section className="sidebar-section">

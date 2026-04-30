@@ -1,5 +1,5 @@
 import { loadLibraryData, saveLibraryData } from '../db/indexedDb';
-import type { Book, Chapter, ID, LibraryData, Page } from '../types/domain';
+import type { Book, Chapter, DeletedFrom, ID, LibraryData, Page, Trashable } from '../types/domain';
 import { nowIso } from '../utils/date';
 import { createId } from '../utils/ids';
 import { isChapterPage, isLoosePage } from '../utils/pageState';
@@ -32,7 +32,7 @@ export function getBook(data: LibraryData, bookId: ID): Book | undefined {
 }
 
 export function getSortedBooks(data: LibraryData): Book[] {
-  return [...data.books].sort(compareBySortOrder);
+  return [...data.books].filter(isLiveRecord).sort(compareBySortOrder);
 }
 
 export function getChapter(data: LibraryData, chapterId: ID): Chapter | undefined {
@@ -45,13 +45,13 @@ export function getPage(data: LibraryData, pageId: ID): Page | undefined {
 
 export function getChaptersForBook(data: LibraryData, bookId: ID): Chapter[] {
   return [...data.chapters]
-    .filter((chapter) => chapter.bookId === bookId)
+    .filter((chapter) => chapter.bookId === bookId && isLiveRecord(chapter))
     .sort(compareBySortOrder);
 }
 
 export function getPagesForChapter(data: LibraryData, chapterId: ID): Page[] {
   return [...data.pages]
-    .filter((page) => page.chapterId === chapterId && isChapterPage(page))
+    .filter((page) => page.chapterId === chapterId && isChapterPage(page) && isLiveRecord(page))
     .sort(compareBySortOrder);
 }
 
@@ -59,7 +59,7 @@ export function getLoosePages(data: LibraryData): Page[] {
   return [...data.pages]
     // Loose pages behave like an inbox, so recency is more useful than a fixed
     // manual order the way chapter pages use.
-    .filter((page) => isLoosePage(page))
+    .filter((page) => isLoosePage(page) && isLiveRecord(page))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
@@ -84,6 +84,10 @@ export function createBook(data: LibraryData): { data: LibraryData; book: Book }
 
 export function updateBook(data: LibraryData, bookId: ID, title: string): LibraryData {
   const timestamp = nowIso();
+  const book = getBook(data, bookId);
+  if (!book || isTrashedRecord(book)) {
+    return data;
+  }
 
   return {
     ...data,
@@ -93,15 +97,34 @@ export function updateBook(data: LibraryData, bookId: ID, title: string): Librar
   };
 }
 
-export function deleteBook(data: LibraryData, bookId: ID): LibraryData {
+export function moveBookToTrash(data: LibraryData, bookId: ID): LibraryData {
+  const book = getBook(data, bookId);
+  if (!book || isTrashedRecord(book)) {
+    return data;
+  }
+
+  const deletedAt = nowIso();
   const chapterIds = new Set(
     data.chapters.filter((chapter) => chapter.bookId === bookId).map((chapter) => chapter.id)
   );
 
   return {
-    books: normalizeBookOrders(data.books.filter((book) => book.id !== bookId)),
-    chapters: data.chapters.filter((chapter) => chapter.bookId !== bookId),
-    pages: data.pages.filter((page) => !page.chapterId || !chapterIds.has(page.chapterId))
+    ...data,
+    books: data.books.map((item) =>
+      item.id === bookId
+        ? markDeleted(item, deletedAt, null)
+        : item
+    ),
+    chapters: data.chapters.map((chapter) =>
+      chapter.bookId === bookId
+        ? markDeleted(chapter, deletedAt, { bookId: chapter.bookId })
+        : chapter
+    ),
+    pages: data.pages.map((page) =>
+      page.chapterId && chapterIds.has(page.chapterId)
+        ? markDeleted(page, deletedAt, { bookId, chapterId: page.chapterId, wasLoose: false })
+        : page
+    )
   };
 }
 
@@ -129,6 +152,9 @@ export function createChapter(data: LibraryData, bookId: ID): { data: LibraryDat
 export function updateChapter(data: LibraryData, chapterId: ID, title: string): LibraryData {
   const timestamp = nowIso();
   const chapter = getChapter(data, chapterId);
+  if (!chapter || isTrashedRecord(chapter)) {
+    return data;
+  }
 
   return {
     ...data,
@@ -139,15 +165,25 @@ export function updateChapter(data: LibraryData, chapterId: ID, title: string): 
   };
 }
 
-export function deleteChapter(data: LibraryData, chapterId: ID): LibraryData {
+export function moveChapterToTrash(data: LibraryData, chapterId: ID): LibraryData {
   const chapter = getChapter(data, chapterId);
-  const timestamp = nowIso();
+  if (!chapter || isTrashedRecord(chapter)) {
+    return data;
+  }
+
+  const deletedAt = nowIso();
 
   return {
     ...data,
-    chapters: data.chapters.filter((item) => item.id !== chapterId),
-    pages: data.pages.filter((page) => page.chapterId !== chapterId),
-    books: chapter ? touchBook(data.books, chapter.bookId, timestamp) : data.books
+    chapters: data.chapters.map((item) =>
+      item.id === chapterId ? markDeleted(item, deletedAt, { bookId: chapter.bookId }) : item
+    ),
+    pages: data.pages.map((page) =>
+      page.chapterId === chapterId
+        ? markDeleted(page, deletedAt, { bookId: chapter.bookId, chapterId, wasLoose: false })
+        : page
+    ),
+    books: touchBook(data.books, chapter.bookId, deletedAt)
   };
 }
 
@@ -188,7 +224,7 @@ export function updatePage(
   updates: Partial<Pick<Page, 'title' | 'content' | 'textSize' | 'tags'>>
 ): LibraryData {
   const page = getPage(data, pageId);
-  if (!page) {
+  if (!page || isTrashedRecord(page)) {
     return data;
   }
 
@@ -214,16 +250,155 @@ export function updatePage(
   };
 }
 
-export function deletePage(data: LibraryData, pageId: ID): LibraryData {
+export function movePageToTrash(data: LibraryData, pageId: ID): LibraryData {
+  const page = getPage(data, pageId);
+  if (!page || isTrashedRecord(page)) {
+    return data;
+  }
+
+  const chapter = page?.chapterId ? getChapter(data, page.chapterId) : undefined;
+  const timestamp = nowIso();
+
+  return {
+    ...data,
+    pages: data.pages.map((item) =>
+      item.id === pageId
+        ? markDeleted(item, timestamp, {
+            bookId: chapter?.bookId,
+            chapterId: page.chapterId ?? undefined,
+            wasLoose: isLoosePage(page)
+          })
+        : item
+    ),
+    chapters: chapter ? touchChapter(data.chapters, chapter.id, timestamp) : data.chapters,
+    books: chapter ? touchBook(data.books, chapter.bookId, timestamp) : data.books
+  };
+}
+
+export function restoreBook(data: LibraryData, bookId: ID): LibraryData {
+  const book = getBook(data, bookId);
+  if (!book || isLiveRecord(book)) {
+    return data;
+  }
+
+  const chapterIds = new Set(
+    data.chapters.filter((chapter) => chapter.bookId === bookId).map((chapter) => chapter.id)
+  );
+
+  return {
+    ...data,
+    books: data.books.map((item) => (item.id === bookId ? clearDeleted(item) : item)),
+    chapters: data.chapters.map((chapter) =>
+      chapter.bookId === bookId ? clearDeleted(chapter) : chapter
+    ),
+    pages: data.pages.map((page) =>
+      page.chapterId && chapterIds.has(page.chapterId) ? clearDeleted(page) : page
+    )
+  };
+}
+
+export function restoreChapter(data: LibraryData, chapterId: ID): LibraryData {
+  const chapter = getChapter(data, chapterId);
+  if (!chapter || isLiveRecord(chapter)) {
+    return data;
+  }
+
+  const parentBook = getBook(data, chapter.bookId);
+  if (parentBook?.deletedAt) {
+    return restoreBook(data, parentBook.id);
+  }
+
+  return {
+    ...data,
+    chapters: data.chapters.map((item) => (item.id === chapterId ? clearDeleted(item) : item)),
+    pages: data.pages.map((page) =>
+      page.chapterId === chapterId ? clearDeleted(page) : page
+    )
+  };
+}
+
+export function restorePage(data: LibraryData, pageId: ID): LibraryData {
+  const page = getPage(data, pageId);
+  if (!page || isLiveRecord(page)) {
+    return data;
+  }
+
+  const deletedFrom = page.deletedFrom ?? null;
+  const targetChapterId = deletedFrom?.wasLoose
+    ? null
+    : deletedFrom?.chapterId ?? page.chapterId;
+  const targetChapter = targetChapterId ? getChapter(data, targetChapterId) : undefined;
+  const canRestoreToChapter = Boolean(targetChapter && isLiveRecord(targetChapter));
+
+  return {
+    ...data,
+    pages: data.pages.map((item) =>
+      item.id === pageId
+        ? {
+            ...clearDeleted(item),
+            chapterId: canRestoreToChapter ? targetChapterId ?? null : null,
+            isLoose: !canRestoreToChapter,
+            updatedAt: nowIso()
+          }
+        : item
+    )
+  };
+}
+
+export function deleteBookForever(data: LibraryData, bookId: ID): LibraryData {
+  const chapterIds = new Set(
+    data.chapters.filter((chapter) => chapter.bookId === bookId).map((chapter) => chapter.id)
+  );
+
+  return {
+    books: normalizeBookOrders(data.books.filter((book) => book.id !== bookId)),
+    chapters: normalizeChapterOrders(data.chapters.filter((chapter) => chapter.bookId !== bookId)),
+    pages: normalizePageOrders(data.pages.filter((page) => !page.chapterId || !chapterIds.has(page.chapterId)))
+  };
+}
+
+export function deleteChapterForever(data: LibraryData, chapterId: ID): LibraryData {
+  const chapter = getChapter(data, chapterId);
+  const timestamp = nowIso();
+
+  return {
+    ...data,
+    chapters: normalizeChapterOrders(data.chapters.filter((item) => item.id !== chapterId)),
+    pages: normalizePageOrders(data.pages.filter((page) => page.chapterId !== chapterId)),
+    books: chapter ? touchBook(data.books, chapter.bookId, timestamp) : data.books
+  };
+}
+
+export function deletePageForever(data: LibraryData, pageId: ID): LibraryData {
   const page = getPage(data, pageId);
   const chapter = page?.chapterId ? getChapter(data, page.chapterId) : undefined;
   const timestamp = nowIso();
 
   return {
     ...data,
-    pages: data.pages.filter((item) => item.id !== pageId),
+    pages: normalizePageOrders(data.pages.filter((item) => item.id !== pageId)),
     chapters: chapter ? touchChapter(data.chapters, chapter.id, timestamp) : data.chapters,
     books: chapter ? touchBook(data.books, chapter.bookId, timestamp) : data.books
+  };
+}
+
+export function emptyTrash(data: LibraryData): LibraryData {
+  const trashedBookIds = new Set(data.books.filter(isTrashedRecord).map((book) => book.id));
+  const trashedChapterIds = new Set(data.chapters.filter(isTrashedRecord).map((chapter) => chapter.id));
+
+  return {
+    books: normalizeBookOrders(data.books.filter(isLiveRecord)),
+    chapters: normalizeChapterOrders(
+      data.chapters.filter((chapter) => isLiveRecord(chapter) && !trashedBookIds.has(chapter.bookId))
+    ),
+    pages: normalizePageOrders(
+      data.pages.filter(
+        (page) =>
+          isLiveRecord(page) &&
+          !trashedChapterIds.has(page.chapterId ?? '') &&
+          !trashedBookIds.has(page.deletedFrom?.bookId ?? '')
+      )
+    )
   };
 }
 
@@ -237,7 +412,13 @@ export function moveLoosePageToChapter(
   if (!page) {
     return { data, chapterId: null };
   }
+  if (isTrashedRecord(page)) {
+    return { data, chapterId: null };
+  }
   if (!chapter) {
+    return { data, chapterId: null };
+  }
+  if (isTrashedRecord(chapter)) {
     return { data, chapterId: null };
   }
 
@@ -275,6 +456,14 @@ export function moveChapterToBook(
   if (!chapter || chapter.bookId === destinationBookId) {
     return data;
   }
+  if (isTrashedRecord(chapter)) {
+    return data;
+  }
+
+  const destinationBook = getBook(data, destinationBookId);
+  if (!destinationBook || isTrashedRecord(destinationBook)) {
+    return data;
+  }
 
   const timestamp = nowIso();
   const sourceBookId = chapter.bookId;
@@ -309,6 +498,9 @@ export function movePageToChapter(
   const destinationChapter = getChapter(data, destinationChapterId);
 
   if (!page || isLoosePage(page) || !page.chapterId || !destinationChapter || page.chapterId === destinationChapterId) {
+    return data;
+  }
+  if (isTrashedRecord(page) || isTrashedRecord(destinationChapter)) {
     return data;
   }
 
@@ -354,7 +546,7 @@ export function reorderChaptersInBook(
 ): LibraryData {
   const timestamp = nowIso();
   const validIds = new Set(
-    data.chapters.filter((chapter) => chapter.bookId === bookId).map((chapter) => chapter.id)
+    data.chapters.filter((chapter) => chapter.bookId === bookId && isLiveRecord(chapter)).map((chapter) => chapter.id)
   );
   const normalizedIds = orderedChapterIds.filter((id) => validIds.has(id));
 
@@ -367,7 +559,7 @@ export function reorderChaptersInBook(
   return {
     ...data,
     chapters: data.chapters.map((chapter) => {
-      if (chapter.bookId !== bookId) {
+      if (chapter.bookId !== bookId || isTrashedRecord(chapter)) {
         return chapter;
       }
 
@@ -387,7 +579,7 @@ export function reorderBooks(
   data: LibraryData,
   orderedBookIds: ID[]
 ): LibraryData {
-  const validIds = new Set(data.books.map((book) => book.id));
+  const validIds = new Set(data.books.filter(isLiveRecord).map((book) => book.id));
   const normalizedIds = orderedBookIds.filter((id) => validIds.has(id));
 
   if (normalizedIds.length !== validIds.size) {
@@ -397,6 +589,10 @@ export function reorderBooks(
   return {
     ...data,
     books: data.books.map((book) => {
+      if (isTrashedRecord(book)) {
+        return book;
+      }
+
       const nextIndex = normalizedIds.indexOf(book.id);
       return nextIndex === -1
         ? book
@@ -418,6 +614,7 @@ export function reorderPagesInChapter(
   const validIds = new Set(
     data.pages
       .filter((page) => page.chapterId === chapterId && !page.isLoose)
+      .filter(isLiveRecord)
       .map((page) => page.id)
   );
   const normalizedIds = orderedPageIds.filter((id) => validIds.has(id));
@@ -429,7 +626,7 @@ export function reorderPagesInChapter(
   return {
     ...data,
     pages: data.pages.map((page) => {
-      if (page.chapterId !== chapterId || page.isLoose) {
+      if (page.chapterId !== chapterId || page.isLoose || isTrashedRecord(page)) {
         return page;
       }
 
@@ -476,13 +673,13 @@ function normalizeTitle(value: string, fallback: string): string {
 export function normalizeLibraryData(data: LibraryData): LibraryData {
   return {
     ...data,
-    books: normalizeBookOrders(data.books),
+    books: normalizeBookOrders(data.books.map((book) => normalizeTrashable(book))),
     // Hydration is the one place we repair legacy or malformed snapshots so the
     // rest of the app can assume normalized sort order and tag data.
-    chapters: normalizeChapterOrders(data.chapters),
+    chapters: normalizeChapterOrders(data.chapters.map((chapter) => normalizeTrashable(chapter))),
     pages: normalizePageOrders(
       data.pages.map((page) => ({
-        ...page,
+        ...normalizeTrashable(page),
         tags: normalizeTags(page.tags)
       }))
     )
@@ -611,4 +808,48 @@ function normalizeTags(tags: unknown): string[] {
   // Normalize unknown persisted values defensively so corrupted snapshots do
   // not break tag filtering or editor chips.
   return normalizeTagList(tags.map((tag) => (typeof tag === 'string' ? tag : String(tag ?? ''))));
+}
+
+function isTrashedRecord(record: Trashable): boolean {
+  return typeof record.deletedAt === 'string' && record.deletedAt.length > 0;
+}
+
+function isLiveRecord<T extends Trashable>(record: T): boolean {
+  return !isTrashedRecord(record);
+}
+
+function normalizeTrashable<T extends Trashable>(record: T): T {
+  return {
+    ...record,
+    deletedAt: typeof record.deletedAt === 'string' && record.deletedAt.length > 0 ? record.deletedAt : null,
+    deletedFrom: normalizeDeletedFrom(record.deletedFrom)
+  };
+}
+
+function normalizeDeletedFrom(value: DeletedFrom | null | undefined): DeletedFrom | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  return {
+    bookId: typeof value.bookId === 'string' && value.bookId.length > 0 ? value.bookId : undefined,
+    chapterId: typeof value.chapterId === 'string' && value.chapterId.length > 0 ? value.chapterId : undefined,
+    wasLoose: typeof value.wasLoose === 'boolean' ? value.wasLoose : undefined
+  };
+}
+
+function markDeleted<T extends Trashable>(record: T, deletedAt: string, deletedFrom: DeletedFrom | null): T {
+  return {
+    ...record,
+    deletedAt,
+    deletedFrom: normalizeDeletedFrom(deletedFrom)
+  };
+}
+
+function clearDeleted<T extends Trashable>(record: T): T {
+  return {
+    ...record,
+    deletedAt: null,
+    deletedFrom: null
+  };
 }

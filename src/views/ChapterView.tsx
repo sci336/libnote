@@ -59,7 +59,7 @@ export function ChapterView({
             New Page
           </button>
           <button type="button" className="danger-button subtle" onClick={() => onDeleteChapter(chapter.id, chapter.bookId)}>
-            Delete Chapter
+            Move Chapter to Trash
           </button>
         </div>
       </div>
@@ -99,7 +99,7 @@ export function ChapterView({
                   Move to...
                 </button>
                 <button type="button" className="danger-button subtle" onClick={() => onDeletePage(page)}>
-                  Delete
+                  Move to Trash
                 </button>
               </div>
               {movingPageId === page.id ? (

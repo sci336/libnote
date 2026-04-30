@@ -18,17 +18,20 @@ import { BookView } from './views/BookView';
 import { ChapterView } from './views/ChapterView';
 import { LoosePagesView } from './views/LoosePagesView';
 import { RootView } from './views/RootView';
+import { TrashView } from './views/TrashView';
 
 export default function App(): JSX.Element {
   const app = useLibraryApp();
   const data = app.data;
-  const allPages = useMemo(() => data?.pages ?? [], [data]);
+  const liveBooks = useMemo(() => (data?.books ?? []).filter((book) => !book.deletedAt), [data]);
+  const liveChapters = useMemo(() => (data?.chapters ?? []).filter((chapter) => !chapter.deletedAt), [data]);
+  const allPages = useMemo(() => (data?.pages ?? []).filter((page) => !page.deletedAt), [data]);
   const pageById = useMemo(() => new Map(allPages.map((page) => [page.id, page])), [allPages]);
   const chapterById = useMemo(
-    () => new Map((data?.chapters ?? []).map((chapter) => [chapter.id, chapter])),
-    [data]
+    () => new Map(liveChapters.map((chapter) => [chapter.id, chapter])),
+    [liveChapters]
   );
-  const bookById = useMemo(() => new Map((data?.books ?? []).map((book) => [book.id, book])), [data]);
+  const bookById = useMemo(() => new Map(liveBooks.map((book) => [book.id, book])), [liveBooks]);
   const pageTitleLookup = useMemo(() => buildPageTitleLookup(allPages), [allPages]);
   const backlinkIndex = useMemo(() => buildBacklinkIndex(allPages), [allPages]);
   // Page-link parsing is derived in the shell so the editor stays focused on UI
@@ -55,8 +58,8 @@ export default function App(): JSX.Element {
       .sort((left, right) => left.title.localeCompare(right.title));
   }, [app.activePage, backlinkIndex, bookById, chapterById, pageById]);
   const tagResults = useMemo(
-    () => (app.view.type === 'tag' ? getTagResults(allPages, data?.chapters ?? [], data?.books ?? [], app.view.tags) : []),
-    [allPages, app.view, data]
+    () => (app.view.type === 'tag' ? getTagResults(allPages, liveChapters, liveBooks, app.view.tags) : []),
+    [allPages, app.view, liveBooks, liveChapters]
   );
   const availableTags = useMemo(() => getAllTags(allPages), [allPages]);
   const recentPages = useMemo<RecentSidebarPage[]>(
@@ -166,6 +169,7 @@ export default function App(): JSX.Element {
           activePageId={app.activePage?.id}
           onNavigateRoot={app.navigateHome}
           onNavigateLoosePages={app.handleOpenLoosePages}
+          onNavigateTrash={app.handleOpenTrash}
           onNavigateBook={app.handleOpenBook}
           onNavigateChapter={app.handleOpenChapter}
           onNavigatePage={openPageById}
@@ -257,6 +261,17 @@ function renderMainContent(
         onOpenPage={pageLinkState.openPageById}
         onOpenTag={app.handleOpenTag}
         onRemoveTag={app.handleRemoveActiveTag}
+      />
+    );
+  }
+
+  if (app.view.type === 'trash') {
+    return (
+      <TrashView
+        items={app.trashItems}
+        onRestore={app.handleRestoreTrashItem}
+        onDeleteForever={app.handleDeleteTrashItemForever}
+        onEmptyTrash={app.handleEmptyTrash}
       />
     );
   }

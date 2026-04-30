@@ -7,6 +7,7 @@ import type {
   Page,
   ShortcutAction,
   ShortcutBinding,
+  TrashItem,
   ViewState
 } from '../types/domain';
 import { loadAppSettings, saveAppSettings } from '../db/indexedDb';
@@ -14,11 +15,15 @@ import {
   createBook,
   createChapter,
   createPage,
-  deleteBook,
-  deleteChapter,
-  deletePage,
+  deleteBookForever,
+  deleteChapterForever,
+  deletePageForever,
+  emptyTrash,
   getBook,
   hydrateLibraryData,
+  moveBookToTrash,
+  moveChapterToTrash,
+  movePageToTrash,
   moveChapterToBook,
   moveLoosePageToChapter,
   movePageToChapter,
@@ -26,6 +31,9 @@ import {
   reorderBooks,
   reorderChaptersInBook,
   reorderPagesInChapter,
+  restoreBook,
+  restoreChapter,
+  restorePage,
   updateBook,
   updateChapter,
   updatePage
@@ -259,6 +267,7 @@ export function useLibraryApp() {
   const searchMode = useMemo(() => parseSearchInput(searchQuery), [searchQuery]);
   const allChapters = useMemo(() => (data ? getAllChapters(data) : []), [data]);
   const initialMoveBookId = books[0]?.id ?? '';
+  const trashItems = useMemo(() => (data ? buildTrashItems(data) : []), [data]);
 
   useEffect(() => {
     if (!activePage) {
@@ -273,7 +282,7 @@ export function useLibraryApp() {
       return;
     }
 
-    const existingPageIds = new Set(data.pages.map((page) => page.id));
+    const existingPageIds = new Set(data.pages.filter((page) => !page.deletedAt).map((page) => page.id));
     const cleanedRecentPageIds = settings.recentPageIds.filter((pageId) => existingPageIds.has(pageId));
 
     if (!areStringArraysEqual(cleanedRecentPageIds, settings.recentPageIds)) {
@@ -481,29 +490,29 @@ export function useLibraryApp() {
   }
 
   function handleDeleteBook(bookId: string): void {
-    if (!data || !window.confirm('Delete this book and all of its chapters and pages?')) {
+    if (!data || !window.confirm('Move this book and all of its chapters and pages to Trash?')) {
       return;
     }
 
-    updateData(deleteBook(data, bookId));
+    updateData(moveBookToTrash(data, bookId));
     replaceView({ type: 'root' });
   }
 
   function handleDeleteChapter(chapterId: string, bookId: string): void {
-    if (!data || !window.confirm('Delete this chapter and all of its pages?')) {
+    if (!data || !window.confirm('Move this chapter and all of its pages to Trash?')) {
       return;
     }
 
-    updateData(deleteChapter(data, chapterId));
+    updateData(moveChapterToTrash(data, chapterId));
     replaceView({ type: 'book', bookId });
   }
 
   function handleDeletePage(page: Page): void {
-    if (!data || !window.confirm('Delete this page?')) {
+    if (!data || !window.confirm('Move this page to Trash?')) {
       return;
     }
 
-    updateData(deletePage(data, page.id));
+    updateData(movePageToTrash(data, page.id));
     setSettings((currentSettings) => ({
       ...currentSettings,
       recentPageIds: currentSettings.recentPageIds.filter((pageId) => pageId !== page.id)
@@ -621,6 +630,64 @@ export function useLibraryApp() {
 
   function handleOpenLoosePages(): void {
     navigateToView({ type: 'loosePages' }, { shouldCloseSidebar: true });
+  }
+
+  function handleOpenTrash(): void {
+    navigateToView({ type: 'trash' }, { shouldCloseSidebar: true });
+  }
+
+  function handleRestoreTrashItem(item: TrashItem): void {
+    if (!data) {
+      return;
+    }
+
+    if (item.type === 'book') {
+      updateData(restoreBook(data, item.id));
+      return;
+    }
+
+    if (item.type === 'chapter') {
+      updateData(restoreChapter(data, item.id));
+      return;
+    }
+
+    updateData(restorePage(data, item.id));
+  }
+
+  function handleDeleteTrashItemForever(item: TrashItem): void {
+    if (!data || !window.confirm(`Delete "${item.title}" forever? This cannot be undone.`)) {
+      return;
+    }
+
+    if (item.type === 'book') {
+      updateData(deleteBookForever(data, item.id));
+      return;
+    }
+
+    if (item.type === 'chapter') {
+      updateData(deleteChapterForever(data, item.id));
+      return;
+    }
+
+    updateData(deletePageForever(data, item.id));
+    setSettings((currentSettings) => ({
+      ...currentSettings,
+      recentPageIds: currentSettings.recentPageIds.filter((pageId) => pageId !== item.id)
+    }));
+  }
+
+  function handleEmptyTrash(): void {
+    if (!data || !window.confirm('Empty Trash? This will permanently delete all trashed items.')) {
+      return;
+    }
+
+    updateData(emptyTrash(data));
+    setSettings((currentSettings) => ({
+      ...currentSettings,
+      recentPageIds: currentSettings.recentPageIds.filter((pageId) =>
+        data.pages.some((page) => page.id === pageId && !page.deletedAt)
+      )
+    }));
   }
 
   function handleOpenTag(tag: string): void {
@@ -913,6 +980,7 @@ export function useLibraryApp() {
     nav,
     allChapters,
     initialMoveBookId,
+    trashItems,
     updateData,
     navigateToView,
     replaceView,
@@ -947,8 +1015,12 @@ export function useLibraryApp() {
     handleOpenChapter,
     handleOpenPage,
     handleOpenLoosePages,
+    handleOpenTrash,
     handleOpenTag,
     handleRemoveActiveTag,
+    handleRestoreTrashItem,
+    handleDeleteTrashItemForever,
+    handleEmptyTrash,
     handleRenameBook,
     handleRenameChapter,
     handleRenamePage,
@@ -973,6 +1045,7 @@ function areViewsEqual(left: ViewState, right: ViewState): boolean {
   switch (left.type) {
     case 'root':
     case 'loosePages':
+    case 'trash':
       return true;
     case 'book':
       return left.bookId === (right as Extract<ViewState, { type: 'book' }>).bookId;
@@ -996,4 +1069,64 @@ async function hydrateAppSettings(): Promise<AppSettings> {
 
 function areStringArraysEqual(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function buildTrashItems(data: LibraryData): TrashItem[] {
+  const bookById = new Map(data.books.map((book) => [book.id, book] as const));
+  const chapterById = new Map(data.chapters.map((chapter) => [chapter.id, chapter] as const));
+  const items: TrashItem[] = [];
+
+  for (const book of data.books) {
+    if (!book.deletedAt) {
+      continue;
+    }
+
+    items.push({
+      id: book.id,
+      type: 'book',
+      title: book.title,
+      deletedAt: book.deletedAt,
+      originalLocation: 'Library'
+    });
+  }
+
+  for (const chapter of data.chapters) {
+    if (!chapter.deletedAt) {
+      continue;
+    }
+
+    items.push({
+      id: chapter.id,
+      type: 'chapter',
+      title: chapter.title,
+      deletedAt: chapter.deletedAt,
+      originalLocation: bookById.get(chapter.deletedFrom?.bookId ?? chapter.bookId)?.title ?? 'Book'
+    });
+  }
+
+  for (const page of data.pages) {
+    if (!page.deletedAt) {
+      continue;
+    }
+
+    const sourceChapterId = page.deletedFrom?.chapterId ?? page.chapterId ?? undefined;
+    const sourceChapter = sourceChapterId ? chapterById.get(sourceChapterId) : undefined;
+    const sourceBookId = page.deletedFrom?.bookId ?? (sourceChapter ? sourceChapter.bookId : undefined);
+    const sourceBook = sourceBookId ? bookById.get(sourceBookId) : undefined;
+    const wasLoose = page.deletedFrom?.wasLoose ?? page.isLoose;
+
+    items.push({
+      id: page.id,
+      type: wasLoose ? 'loosePage' : 'page',
+      title: page.title,
+      deletedAt: page.deletedAt,
+      originalLocation: wasLoose
+        ? 'Loose Pages'
+        : sourceChapter
+          ? `${sourceBook?.title ?? 'Book'} / ${sourceChapter.title}`
+          : sourceBook?.title ?? 'Original chapter unavailable'
+    });
+  }
+
+  return items.sort((left, right) => right.deletedAt.localeCompare(left.deletedAt));
 }
