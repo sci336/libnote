@@ -1,4 +1,5 @@
 import type { Book, Chapter, ID, LibraryData, Page } from '../types/domain';
+import { contentToPlainText } from './richText';
 import { normalizeTag, parseTagQuery } from './tags';
 import { isLoosePage } from './pageState';
 
@@ -151,7 +152,7 @@ export function buildSearchIndex(data: LibraryData): SearchIndex {
     }),
     pages: livePages.map((page) => {
       const title = flattenText(page.title);
-      const content = flattenText(page.content);
+      const content = flattenText(contentToPlainText(page.content));
       const chapter = page.chapterId ? chapterMap.get(page.chapterId) : undefined;
       const book = chapter ? bookMap.get(chapter.bookId) : undefined;
 

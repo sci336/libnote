@@ -1,4 +1,5 @@
 import type { Page } from '../types/domain';
+import { contentToPlainText } from './richText';
 
 export type ContentSegment =
   | {
@@ -30,7 +31,7 @@ export function normalizePageTitle(title: string): string {
 
 export function extractBracketLinks(text: string): string[] {
   const matches: string[] = [];
-  const sourceText = toSafeString(text);
+  const sourceText = toSafeString(contentToPlainText(text));
 
   for (const match of sourceText.matchAll(BRACKET_LINK_PATTERN)) {
     const linkText = match[1]?.trim() ?? '';
@@ -71,7 +72,7 @@ export function parseContentIntoSegments(
   titleLookup: PageTitleLookup
 ): ContentSegment[] {
   const segments: ContentSegment[] = [];
-  const sourceText = toSafeString(text);
+  const sourceText = toSafeString(contentToPlainText(text));
   let cursor = 0;
 
   for (const match of sourceText.matchAll(BRACKET_LINK_PATTERN)) {
