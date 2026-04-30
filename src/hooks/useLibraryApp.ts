@@ -762,7 +762,7 @@ export function useLibraryApp() {
     downloadJsonFile(createBackupFileName(payload.exportedAt), payload);
     setBackupStatus({
       tone: 'success',
-      message: `Library backup downloaded at ${new Date(payload.exportedAt).toLocaleString()}.`
+      message: 'Backup download started. Check your browser downloads or Downloads folder.'
     });
   }
 
