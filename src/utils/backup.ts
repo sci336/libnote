@@ -2,6 +2,7 @@ import { normalizeLibraryData, DEFAULT_TEXT_SIZE } from '../store/libraryStore';
 import type { AppSettings, Book, Chapter, LibraryData, Page } from '../types/domain';
 import { DEFAULT_APP_SETTINGS, filterRecentPageIdsForLibrary, normalizeAppSettings } from './appSettings';
 import { nowIso } from './date';
+import { contentToPlainText } from './richText';
 
 const BACKUP_APP_NAME = 'LibNote';
 const LEGACY_BACKUP_APP_NAMES = new Set(['LibNote', 'iNote']);
@@ -115,7 +116,7 @@ export function createPageExportFile(page: Page): { filename: string; content: s
 
   return {
     filename: `${safeTitle}.txt`,
-    content: `${page.title || 'Untitled Page'}\n\n${page.content}`
+    content: `${page.title || 'Untitled Page'}\n\n${contentToPlainText(page.content)}`
   };
 }
 

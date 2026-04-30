@@ -1,18 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { InlineEditableText } from './InlineEditableText';
 import { EditorToolbar, type EditorFormatAction } from './EditorToolbar';
 import type { Book, Chapter, Page } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
-import {
-  applyBulletList,
-  applyCheckbox,
-  applyHeading,
-  applyNumberedList,
-  wrapSelection,
-  type EditorFormattingResult
-} from '../utils/editorFormatting';
 import { isLoosePage } from '../utils/pageState';
 import type { ContentSegment } from '../utils/pageLinks';
+import { contentToEditableHtml, contentToPlainText, normalizeEditorHtml } from '../utils/richText';
 import { isValidTag, normalizeTag } from '../utils/tags';
 
 interface PageEditorProps {
@@ -56,11 +49,11 @@ export function PageEditor({
   const [showMovePanel, setShowMovePanel] = useState(false);
   const [selectedBookId, setSelectedBookId] = useState(initialMoveBookId);
   const [selectedChapterId, setSelectedChapterId] = useState('');
-  const [isEditingContent, setIsEditingContent] = useState(false);
   const [tagInput, setTagInput] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null);
-  const queuedFormatActionRef = useRef<{ action: EditorFormatAction; start: number; end: number } | null>(null);
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const savedSelectionRef = useRef<Range | null>(null);
+  const lastAppliedContentRef = useRef<string | null>(null);
+  const isSyncingEditorRef = useRef(false);
 
   useEffect(() => {
     setSelectedBookId(initialMoveBookId);
@@ -74,58 +67,34 @@ export function PageEditor({
     if (!shouldAutoFocus) return;
 
     const timeoutId = window.setTimeout(() => {
-      // Defer until after the new page has rendered so freshly created pages can
-      // jump straight into writing mode without racing the textarea mount.
-      setIsEditingContent(true);
-      const el = textareaRef.current;
+      const el = editorRef.current;
       if (!el) return;
 
       el.focus();
-      el.setSelectionRange(el.value.length, el.value.length);
+      placeCaretAtEnd(el);
+      saveSelection();
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
   }, [page.id, shouldAutoFocus]);
 
   useEffect(() => {
-    setIsEditingContent(false);
-  }, [page.id]);
-
-  useEffect(() => {
-    if (!isEditingContent) {
+    const editor = editorRef.current;
+    const nextHtml = contentToEditableHtml(page.content);
+    if (!editor) {
+      lastAppliedContentRef.current = nextHtml;
       return;
     }
 
-    // Re-focus after mode switches so clicking the preview behaves like entering
-    // an inline editor, not like opening a separate editing surface.
-    const timeoutId = window.setTimeout(() => {
-      textareaRef.current?.focus();
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [isEditingContent]);
-
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    const pendingSelection = pendingSelectionRef.current;
-    if (!textarea || !pendingSelection) {
+    if (lastAppliedContentRef.current === nextHtml && editor.innerHTML === nextHtml) {
       return;
     }
 
-    pendingSelectionRef.current = null;
-    textarea.focus();
-    textarea.setSelectionRange(pendingSelection.start, pendingSelection.end);
-  }, [page.content, isEditingContent]);
-
-  useEffect(() => {
-    if (!isEditingContent || !textareaRef.current || !queuedFormatActionRef.current) {
-      return;
-    }
-
-    const queuedAction = queuedFormatActionRef.current;
-    queuedFormatActionRef.current = null;
-    commitFormatting(buildFormattingResult(queuedAction.action, queuedAction.start, queuedAction.end));
-  }, [isEditingContent, page.content]);
+    isSyncingEditorRef.current = true;
+    editor.innerHTML = nextHtml;
+    lastAppliedContentRef.current = nextHtml;
+    isSyncingEditorRef.current = false;
+  }, [page.id, page.content]);
 
   const canMove = useMemo(() => {
     return Boolean(selectedBookId && selectedChapterId);
@@ -136,53 +105,93 @@ export function PageEditor({
     [chapters, selectedBookId]
   );
 
-  function commitFormatting(result: EditorFormattingResult): void {
-    pendingSelectionRef.current = {
-      start: result.selectionStart,
-      end: result.selectionEnd
-    };
-    onChangeContent(result.text);
-  }
+  function saveSelection(): void {
+    const selection = window.getSelection();
+    const editor = editorRef.current;
 
-  function buildFormattingResult(
-    action: EditorFormatAction,
-    explicitSelectionStart?: number,
-    explicitSelectionEnd?: number
-  ): EditorFormattingResult {
-    const textarea = textareaRef.current;
-    const selectionStart = explicitSelectionStart ?? textarea?.selectionStart ?? page.content.length;
-    const selectionEnd = explicitSelectionEnd ?? textarea?.selectionEnd ?? page.content.length;
-
-    switch (action) {
-      case 'bold':
-        return wrapSelection(page.content, selectionStart, selectionEnd, '**', '**', 'bold text');
-      case 'italic':
-        return wrapSelection(page.content, selectionStart, selectionEnd, '*', '*', 'italic text');
-      case 'underline':
-        return wrapSelection(page.content, selectionStart, selectionEnd, '<u>', '</u>', 'underlined text');
-      case 'heading':
-        return applyHeading(page.content, selectionStart, selectionEnd, 2);
-      case 'bulletList':
-        return applyBulletList(page.content, selectionStart, selectionEnd);
-      case 'numberedList':
-        return applyNumberedList(page.content, selectionStart, selectionEnd);
-      case 'checkbox':
-        return applyCheckbox(page.content, selectionStart, selectionEnd);
-    }
-  }
-
-  function applyFormattingAction(action: EditorFormatAction): void {
-    if (!isEditingContent || !textareaRef.current) {
-      const fallbackCaret = page.content.length;
-      queuedFormatActionRef.current = { action, start: fallbackCaret, end: fallbackCaret };
-      setIsEditingContent(true);
+    if (!selection || selection.rangeCount === 0 || !editor) {
       return;
     }
 
-    commitFormatting(buildFormattingResult(action));
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) {
+      return;
+    }
+
+    savedSelectionRef.current = range.cloneRange();
   }
 
-  function handleEditorKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>): void {
+  function restoreSelection(): boolean {
+    const selection = window.getSelection();
+    const editor = editorRef.current;
+    const savedRange = savedSelectionRef.current;
+
+    if (!selection || !editor || !savedRange) {
+      return false;
+    }
+
+    selection.removeAllRanges();
+    selection.addRange(savedRange);
+    return true;
+  }
+
+  function syncEditorContent(): void {
+    const editor = editorRef.current;
+    if (!editor || isSyncingEditorRef.current) {
+      return;
+    }
+
+    const normalizedHtml = normalizeEditorHtml(editor.innerHTML);
+    lastAppliedContentRef.current = normalizedHtml;
+    onChangeContent(normalizedHtml);
+  }
+
+  function applyFormattingAction(action: EditorFormatAction): void {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    editor.focus();
+    restoreSelection();
+    document.execCommand('styleWithCSS', false, 'true');
+
+    switch (action) {
+      case 'bold':
+        document.execCommand('bold');
+        break;
+      case 'italic':
+        document.execCommand('italic');
+        break;
+      case 'underline':
+        document.execCommand('underline');
+        break;
+      case 'highlight':
+        document.execCommand('hiliteColor', false, '#fff3a3');
+        break;
+      case 'heading':
+        document.execCommand('formatBlock', false, 'h2');
+        break;
+      case 'bulletList':
+        document.execCommand('insertUnorderedList');
+        normalizeCurrentList();
+        break;
+      case 'numberedList':
+        document.execCommand('insertOrderedList');
+        normalizeCurrentList();
+        break;
+      case 'checkbox':
+        document.execCommand('insertUnorderedList');
+        convertCurrentListToTaskList();
+        break;
+    }
+
+    normalizeCurrentList();
+    syncEditorContent();
+    saveSelection();
+  }
+
+  function handleEditorKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
     if (event.nativeEvent.isComposing || event.altKey) {
       return;
     }
@@ -212,6 +221,12 @@ export function PageEditor({
       return;
     }
 
+    if (event.shiftKey && key === 'h') {
+      event.preventDefault();
+      applyFormattingAction('highlight');
+      return;
+    }
+
     if (event.shiftKey && (key === '8' || key === '*')) {
       event.preventDefault();
       applyFormattingAction('bulletList');
@@ -223,6 +238,84 @@ export function PageEditor({
       applyFormattingAction('numberedList');
     }
   }
+
+  function handleEditorClick(event: ReactMouseEvent<HTMLDivElement>): void {
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    const taskItem = target?.closest('li[data-task-item="true"]');
+
+    if (taskItem instanceof HTMLLIElement) {
+      const bounds = taskItem.getBoundingClientRect();
+      const clickedCheckboxArea = event.clientX - bounds.left <= 26;
+
+      if (clickedCheckboxArea) {
+        event.preventDefault();
+        taskItem.dataset.checked = taskItem.dataset.checked === 'true' ? 'false' : 'true';
+        syncEditorContent();
+      }
+    }
+
+    saveSelection();
+  }
+
+  function normalizeCurrentList(): void {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    const anchorNode = selection?.anchorNode;
+
+    if (!editor || !anchorNode) {
+      return;
+    }
+
+    const currentList = getClosestList(anchorNode, editor);
+    if (!currentList) {
+      return;
+    }
+
+    if (currentList.tagName === 'UL' && currentList.dataset.listType !== 'task') {
+      currentList.removeAttribute('data-list-type');
+    }
+
+    currentList.querySelectorAll(':scope > li').forEach((item) => {
+      if (!(item instanceof HTMLLIElement)) {
+        return;
+      }
+
+      if (currentList.dataset.listType === 'task') {
+        item.dataset.taskItem = 'true';
+        item.dataset.checked = item.dataset.checked === 'true' ? 'true' : 'false';
+      } else {
+        item.removeAttribute('data-task-item');
+        item.removeAttribute('data-checked');
+      }
+    });
+  }
+
+  function convertCurrentListToTaskList(): void {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    const anchorNode = selection?.anchorNode;
+
+    if (!editor || !anchorNode) {
+      return;
+    }
+
+    const currentList = getClosestList(anchorNode, editor);
+    if (!(currentList instanceof HTMLUListElement)) {
+      return;
+    }
+
+    currentList.dataset.listType = 'task';
+    currentList.querySelectorAll(':scope > li').forEach((item) => {
+      if (!(item instanceof HTMLLIElement)) {
+        return;
+      }
+
+      item.dataset.taskItem = 'true';
+      item.dataset.checked = item.dataset.checked === 'true' ? 'true' : 'false';
+    });
+  }
+
+  const isEditorEmpty = contentToPlainText(page.content).trim().length === 0;
 
   return (
     <section className="editor-shell">
@@ -375,70 +468,41 @@ export function PageEditor({
       ) : null}
 
       <div
-        className={`editor-content-surface ${isEditingContent ? 'is-editing' : 'is-preview'}`}
+        className="editor-content-surface is-editing"
         style={{ fontSize: `${page.textSize}px` }}
-        onClick={() => {
-          if (!isEditingContent) {
-            setIsEditingContent(true);
-          }
-        }}
       >
         <EditorToolbar onFormat={applyFormattingAction} />
-        {isEditingContent ? (
-          <div className="editor-editing-pane">
-            <textarea
-              ref={textareaRef}
-              className="editor-textarea"
-              value={page.content}
-              onChange={(event) => onChangeContent(event.target.value)}
-              onKeyDown={handleEditorKeyDown}
-              onBlur={() => setIsEditingContent(false)}
-              placeholder="Start typing..."
-              style={{ fontSize: `${page.textSize}px` }}
-            />
-          </div>
-        ) : (
-          <div className="editor-content-preview" aria-label="Page content">
-            {page.content.trim().length > 0 ? (
-              contentSegments.map((segment, index) => {
-                if (segment.type === 'text') {
-                  return <span key={`text-${index}`}>{segment.text}</span>;
-                }
-
-                if (segment.targetPageId) {
-                  const targetPageId = segment.targetPageId;
-                  return (
-                    <button
-                      key={`link-${index}`}
-                      type="button"
-                      className="inline-page-link"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onOpenPage(targetPageId);
-                      }}
-                    >
-                      {segment.displayText}
-                    </button>
-                  );
-                }
-
-                // Unresolved links stay visible instead of disappearing so authors
-                // can spot broken references while reading the rendered preview.
-                return (
-                  <span
-                    key={`link-${index}`}
-                    className="inline-page-link unresolved"
-                    title="Page not found"
-                  >
-                    {segment.displayText}
-                  </span>
-                );
-              })
-            ) : (
-              <p className="editor-content-placeholder">Start typing...</p>
-            )}
-          </div>
-        )}
+        <div className="editor-editing-pane">
+          <div
+            ref={editorRef}
+            className={`editor-rich-text ${isEditorEmpty ? 'is-empty' : ''}`}
+            contentEditable
+            suppressContentEditableWarning
+            role="textbox"
+            aria-multiline="true"
+            aria-label="Page content"
+            data-placeholder="Start typing..."
+            spellCheck
+            onInput={() => {
+              // Rich content is stored as HTML so formatting survives autosave and
+              // reloads, while search/export/backlink code reads visible plain text
+              // through shared conversion helpers instead of parsing raw tags.
+              normalizeCurrentList();
+              syncEditorContent();
+              saveSelection();
+            }}
+            onBlur={() => {
+              syncEditorContent();
+              saveSelection();
+            }}
+            onFocus={saveSelection}
+            onKeyDown={handleEditorKeyDown}
+            onKeyUp={saveSelection}
+            onMouseUp={saveSelection}
+            onClick={handleEditorClick}
+            style={{ fontSize: `${page.textSize}px` }}
+          />
+        </div>
       </div>
 
       {backlinks.length > 0 ? (
@@ -461,4 +525,28 @@ export function PageEditor({
       ) : null}
     </section>
   );
+}
+
+function getClosestList(node: Node, editor: HTMLElement): HTMLOListElement | HTMLUListElement | null {
+  const element = node instanceof HTMLElement ? node : node.parentElement;
+  const list = element?.closest('ol, ul');
+
+  if (!list || !editor.contains(list)) {
+    return null;
+  }
+
+  return list as HTMLOListElement | HTMLUListElement;
+}
+
+function placeCaretAtEnd(element: HTMLElement): void {
+  const selection = window.getSelection();
+  if (!selection) {
+    return;
+  }
+
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
 }
