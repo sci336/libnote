@@ -1341,6 +1341,41 @@ mark {
   outline: none;
 }
 
+.editor-editing-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 420px;
+}
+
+.editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  padding: 0.85rem 0.85rem 0;
+}
+
+.editor-toolbar-button {
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.88);
+  color: #1f2937;
+  font-size: 0.92rem;
+  font-weight: 600;
+  transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+
+.editor-toolbar-button:hover {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(31, 41, 55, 0.18);
+  transform: translateY(-1px);
+}
+
+.editor-toolbar-button:focus-visible {
+  outline: 2px solid rgba(29, 78, 216, 0.35);
+  outline-offset: 2px;
+}
+
 .editor-content-surface,
 .backlinks-section {
   border: 1px solid var(--border);
@@ -1356,17 +1391,21 @@ mark {
 .editor-content-surface {
   flex: 1;
   min-height: 420px;
+  display: flex;
+  flex-direction: column;
 }
 
 .editor-content-surface.is-preview {
-  padding: 1rem;
+  padding-bottom: 1rem;
 }
 
 .editor-content-preview {
+  padding: 0 1rem 0;
   white-space: pre-wrap;
   line-height: 1.7;
   color: #1f2937;
-  min-height: 100%;
+  min-height: 0;
+  flex: 1;
 }
 
 .editor-content-placeholder {
@@ -1536,6 +1575,11 @@ mark {
   .text-size-control {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .editor-toolbar-button {
+    flex: 1 1 calc(50% - 0.55rem);
+    justify-content: center;
   }
 }
 
