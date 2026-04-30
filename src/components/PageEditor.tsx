@@ -5,7 +5,7 @@ import type { Book, Chapter, Page } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
 import { isLoosePage } from '../utils/pageState';
 import type { ContentSegment } from '../utils/pageLinks';
-import { contentToEditableHtml, contentToPlainText, normalizeEditorHtml } from '../utils/richText';
+import { contentToEditableHtml, normalizeEditorHtml } from '../utils/richText';
 import { isValidTag, normalizeTag } from '../utils/tags';
 
 interface PageEditorProps {
@@ -53,6 +53,7 @@ export function PageEditor({
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedSelectionRef = useRef<Range | null>(null);
   const lastAppliedContentRef = useRef<string | null>(null);
+  const lastSyncedPageIdRef = useRef<string | null>(null);
   const isSyncingEditorRef = useRef(false);
 
   useEffect(() => {
@@ -81,18 +82,37 @@ export function PageEditor({
   useEffect(() => {
     const editor = editorRef.current;
     const nextHtml = contentToEditableHtml(page.content);
+    const normalizedIncomingHtml = normalizeEditorHtml(nextHtml);
+    const isNewPage = lastSyncedPageIdRef.current !== page.id;
+
+    lastSyncedPageIdRef.current = page.id;
+
     if (!editor) {
-      lastAppliedContentRef.current = nextHtml;
+      lastAppliedContentRef.current = normalizedIncomingHtml;
       return;
     }
 
-    if (lastAppliedContentRef.current === nextHtml && editor.innerHTML === nextHtml) {
+    const normalizedCurrentHtml = normalizeEditorHtml(editor.innerHTML);
+
+    // Keep the live contentEditable DOM in place while the user is typing. We
+    // only push HTML into the editor when a different page loads or when the
+    // incoming content is actually different from what the editor already holds.
+    if (!isNewPage && normalizedCurrentHtml === normalizedIncomingHtml) {
+      lastAppliedContentRef.current = normalizedIncomingHtml;
+      updateEditorEmptyState(editor);
+      return;
+    }
+
+    if (!isNewPage && document.activeElement === editor) {
+      lastAppliedContentRef.current = normalizedIncomingHtml;
+      updateEditorEmptyState(editor);
       return;
     }
 
     isSyncingEditorRef.current = true;
     editor.innerHTML = nextHtml;
-    lastAppliedContentRef.current = nextHtml;
+    lastAppliedContentRef.current = normalizedIncomingHtml;
+    updateEditorEmptyState(editor);
     isSyncingEditorRef.current = false;
   }, [page.id, page.content]);
 
@@ -143,6 +163,7 @@ export function PageEditor({
 
     const normalizedHtml = normalizeEditorHtml(editor.innerHTML);
     lastAppliedContentRef.current = normalizedHtml;
+    updateEditorEmptyState(editor);
     onChangeContent(normalizedHtml);
   }
 
@@ -250,6 +271,7 @@ export function PageEditor({
       if (clickedCheckboxArea) {
         event.preventDefault();
         taskItem.dataset.checked = taskItem.dataset.checked === 'true' ? 'false' : 'true';
+        updateEditorEmptyState(editorRef.current);
         syncEditorContent();
       }
     }
@@ -314,8 +336,6 @@ export function PageEditor({
       item.dataset.checked = item.dataset.checked === 'true' ? 'true' : 'false';
     });
   }
-
-  const isEditorEmpty = contentToPlainText(page.content).trim().length === 0;
 
   return (
     <section className="editor-shell">
@@ -475,7 +495,7 @@ export function PageEditor({
         <div className="editor-editing-pane">
           <div
             ref={editorRef}
-            className={`editor-rich-text ${isEditorEmpty ? 'is-empty' : ''}`}
+            className="editor-rich-text"
             contentEditable
             suppressContentEditableWarning
             role="textbox"
@@ -495,7 +515,10 @@ export function PageEditor({
               syncEditorContent();
               saveSelection();
             }}
-            onFocus={saveSelection}
+            onFocus={() => {
+              updateEditorEmptyState(editorRef.current);
+              saveSelection();
+            }}
             onKeyDown={handleEditorKeyDown}
             onKeyUp={saveSelection}
             onMouseUp={saveSelection}
@@ -525,6 +548,14 @@ export function PageEditor({
       ) : null}
     </section>
   );
+}
+
+function updateEditorEmptyState(editor: HTMLDivElement | null): void {
+  if (!editor) {
+    return;
+  }
+
+  editor.dataset.isEmpty = normalizeEditorHtml(editor.innerHTML).length === 0 ? 'true' : 'false';
 }
 
 function getClosestList(node: Node, editor: HTMLElement): HTMLOListElement | HTMLUListElement | null {

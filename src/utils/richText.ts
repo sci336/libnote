@@ -49,8 +49,8 @@ export function plainTextToHtml(text: string): string {
 
   return text
     .split('\n')
-    .map((line) => `<div>${line.length > 0 ? escapeHtml(line) : '<br>'}</div>`)
-    .join('');
+    .map((line) => (line.length > 0 ? escapeHtml(line) : ''))
+    .join('<br>');
 }
 
 export function normalizeEditorHtml(html: string): string {

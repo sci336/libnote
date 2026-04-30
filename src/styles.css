@@ -1397,7 +1397,7 @@ mark {
   word-break: break-word;
 }
 
-.editor-rich-text.is-empty::before {
+.editor-rich-text[data-is-empty='true']:not(:focus)::before {
   content: attr(data-placeholder);
   color: #9ca3af;
 }
