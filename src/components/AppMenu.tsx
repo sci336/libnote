@@ -23,10 +23,13 @@ interface AppMenuProps {
   isOpen: boolean;
   activeSection: AppMenuSection;
   settings: AppSettings;
+  backupStatus: { tone: 'success' | 'error' | 'info'; message: string } | null;
   onUpdateLibraryBooksPerRow: (booksPerRow: LibraryBooksPerRow) => void;
   onUpdateShortcut: (action: ShortcutAction, binding: ShortcutBinding | null) => void;
   onResetShortcut: (action: ShortcutAction) => void;
   onResetAllShortcuts: () => void;
+  onExportLibrary: () => void;
+  onImportLibrary: (file: File | null) => void | Promise<void>;
   onClose: () => void;
   onSelectSection: (section: AppMenuSection) => void;
 }
@@ -35,6 +38,7 @@ const MENU_SECTIONS: Array<{ id: AppMenuSection; label: string; summary: string 
   { id: 'help', label: 'Help', summary: 'How the library, tags, search, and links work.' },
   { id: 'shortcuts', label: 'Shortcuts', summary: 'Current keyboard controls and customizable defaults.' },
   { id: 'settings', label: 'Settings', summary: 'Library density, shortcuts, and app behavior.' },
+  { id: 'backup', label: 'Backup & Restore', summary: 'Download a full library backup and restore it later.' },
   { id: 'credits', label: 'Credits', summary: 'A lightweight note about the project.' }
 ];
 
@@ -42,10 +46,13 @@ export function AppMenu({
   isOpen,
   activeSection,
   settings,
+  backupStatus,
   onUpdateLibraryBooksPerRow,
   onUpdateShortcut,
   onResetShortcut,
   onResetAllShortcuts,
+  onExportLibrary,
+  onImportLibrary,
   onClose,
   onSelectSection
 }: AppMenuProps): JSX.Element | null {
@@ -106,10 +113,13 @@ export function AppMenu({
           <div className="app-menu-content">
             {renderSection(activeSection, {
               settings,
+              backupStatus,
               onUpdateLibraryBooksPerRow,
               onUpdateShortcut,
               onResetShortcut,
-              onResetAllShortcuts
+              onResetAllShortcuts,
+              onExportLibrary,
+              onImportLibrary
             })}
           </div>
         </div>
@@ -122,7 +132,14 @@ function renderSection(
   section: AppMenuSection,
   settingsProps: Pick<
     AppMenuProps,
-    'settings' | 'onUpdateLibraryBooksPerRow' | 'onUpdateShortcut' | 'onResetShortcut' | 'onResetAllShortcuts'
+    | 'settings'
+    | 'backupStatus'
+    | 'onUpdateLibraryBooksPerRow'
+    | 'onUpdateShortcut'
+    | 'onResetShortcut'
+    | 'onResetAllShortcuts'
+    | 'onExportLibrary'
+    | 'onImportLibrary'
   >
 ): JSX.Element {
   if (section === 'help') {
@@ -135,6 +152,10 @@ function renderSection(
 
   if (section === 'settings') {
     return <SettingsSection {...settingsProps} />;
+  }
+
+  if (section === 'backup') {
+    return <BackupSection {...settingsProps} />;
   }
 
   return <CreditsSection />;
@@ -329,6 +350,80 @@ function SettingsSection({
           <p>Good future fits include startup view, sidebar behavior, search defaults, and editor-wide preferences.</p>
         </article>
       </section>
+    </div>
+  );
+}
+
+function BackupSection({
+  backupStatus,
+  onExportLibrary,
+  onImportLibrary
+}: Pick<AppMenuProps, 'backupStatus' | 'onExportLibrary' | 'onImportLibrary'>): JSX.Element {
+  const [isImporting, setIsImporting] = useState(false);
+
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) {
+      return;
+    }
+
+    setIsImporting(true);
+
+    try {
+      await onImportLibrary(file);
+    } finally {
+      setIsImporting(false);
+      event.target.value = '';
+    }
+  }
+
+  return (
+    <div className="menu-section-stack">
+      <section className="menu-card">
+        <h2>Backup &amp; Restore</h2>
+        <p>LibNote stores your notes in this browser. Export backups regularly to keep your notes safe.</p>
+      </section>
+
+      <section className="menu-card settings-card-grid">
+        <article className="settings-placeholder-card settings-control-card">
+          <div className="settings-placeholder-head">
+            <strong>Full Library Backup</strong>
+            <span className="search-result-badge">Local only</span>
+          </div>
+          <p>Download one JSON file containing your books, chapters, pages, loose pages, and saved settings.</p>
+          <div className="backup-actions">
+            <button type="button" className="primary-button" onClick={onExportLibrary}>
+              Export Library
+            </button>
+          </div>
+        </article>
+
+        <article className="settings-placeholder-card settings-control-card">
+          <div className="settings-placeholder-head">
+            <strong>Restore from Backup</strong>
+            <span className="search-result-badge">Replaces current library</span>
+          </div>
+          <p>Import a previously exported JSON backup. You will be asked to confirm before your current library is replaced.</p>
+          <label className="backup-import-label">
+            <input
+              type="file"
+              accept=".json,application/json"
+              className="backup-file-input"
+              onChange={(event) => {
+                void handleFileChange(event);
+              }}
+            />
+            <span className="secondary-button">{isImporting ? 'Importing…' : 'Import Library'}</span>
+          </label>
+        </article>
+      </section>
+
+      {backupStatus ? (
+        <section className={`menu-card backup-status-card is-${backupStatus.tone}`} aria-live="polite">
+          <h2>Backup Status</h2>
+          <p>{backupStatus.message}</p>
+        </section>
+      ) : null}
     </div>
   );
 }

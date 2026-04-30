@@ -22,6 +22,7 @@ interface PageEditorProps {
   onMoveLoosePage: (payload: { chapterId: string }) => void;
   onOpenPage: (pageId: string) => void;
   onOpenTagSearch?: (tag: string) => void;
+  onExportPage?: () => void;
 }
 
 export function PageEditor({
@@ -39,7 +40,8 @@ export function PageEditor({
   onDelete,
   onMoveLoosePage,
   onOpenPage,
-  onOpenTagSearch
+  onOpenTagSearch,
+  onExportPage
 }: PageEditorProps): JSX.Element {
   const pageIsLoose = isLoosePage(page);
   const [showMovePanel, setShowMovePanel] = useState(false);
@@ -183,6 +185,12 @@ export function PageEditor({
           {pageIsLoose ? (
             <button type="button" className="secondary-button" onClick={() => setShowMovePanel((open) => !open)}>
               Move to Chapter
+            </button>
+          ) : null}
+
+          {onExportPage ? (
+            <button type="button" className="secondary-button" onClick={onExportPage}>
+              Export Page (.txt)
             </button>
           ) : null}
 

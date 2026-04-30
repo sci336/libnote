@@ -70,7 +70,7 @@ export interface AppSettings {
   recentPageIds: ID[];
 }
 
-export type AppMenuSection = 'help' | 'shortcuts' | 'settings' | 'credits';
+export type AppMenuSection = 'help' | 'shortcuts' | 'settings' | 'backup' | 'credits';
 
 /**
  * ViewState acts as the app's lightweight router.

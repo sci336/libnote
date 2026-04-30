@@ -57,17 +57,24 @@ import {
   normalizeShortcutSettings
 } from '../utils/shortcuts';
 import { formatTagQuery, normalizeTag, normalizeTagList, parseTagQuery } from '../utils/tags';
+import { DEFAULT_APP_SETTINGS, filterRecentPageIdsForLibrary, normalizeAppSettings, RECENT_PAGES_LIMIT } from '../utils/appSettings';
+import {
+  createBackupFileName,
+  createBackupPayload,
+  createPageExportFile,
+  downloadJsonFile,
+  downloadPlainTextFile,
+  readBackupFile,
+  validateBackupPayload
+} from '../utils/backup';
 
 const DESKTOP_WIDTH = 920;
 const PERSISTENCE_DELAY_MS = 300;
-const RECENT_PAGES_LIMIT = 4;
-const DEFAULT_APP_SETTINGS: AppSettings = {
-  libraryView: {
-    booksPerRow: 4
-  },
-  shortcuts: DEFAULT_SHORTCUTS,
-  recentPageIds: []
-};
+
+interface BackupStatus {
+  tone: 'success' | 'error' | 'info';
+  message: string;
+}
 
 /**
  * Central application controller for the note library.
@@ -90,6 +97,7 @@ export function useLibraryApp() {
   const [searchOriginView, setSearchOriginView] = useState<ViewState>({ type: 'root' });
   const [tagOriginView, setTagOriginView] = useState<ViewState>({ type: 'root' });
   const [recentTags, setRecentTags] = useState<string[]>([]);
+  const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null);
   const latestDataRef = useRef<LibraryData | null>(null);
   const latestSettingsRef = useRef<AppSettings>(DEFAULT_APP_SETTINGS);
   const currentViewRef = useRef<ViewState>({ type: 'root' });
@@ -744,6 +752,87 @@ export function useLibraryApp() {
     }));
   }
 
+  function handleExportLibrary(): void {
+    if (!data) {
+      setBackupStatus({ tone: 'error', message: 'Library data is still loading. Please try export again in a moment.' });
+      return;
+    }
+
+    const payload = createBackupPayload(data, settings);
+    downloadJsonFile(createBackupFileName(payload.exportedAt), payload);
+    setBackupStatus({
+      tone: 'success',
+      message: `Library backup downloaded at ${new Date(payload.exportedAt).toLocaleString()}.`
+    });
+  }
+
+  async function handleImportLibrary(file: File | null): Promise<void> {
+    if (!file) {
+      return;
+    }
+
+    try {
+      const rawPayload = await readBackupFile(file);
+      const validated = validateBackupPayload(rawPayload);
+
+      if (!window.confirm('This will replace your current library with the imported backup. Continue?')) {
+        setBackupStatus({ tone: 'info', message: 'Import canceled. Your current library was not changed.' });
+        return;
+      }
+
+      const nextData = validated.data;
+      const nextSettings =
+        validated.settingsStatus === 'restored'
+          ? validated.settings
+          : filterRecentPageIdsForLibrary(DEFAULT_APP_SETTINGS, nextData.pages.map((page) => page.id));
+
+      await persistLibraryData(nextData);
+      await saveAppSettings(nextSettings);
+
+      latestDataRef.current = nextData;
+      latestSettingsRef.current = nextSettings;
+      setData(nextData);
+      setSettings(nextSettings);
+      setSearchQuery('');
+      setRecentTags([]);
+      setSearchOriginView({ type: 'root' });
+      setTagOriginView({ type: 'root' });
+      setNavigationHistory([]);
+      navigationHistoryRef.current = [];
+      setMovingChapterId(null);
+      setMovingPageId(null);
+      replaceView({ type: 'root' });
+      setBackupStatus({
+        tone: 'success',
+        message:
+          validated.settingsStatus === 'restored'
+            ? 'Library imported successfully and saved to this browser.'
+            : 'Library imported successfully. Backup settings were missing or invalid, so safe defaults were kept.'
+      });
+    } catch (error) {
+      setBackupStatus({
+        tone: 'error',
+        message: error instanceof Error ? error.message : 'Import failed. Your current library was not changed.'
+      });
+    }
+  }
+
+  function handleExportPage(pageId: string): void {
+    if (!data) {
+      return;
+    }
+
+    const page = getActivePage(data, { type: 'page', pageId });
+    if (!page) {
+      setBackupStatus({ tone: 'error', message: 'Could not export that page because it is no longer available.' });
+      return;
+    }
+
+    const exportFile = createPageExportFile(page);
+    downloadPlainTextFile(exportFile.filename, exportFile.content);
+    setBackupStatus({ tone: 'success', message: `Exported "${page.title || 'Untitled Page'}" as a text file.` });
+  }
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing || appMenuOpen || isTypingInEditableTarget(event.target)) {
@@ -805,6 +894,7 @@ export function useLibraryApp() {
     searchOriginView,
     tagOriginView,
     recentTags,
+    backupStatus,
     recentPageIds: settings.recentPageIds,
     books,
     loosePages,
@@ -868,7 +958,10 @@ export function useLibraryApp() {
     handleUpdateLibraryBooksPerRow,
     handleUpdateShortcut,
     handleResetShortcut,
-    handleResetAllShortcuts
+    handleResetAllShortcuts,
+    handleExportLibrary,
+    handleImportLibrary,
+    handleExportPage
   };
 }
 
@@ -899,43 +992,6 @@ function areViewsEqual(left: ViewState, right: ViewState): boolean {
 async function hydrateAppSettings(): Promise<AppSettings> {
   const persistedSettings = await loadAppSettings();
   return normalizeAppSettings(persistedSettings);
-}
-
-function normalizeAppSettings(settings: AppSettings | null): AppSettings {
-  const booksPerRow = settings?.libraryView?.booksPerRow;
-
-  return {
-    libraryView: {
-      booksPerRow:
-        booksPerRow === 2 || booksPerRow === 3 || booksPerRow === 4 || booksPerRow === 5
-          ? booksPerRow
-          : DEFAULT_APP_SETTINGS.libraryView.booksPerRow
-    },
-    shortcuts: normalizeShortcutSettings(settings?.shortcuts),
-    recentPageIds: normalizeRecentPageIds(settings?.recentPageIds)
-  };
-}
-
-function normalizeRecentPageIds(recentPageIds: unknown): string[] {
-  if (!Array.isArray(recentPageIds)) {
-    return [];
-  }
-
-  const normalizedIds: string[] = [];
-
-  for (const pageId of recentPageIds) {
-    if (typeof pageId !== 'string' || pageId.length === 0 || normalizedIds.includes(pageId)) {
-      continue;
-    }
-
-    normalizedIds.push(pageId);
-
-    if (normalizedIds.length === RECENT_PAGES_LIMIT) {
-      break;
-    }
-  }
-
-  return normalizedIds;
 }
 
 function areStringArraysEqual(left: string[], right: string[]): boolean {
