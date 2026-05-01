@@ -16,6 +16,7 @@ export function SearchResultsView({
 }: SearchResultsViewProps): JSX.Element {
   const trimmedQuery = query.trim();
   const isTagSearch = mode.type === 'tag';
+  const isMixedSearch = mode.type === 'mixed';
   const isEmptyTag = mode.type === 'emptyTag';
 
   return (
@@ -25,7 +26,9 @@ export function SearchResultsView({
           <p className="eyebrow">Library Search</p>
           <h1>Search Results</h1>
           <p className="search-subtitle">
-            {isTagSearch
+            {isMixedSearch
+              ? `Results for "${mode.query}" tagged ${mode.tags.map((tag) => `/${tag}`).join(' ')}`
+              : isTagSearch
               ? `Tags: ${mode.tags.map((tag) => `/${tag}`).join(' ')}`
               : isEmptyTag
                 ? 'Enter a tag after "/" to search by tag.'
@@ -52,6 +55,8 @@ export function SearchResultsView({
           <p>
             {isTagSearch
               ? 'No pages match all selected tags.'
+              : isMixedSearch
+                ? 'No pages match that text with all selected tags.'
               : 'Try a shorter phrase, different wording, or another exact fragment from the page you remember.'}
           </p>
         </div>

@@ -1,6 +1,6 @@
 import type { Book, Chapter, ID, LibraryData, Page } from '../types/domain';
 import { contentToPlainText } from './richText';
-import { normalizeTag, parseTagQuery } from './tags';
+import { isValidTagToken, normalizeTag, normalizeTagList, parseTagQuery } from './tags';
 import { isLoosePage } from './pageState';
 
 export type SearchMatchKind = 'title-exact' | 'title-partial' | 'content-exact' | 'content-partial' | 'tag';
@@ -75,6 +75,7 @@ export interface SearchIndex {
 export type SearchMode =
   | { type: 'emptyTag' }
   | { type: 'tag'; tags: string[] }
+  | { type: 'mixed'; query: string; tags: string[] }
   | { type: 'text'; query: string };
 
 /**
@@ -93,6 +94,11 @@ export function normalizeSearchQuery(query: string): string {
 export function parseSearchInput(raw: string): SearchMode {
   const trimmed = raw.trim();
 
+  const mixedParts = parseMixedSearchInput(trimmed);
+  if (mixedParts.tags.length > 0 && mixedParts.query.length > 0) {
+    return { type: 'mixed', query: mixedParts.query, tags: mixedParts.tags };
+  }
+
   if (trimmed.startsWith('/')) {
     const parsedTags = parseTagQuery(trimmed);
 
@@ -106,6 +112,25 @@ export function parseSearchInput(raw: string): SearchMode {
   }
 
   return { type: 'text', query: trimmed };
+}
+
+function parseMixedSearchInput(raw: string): { query: string; tags: string[] } {
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  const textTokens: string[] = [];
+  const tagTokens: string[] = [];
+
+  for (const token of tokens) {
+    if (isValidTagToken(token)) {
+      tagTokens.push(token.slice(1));
+    } else {
+      textTokens.push(token);
+    }
+  }
+
+  return {
+    query: textTokens.join(' '),
+    tags: normalizeTagList(tagTokens)
+  };
 }
 
 export function normalizeSearchText(input: string): string {
@@ -181,7 +206,7 @@ export function searchLibraryEntities(query: string, index: SearchIndex): Search
 
   if (mode.type === 'tag') {
     return index.pages
-      .filter((record) => mode.tags.every((tag) => record.page.tags.includes(tag)))
+      .filter((record) => pageHasAllTags(record, mode.tags))
       .map<PageSearchResult>((record) => ({
         type: 'page',
         id: record.page.id,
@@ -206,39 +231,45 @@ export function searchLibraryEntities(query: string, index: SearchIndex): Search
   const tokens = tokenizeSearchText(mode.query);
   const results: SearchResult[] = [];
 
-  for (const book of index.books) {
-    const score = scoreTitleMatch(book.normalizedTitle, normalizedQuery, tokens);
-    if (!score) {
-      continue;
+  if (mode.type === 'text') {
+    for (const book of index.books) {
+      const score = scoreTitleMatch(book.normalizedTitle, normalizedQuery, tokens);
+      if (!score) {
+        continue;
+      }
+
+      results.push({
+        type: 'book',
+        id: book.book.id,
+        title: book.book.title,
+        score: score.value,
+        matchKind: score.matchKind
+      });
     }
 
-    results.push({
-      type: 'book',
-      id: book.book.id,
-      title: book.book.title,
-      score: score.value,
-      matchKind: score.matchKind
-    });
-  }
+    for (const chapter of index.chapters) {
+      const score = scoreTitleMatch(chapter.normalizedTitle, normalizedQuery, tokens);
+      if (!score) {
+        continue;
+      }
 
-  for (const chapter of index.chapters) {
-    const score = scoreTitleMatch(chapter.normalizedTitle, normalizedQuery, tokens);
-    if (!score) {
-      continue;
+      results.push({
+        type: 'chapter',
+        id: chapter.chapter.id,
+        title: chapter.chapter.title,
+        parentBookId: chapter.parentBookId,
+        parentBookTitle: chapter.parentBookTitle,
+        score: score.value,
+        matchKind: score.matchKind
+      });
     }
-
-    results.push({
-      type: 'chapter',
-      id: chapter.chapter.id,
-      title: chapter.chapter.title,
-      parentBookId: chapter.parentBookId,
-      parentBookTitle: chapter.parentBookTitle,
-      score: score.value,
-      matchKind: score.matchKind
-    });
   }
 
   for (const page of index.pages) {
+    if (mode.type === 'mixed' && !pageHasAllTags(page, mode.tags)) {
+      continue;
+    }
+
     const result = scorePageMatch(page, normalizedQuery, tokens);
     if (result) {
       results.push(result);
@@ -256,7 +287,7 @@ export function getHighlightedParts(text: string, query: string): Array<{ text: 
   const displayText = text || 'Untitled';
   const mode = parseSearchInput(query);
 
-  if (mode.type !== 'text') {
+  if (mode.type !== 'text' && mode.type !== 'mixed') {
     return [{ text: displayText, isMatch: false }];
   }
 
@@ -288,6 +319,11 @@ export function getHighlightedParts(text: string, query: string): Array<{ text: 
   }
 
   return splitByRanges(flattened, ranges);
+}
+
+function pageHasAllTags(record: Pick<SearchIndexedPageRecord, 'page'>, tags: string[]): boolean {
+  const pageTags = normalizeTagList(record.page.tags);
+  return tags.every((tag) => pageTags.includes(tag));
 }
 
 export function getSearchResultBadgeLabel(result: SearchResult): string {
