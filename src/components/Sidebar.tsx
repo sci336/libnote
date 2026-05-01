@@ -82,14 +82,6 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     (currentView.type === 'page' && !isViewingLoosePage) ||
     currentView.type === 'chapter';
 
-  const showsLoose =
-    currentView.type === 'root' ||
-    currentView.type === 'search' ||
-    currentView.type === 'tag' ||
-    currentView.type === 'trash' ||
-    currentView.type === 'loosePages' ||
-    isViewingLoosePage;
-
   const isTrashActive = currentView.type === 'trash';
 
   const visibleChapters = activeBookId
@@ -98,6 +90,63 @@ export function Sidebar(props: SidebarProps): JSX.Element {
   const [isLoosePagesExpanded, setIsLoosePagesExpanded] = useState(false);
   const visibleLoosePages = isLoosePagesExpanded ? loosePages : loosePages.slice(0, 3);
 
+  const loosePagesSection = (
+    <section className="sidebar-section">
+      <div className="sidebar-section-header">
+        <h2>
+          <button
+            type="button"
+            className={`sidebar-section-title-button ${currentView.type === 'loosePages' ? 'is-active' : ''}`}
+            onClick={onNavigateLoosePages}
+          >
+            Loose Pages
+          </button>
+        </h2>
+        <div className="sidebar-section-actions">
+          {loosePages.length > 3 ? (
+            <button
+              type="button"
+              className="sidebar-link-button"
+              onClick={() => setIsLoosePagesExpanded((expanded) => !expanded)}
+            >
+              {isLoosePagesExpanded ? 'Show less' : 'Show more'}
+            </button>
+          ) : null}
+          {currentView.type === 'loosePages' ? null : (
+            <button type="button" className="sidebar-link-button" onClick={onNavigateLoosePages}>
+              View All
+            </button>
+          )}
+          {onCreateLoosePageInContext ? (
+            <button type="button" className="sidebar-link-button" onClick={onCreateLoosePageInContext}>
+              + New
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className={`sidebar-list ${isLoosePagesExpanded ? 'sidebar-list-scrollable' : ''}`}>
+        {visibleLoosePages.length > 0 ? (
+          visibleLoosePages.map((page) => (
+            <button
+              key={page.id}
+              type="button"
+              className={`sidebar-item ${page.id === activePageId ? 'is-active' : ''}`}
+              onClick={() => {
+                onNavigatePage(page.id);
+                onClose();
+              }}
+            >
+              {page.title}
+            </button>
+          ))
+        ) : (
+          <p className="sidebar-empty">Nothing here yet.</p>
+        )}
+      </div>
+    </section>
+  );
+
   return (
     <>
       <div
@@ -105,8 +154,8 @@ export function Sidebar(props: SidebarProps): JSX.Element {
         onClick={onClose}
       />
       <aside className={`sidebar ${isOpen ? 'is-open' : ''}`}>
-        {/* The sidebar intentionally changes shape with the current route so
-            root/search/tag/loose-page flows all keep nearby navigation visible. */}
+        {/* Global and contextual sections are kept separate so loose pages stay
+            reachable even while book/chapter/page context changes below. */}
         {showsBooks && (
           <SidebarSection
             title="Books"
@@ -124,6 +173,9 @@ export function Sidebar(props: SidebarProps): JSX.Element {
             onReorder={onReorderBooks}
           />
         )}
+
+        {/* LOOSE PAGES */}
+        {loosePagesSection}
 
         {/* CHAPTERS */}
         {showsChapters && (
@@ -161,55 +213,6 @@ export function Sidebar(props: SidebarProps): JSX.Element {
             }))}
             onReorder={onReorderPages}
           />
-        )}
-
-        {/* LOOSE PAGES */}
-        {showsLoose && (
-          <section className="sidebar-section">
-            <div className="sidebar-section-header">
-              <h2>Loose Pages</h2>
-              <div className="sidebar-section-actions">
-                {loosePages.length > 3 ? (
-                  <button
-                    type="button"
-                    className="sidebar-link-button"
-                    onClick={() => setIsLoosePagesExpanded((expanded) => !expanded)}
-                  >
-                    {isLoosePagesExpanded ? 'Show less' : 'Show more'}
-                  </button>
-                ) : null}
-                {onCreateLoosePageInContext ? (
-                  <button type="button" className="sidebar-link-button" onClick={onCreateLoosePageInContext}>
-                    + New
-                  </button>
-                ) : currentView.type === 'loosePages' ? null : (
-                  <button type="button" className="sidebar-link-button" onClick={onNavigateLoosePages}>
-                    View All
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className={`sidebar-list ${isLoosePagesExpanded ? 'sidebar-list-scrollable' : ''}`}>
-              {visibleLoosePages.length > 0 ? (
-                visibleLoosePages.map((page) => (
-                  <button
-                    key={page.id}
-                    type="button"
-                    className={`sidebar-item ${page.id === activePageId ? 'is-active' : ''}`}
-                    onClick={() => {
-                      onNavigatePage(page.id);
-                      onClose();
-                    }}
-                  >
-                    {page.title}
-                  </button>
-                ))
-              ) : (
-                <p className="sidebar-empty">Nothing here yet.</p>
-              )}
-            </div>
-          </section>
         )}
 
         <section className="sidebar-section">

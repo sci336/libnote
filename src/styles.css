@@ -77,6 +77,7 @@ button {
 .editor-title,
 .list-card-title,
 .book-card-title,
+.sidebar-section-title-button,
 .sidebar-link-button {
   border: 0;
   background: none;
@@ -213,6 +214,17 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #6b7280;
+}
+
+.sidebar-section-title-button {
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.sidebar-section-title-button.is-active {
+  color: #111827;
 }
 
 .sidebar-link-button {
