@@ -16,6 +16,7 @@ export type ContentSegment =
 
 export type PageTitleLookup = Map<string, Page>;
 export type BacklinkIndex = Record<string, string[]>;
+export type WikiPreviewChunk = ContentSegment;
 
 export interface PageConnectionLink {
   key: string;
@@ -129,6 +130,8 @@ export function parseContentIntoSegments(
 
   return segments;
 }
+
+export const parseContentWithWikiLinks = parseContentIntoSegments;
 
 export function getOutgoingLinks(currentPage: Page, allPages: Page[]): PageConnectionLink[] {
   const titleLookup = buildPageTitleLookup(allPages);

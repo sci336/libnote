@@ -1364,7 +1364,40 @@ mark {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
+  padding: 0 0.85rem;
+}
+
+.editor-mode-bar {
+  display: flex;
+  justify-content: flex-end;
   padding: 0.85rem 0.85rem 0;
+}
+
+.editor-mode-toggle {
+  display: inline-flex;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.editor-mode-toggle button {
+  min-width: 4.75rem;
+  min-height: 2rem;
+  border: 0;
+  border-radius: 0.68rem;
+  padding: 0.35rem 0.7rem;
+  background: transparent;
+  color: #4b5563;
+  font-weight: 700;
+}
+
+.editor-mode-toggle button:hover,
+.editor-mode-toggle button.is-active {
+  background: #ffffff;
+  color: #1f2937;
+  box-shadow: 0 1px 6px rgba(17, 24, 39, 0.08);
 }
 
 .editor-toolbar-button {
@@ -1428,6 +1461,19 @@ mark {
   outline: none;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.wiki-link-preview {
+  min-height: 420px;
+  padding: 0.9rem 1rem 1rem;
+  line-height: 1.7;
+  color: #1f2937;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.wiki-link-preview-empty {
+  color: #9ca3af;
 }
 
 .editor-rich-text[data-is-empty='true']:not(:focus)::before {
@@ -1629,7 +1675,9 @@ mark {
 }
 
 .editor-rich-text p,
-.editor-rich-text div {
+.editor-rich-text div,
+.wiki-link-preview p,
+.wiki-link-preview div {
   margin: 0 0 0.35rem;
 }
 
@@ -1638,34 +1686,46 @@ mark {
 .editor-rich-text h3,
 .editor-rich-text h4,
 .editor-rich-text h5,
-.editor-rich-text h6 {
+.editor-rich-text h6,
+.wiki-link-preview h1,
+.wiki-link-preview h2,
+.wiki-link-preview h3,
+.wiki-link-preview h4,
+.wiki-link-preview h5,
+.wiki-link-preview h6 {
   margin: 0.3rem 0 0.65rem;
   line-height: 1.25;
 }
 
-.editor-rich-text h2 {
+.editor-rich-text h2,
+.wiki-link-preview h2 {
   font-size: 1.45em;
   font-weight: 700;
 }
 
 .editor-rich-text ul,
-.editor-rich-text ol {
+.editor-rich-text ol,
+.wiki-link-preview ul,
+.wiki-link-preview ol {
   margin: 0.35rem 0 0.65rem 1.45rem;
   padding-left: 1.1rem;
 }
 
-.editor-rich-text ul[data-list-type='task'] {
+.editor-rich-text ul[data-list-type='task'],
+.wiki-link-preview ul[data-list-type='task'] {
   list-style: none;
   margin-left: 0;
   padding-left: 0;
 }
 
-.editor-rich-text ul[data-list-type='task'] > li {
+.editor-rich-text ul[data-list-type='task'] > li,
+.wiki-link-preview ul[data-list-type='task'] > li {
   position: relative;
   padding-left: 2rem;
 }
 
-.editor-rich-text ul[data-list-type='task'] > li::before {
+.editor-rich-text ul[data-list-type='task'] > li::before,
+.wiki-link-preview ul[data-list-type='task'] > li::before {
   content: '';
   position: absolute;
   left: 0.2rem;
@@ -1677,13 +1737,15 @@ mark {
   background: rgba(255, 255, 255, 0.96);
 }
 
-.editor-rich-text ul[data-list-type='task'] > li[data-checked='true']::before {
+.editor-rich-text ul[data-list-type='task'] > li[data-checked='true']::before,
+.wiki-link-preview ul[data-list-type='task'] > li[data-checked='true']::before {
   background: #d1fae5;
   border-color: #059669;
   box-shadow: inset 0 0 0 0.2rem #d1fae5;
 }
 
-.editor-rich-text ul[data-list-type='task'] > li[data-checked='true']::after {
+.editor-rich-text ul[data-list-type='task'] > li[data-checked='true']::after,
+.wiki-link-preview ul[data-list-type='task'] > li[data-checked='true']::after {
   content: '✓';
   position: absolute;
   left: 0.44rem;
@@ -1694,7 +1756,9 @@ mark {
 }
 
 .editor-rich-text mark,
-.editor-rich-text [style*='background-color'] {
+.editor-rich-text [style*='background-color'],
+.wiki-link-preview mark,
+.wiki-link-preview [style*='background-color'] {
   background: #fff3a3;
   color: inherit;
   padding: 0 0.08em;
@@ -1714,7 +1778,6 @@ mark {
 .inline-page-link.unresolved {
   color: #8f3a2a;
   text-decoration-style: dashed;
-  cursor: default;
 }
 
 .block-input {

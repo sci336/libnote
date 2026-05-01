@@ -187,6 +187,7 @@ export default function App(): JSX.Element {
         openPageById,
         openSearchResult,
         activePageSegments,
+        pageTitleLookup,
         activePageBacklinks,
         tagResults,
         availableTags
@@ -216,6 +217,7 @@ function renderMainContent(
     openPageById: (pageId: string) => void;
     openSearchResult: (result: SearchResult) => void;
     activePageSegments: ReturnType<typeof parseContentIntoSegments>;
+    pageTitleLookup: ReturnType<typeof buildPageTitleLookup>;
     activePageBacklinks: Array<{ pageId: string; title: string; path: string }>;
     tagResults: ReturnType<typeof getTagResults>;
     availableTags: string[];
@@ -366,6 +368,7 @@ function renderMainContent(
         parentChapter={app.derivedChapterForPage}
         initialMoveBookId={app.initialMoveBookId}
         contentSegments={pageLinkState.activePageSegments}
+        pageTitleLookup={pageLinkState.pageTitleLookup}
         backlinks={pageLinkState.activePageBacklinks}
         shouldAutoFocus={app.shouldAutoFocusEditor}
         onChangeTitle={(title) => app.handleRenamePage(activePage.id, title)}

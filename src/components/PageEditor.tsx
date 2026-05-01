@@ -7,10 +7,11 @@ import {
   type TextSizePresetId
 } from './EditorToolbar';
 import { PageMetadataPanel } from './PageMetadataPanel';
+import { WikiLinkPreview } from './WikiLinkPreview';
 import type { Book, Chapter, Page } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
 import { isLoosePage } from '../utils/pageState';
-import type { ContentSegment } from '../utils/pageLinks';
+import type { ContentSegment, PageTitleLookup } from '../utils/pageLinks';
 import { contentToEditableHtml, normalizeEditorHtml } from '../utils/richText';
 import { isValidTag, normalizeTag } from '../utils/tags';
 
@@ -22,6 +23,7 @@ interface PageEditorProps {
   parentChapter?: Chapter;
   initialMoveBookId: string;
   contentSegments: ContentSegment[];
+  pageTitleLookup: PageTitleLookup;
   backlinks: Array<{ pageId: string; title: string; path: string }>;
   shouldAutoFocus?: boolean;
   onChangeTitle: (title: string) => void;
@@ -44,6 +46,7 @@ export function PageEditor({
   parentChapter,
   initialMoveBookId,
   contentSegments,
+  pageTitleLookup,
   backlinks,
   shouldAutoFocus = false,
   onChangeTitle,
@@ -57,6 +60,7 @@ export function PageEditor({
   onOpenTagSearch,
   onExportPage
 }: PageEditorProps): JSX.Element {
+  const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
   const pageIsLoose = isLoosePage(page);
   const [showMovePanel, setShowMovePanel] = useState(false);
   const [showMetadataPanel, setShowMetadataPanel] = useState(false);
@@ -131,12 +135,16 @@ export function PageEditor({
     updateEditorEmptyState(editor);
     updateActiveTextSize();
     isSyncingEditorRef.current = false;
-  }, [page.id, page.content]);
+  }, [editorMode, page.id, page.content]);
 
   useEffect(() => {
     pendingTextSizeRef.current = null;
     updateActiveTextSize();
   }, [page.id, page.textSize]);
+
+  useEffect(() => {
+    setEditorMode('edit');
+  }, [page.id]);
 
   useEffect(() => {
     function handleSelectionChange(): void {
@@ -572,51 +580,88 @@ export function PageEditor({
       ) : null}
 
       <div className={`editor-workspace${showMetadataPanel ? ' has-metadata-panel' : ''}`}>
-        <div className="editor-content-surface is-editing">
-          <EditorToolbar
-            onFormat={applyFormattingAction}
-            activeTextSize={activeTextSize}
-            onBeforeTextSizeChange={saveSelection}
-            onTextSizeChange={applyTextSize}
-          />
-          <div className="editor-editing-pane">
-            <div
-              ref={editorRef}
-              className="editor-rich-text"
-              contentEditable
-              suppressContentEditableWarning
-              role="textbox"
-              aria-multiline="true"
-              aria-label="Page content"
-              data-placeholder="Start typing..."
-              spellCheck
-              onInput={() => {
-                // Rich content is stored as HTML so formatting survives autosave and
-                // reloads, while search/export/backlink code reads visible plain text
-                // through shared conversion helpers instead of parsing raw tags.
-                normalizeFontSizeMarkup(editorRef.current);
-                normalizeCurrentList();
-                syncEditorContent();
-                saveSelection();
-              }}
-              onBlur={() => {
-                syncEditorContent();
-                saveSelection();
-              }}
-              onFocus={() => {
-                updateEditorEmptyState(editorRef.current);
-                saveSelection();
-              }}
-              onKeyDown={handleEditorKeyDown}
-              onKeyUp={saveSelection}
-              onMouseDown={() => {
-                pendingTextSizeRef.current = null;
-              }}
-              onMouseUp={saveSelection}
-              onClick={handleEditorClick}
-              style={{ fontSize: `${page.textSize}px` }}
-            />
+        <div className={`editor-content-surface ${editorMode === 'preview' ? 'is-preview' : 'is-editing'}`}>
+          <div className="editor-mode-bar">
+            <div className="editor-mode-toggle" role="group" aria-label="Editor mode">
+              <button
+                type="button"
+                className={editorMode === 'edit' ? 'is-active' : ''}
+                aria-pressed={editorMode === 'edit'}
+                onClick={() => setEditorMode('edit')}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className={editorMode === 'preview' ? 'is-active' : ''}
+                aria-pressed={editorMode === 'preview'}
+                onClick={() => {
+                  syncEditorContent();
+                  setEditorMode('preview');
+                }}
+              >
+                Preview
+              </button>
+            </div>
           </div>
+
+          {editorMode === 'edit' ? (
+            <>
+              <EditorToolbar
+                onFormat={applyFormattingAction}
+                activeTextSize={activeTextSize}
+                onBeforeTextSizeChange={saveSelection}
+                onTextSizeChange={applyTextSize}
+              />
+              <div className="editor-editing-pane">
+                <div
+                  ref={editorRef}
+                  className="editor-rich-text"
+                  contentEditable
+                  suppressContentEditableWarning
+                  role="textbox"
+                  aria-multiline="true"
+                  aria-label="Page content"
+                  data-placeholder="Start typing..."
+                  spellCheck
+                  onInput={() => {
+                    // Rich content is stored as HTML so formatting survives autosave and
+                    // reloads, while search/export/backlink code reads visible plain text
+                    // through shared conversion helpers instead of parsing raw tags.
+                    normalizeFontSizeMarkup(editorRef.current);
+                    normalizeCurrentList();
+                    syncEditorContent();
+                    saveSelection();
+                  }}
+                  onBlur={() => {
+                    syncEditorContent();
+                    saveSelection();
+                  }}
+                  onFocus={() => {
+                    updateEditorEmptyState(editorRef.current);
+                    saveSelection();
+                  }}
+                  onKeyDown={handleEditorKeyDown}
+                  onKeyUp={saveSelection}
+                  onMouseDown={() => {
+                    pendingTextSizeRef.current = null;
+                  }}
+                  onMouseUp={saveSelection}
+                  onClick={handleEditorClick}
+                  style={{ fontSize: `${page.textSize}px` }}
+                />
+              </div>
+            </>
+          ) : (
+            <WikiLinkPreview
+              content={page.content}
+              contentSegments={contentSegments}
+              titleLookup={pageTitleLookup}
+              textSize={page.textSize}
+              onOpenPage={onOpenPage}
+              onCreatePageFromLink={onCreatePageFromLink}
+            />
+          )}
         </div>
 
         {showMetadataPanel ? (
