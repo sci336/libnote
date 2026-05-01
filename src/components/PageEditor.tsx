@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { InlineEditableText } from './InlineEditableText';
-import { EditorToolbar, type EditorFormatAction } from './EditorToolbar';
+import {
+  EditorToolbar,
+  TEXT_SIZE_PRESETS,
+  type EditorFormatAction,
+  type TextSizePresetId
+} from './EditorToolbar';
 import { PageMetadataPanel } from './PageMetadataPanel';
 import type { Book, Chapter, Page } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
@@ -58,9 +63,11 @@ export function PageEditor({
   const [tagInput, setTagInput] = useState('');
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedSelectionRef = useRef<Range | null>(null);
+  const pendingTextSizeRef = useRef<TextSizePresetId | null>(null);
   const lastAppliedContentRef = useRef<string | null>(null);
   const lastSyncedPageIdRef = useRef<string | null>(null);
   const isSyncingEditorRef = useRef(false);
+  const [activeTextSize, setActiveTextSize] = useState<TextSizePresetId>(() => getPresetForLegacyPx(page.textSize).id);
 
   useEffect(() => {
     setSelectedBookId(initialMoveBookId);
@@ -117,10 +124,39 @@ export function PageEditor({
 
     isSyncingEditorRef.current = true;
     editor.innerHTML = nextHtml;
+    normalizeFontSizeMarkup(editor);
     lastAppliedContentRef.current = normalizedIncomingHtml;
     updateEditorEmptyState(editor);
+    updateActiveTextSize();
     isSyncingEditorRef.current = false;
   }, [page.id, page.content]);
+
+  useEffect(() => {
+    pendingTextSizeRef.current = null;
+    updateActiveTextSize();
+  }, [page.id, page.textSize]);
+
+  useEffect(() => {
+    function handleSelectionChange(): void {
+      const editor = editorRef.current;
+      const selection = window.getSelection();
+
+      if (!editor || !selection || selection.rangeCount === 0) {
+        return;
+      }
+
+      const range = selection.getRangeAt(0);
+      if (editor.contains(range.commonAncestorContainer)) {
+        const detectedTextSize = getActiveTextSize(editor, page.textSize);
+        setActiveTextSize(
+          pendingTextSizeRef.current && range.collapsed ? pendingTextSizeRef.current : detectedTextSize
+        );
+      }
+    }
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, [page.textSize]);
 
   const canMove = useMemo(() => {
     return Boolean(selectedBookId && selectedChapterId);
@@ -145,6 +181,16 @@ export function PageEditor({
     }
 
     savedSelectionRef.current = range.cloneRange();
+    const detectedTextSize = getActiveTextSize(editor, page.textSize);
+    const fallbackTextSize = getPresetForLegacyPx(page.textSize).id;
+
+    if (pendingTextSizeRef.current && range.collapsed && detectedTextSize === fallbackTextSize) {
+      setActiveTextSize(pendingTextSizeRef.current);
+      return;
+    }
+
+    pendingTextSizeRef.current = null;
+    setActiveTextSize(detectedTextSize);
   }
 
   function restoreSelection(): boolean {
@@ -218,17 +264,50 @@ export function PageEditor({
     saveSelection();
   }
 
+  function applyTextSize(size: TextSizePresetId): void {
+    const editor = editorRef.current;
+    const preset = getPreset(size);
+    if (!editor) {
+      return;
+    }
+
+    editor.focus();
+    restoreSelection();
+    const selection = window.getSelection();
+    const appliesToFutureText = Boolean(selection?.rangeCount && selection.getRangeAt(0).collapsed);
+    document.execCommand('styleWithCSS', false, 'true');
+    document.execCommand('fontSize', false, preset.commandSize);
+    normalizeFontSizeMarkup(editor);
+    pendingTextSizeRef.current = appliesToFutureText ? preset.id : null;
+    setActiveTextSize(preset.id);
+    syncEditorContent();
+
+    const nextSelection = window.getSelection();
+    if (nextSelection?.rangeCount) {
+      savedSelectionRef.current = nextSelection.getRangeAt(0).cloneRange();
+    }
+  }
+
+  function updateActiveTextSize(): void {
+    const editor = editorRef.current;
+    setActiveTextSize(editor ? getActiveTextSize(editor, page.textSize) : getPresetForLegacyPx(page.textSize).id);
+  }
+
   function handleEditorKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
     if (event.nativeEvent.isComposing || event.altKey) {
       return;
+    }
+
+    const key = event.key.toLowerCase();
+
+    if (['arrowup', 'arrowright', 'arrowdown', 'arrowleft', 'home', 'end', 'pageup', 'pagedown'].includes(key)) {
+      pendingTextSizeRef.current = null;
     }
 
     const usesPrimaryModifier = event.metaKey || event.ctrlKey;
     if (!usesPrimaryModifier) {
       return;
     }
-
-    const key = event.key.toLowerCase();
 
     if (!event.shiftKey && key === 'b') {
       event.preventDefault();
@@ -409,19 +488,6 @@ export function PageEditor({
         </div>
 
         <div className="editor-actions">
-          <label className="text-size-control">
-            <span>Text Size</span>
-            <input
-              type="range"
-              min="14"
-              max="24"
-              step="1"
-              value={page.textSize}
-              onChange={(event) => onChangeTextSize(Number(event.target.value))}
-            />
-            <span>{page.textSize}px</span>
-          </label>
-
           {pageIsLoose ? (
             <button type="button" className="secondary-button" onClick={() => setShowMovePanel((open) => !open)}>
               Move to Chapter
@@ -494,11 +560,13 @@ export function PageEditor({
       ) : null}
 
       <div className={`editor-workspace${isMetadataCollapsed ? ' is-metadata-collapsed' : ''}`}>
-        <div
-          className="editor-content-surface is-editing"
-          style={{ fontSize: `${page.textSize}px` }}
-        >
-          <EditorToolbar onFormat={applyFormattingAction} />
+        <div className="editor-content-surface is-editing">
+          <EditorToolbar
+            onFormat={applyFormattingAction}
+            activeTextSize={activeTextSize}
+            onBeforeTextSizeChange={saveSelection}
+            onTextSizeChange={applyTextSize}
+          />
           <div className="editor-editing-pane">
             <div
               ref={editorRef}
@@ -514,6 +582,7 @@ export function PageEditor({
                 // Rich content is stored as HTML so formatting survives autosave and
                 // reloads, while search/export/backlink code reads visible plain text
                 // through shared conversion helpers instead of parsing raw tags.
+                normalizeFontSizeMarkup(editorRef.current);
                 normalizeCurrentList();
                 syncEditorContent();
                 saveSelection();
@@ -528,6 +597,9 @@ export function PageEditor({
               }}
               onKeyDown={handleEditorKeyDown}
               onKeyUp={saveSelection}
+              onMouseDown={() => {
+                pendingTextSizeRef.current = null;
+              }}
               onMouseUp={saveSelection}
               onClick={handleEditorClick}
               style={{ fontSize: `${page.textSize}px` }}
@@ -581,4 +653,126 @@ function placeCaretAtEnd(element: HTMLElement): void {
   range.collapse(false);
   selection.removeAllRanges();
   selection.addRange(range);
+}
+
+function getPreset(size: TextSizePresetId): (typeof TEXT_SIZE_PRESETS)[number] {
+  return TEXT_SIZE_PRESETS.find((preset) => preset.id === size) ?? TEXT_SIZE_PRESETS[1];
+}
+
+function getPresetForLegacyPx(size: number): (typeof TEXT_SIZE_PRESETS)[number] {
+  return TEXT_SIZE_PRESETS.reduce((closest, preset) => {
+    return Math.abs(preset.legacyPx - size) < Math.abs(closest.legacyPx - size) ? preset : closest;
+  }, TEXT_SIZE_PRESETS[1]);
+}
+
+function getActiveTextSize(editor: HTMLElement, fallbackPx: number): TextSizePresetId {
+  const selection = window.getSelection();
+  const node = selection && selection.rangeCount > 0 ? selection.focusNode ?? selection.anchorNode : null;
+  const startElement = getSelectionElement(node, editor);
+  const styledElement = findFontSizedAncestor(startElement, editor);
+
+  if (!styledElement) {
+    return getPresetForLegacyPx(fallbackPx).id;
+  }
+
+  return getPresetForComputedFontSize(styledElement).id;
+}
+
+function getSelectionElement(node: Node | null, editor: HTMLElement): HTMLElement {
+  if (!node || !editor.contains(node)) {
+    return editor;
+  }
+
+  if (node instanceof HTMLElement) {
+    return node;
+  }
+
+  return node.parentElement ?? editor;
+}
+
+function findFontSizedAncestor(element: HTMLElement, editor: HTMLElement): HTMLElement | null {
+  let current: HTMLElement | null = element;
+
+  while (current && current !== editor) {
+    if (current.style.fontSize || (current instanceof HTMLFontElement && current.size)) {
+      return current;
+    }
+
+    current = current.parentElement;
+  }
+
+  return null;
+}
+
+function getPresetForComputedFontSize(element: HTMLElement): (typeof TEXT_SIZE_PRESETS)[number] {
+  const fontSize = window.getComputedStyle(element).fontSize;
+  const px = Number.parseFloat(fontSize);
+
+  if (!Number.isFinite(px)) {
+    return TEXT_SIZE_PRESETS[1];
+  }
+
+  const rootPx = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+  const rem = px / rootPx;
+
+  return TEXT_SIZE_PRESETS.reduce((closest, preset) => {
+    const presetRem = Number.parseFloat(preset.fontSize);
+    return Math.abs(presetRem - rem) < Math.abs(Number.parseFloat(closest.fontSize) - rem) ? preset : closest;
+  }, TEXT_SIZE_PRESETS[1]);
+}
+
+function normalizeFontSizeMarkup(editor: HTMLElement | null): void {
+  if (!editor) {
+    return;
+  }
+
+  editor.querySelectorAll('font[size]').forEach((fontElement) => {
+    if (!(fontElement instanceof HTMLFontElement)) {
+      return;
+    }
+
+    const preset = getPresetForCommandSize(fontElement.size);
+    const span = document.createElement('span');
+    span.style.fontSize = preset.fontSize;
+
+    while (fontElement.firstChild) {
+      span.appendChild(fontElement.firstChild);
+    }
+
+    fontElement.replaceWith(span);
+  });
+
+  editor.querySelectorAll<HTMLElement>('[style*="font-size"]').forEach((element) => {
+    const normalizedPreset = getPresetForStyleFontSize(element.style.fontSize);
+    if (normalizedPreset) {
+      element.style.fontSize = normalizedPreset.fontSize;
+    }
+  });
+}
+
+function getPresetForCommandSize(size: string): (typeof TEXT_SIZE_PRESETS)[number] {
+  return TEXT_SIZE_PRESETS.find((preset) => preset.commandSize === size) ?? TEXT_SIZE_PRESETS[1];
+}
+
+function getPresetForStyleFontSize(fontSize: string): (typeof TEXT_SIZE_PRESETS)[number] | null {
+  const normalized = fontSize.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  const keywordMap: Record<string, TextSizePresetId> = {
+    small: 'small',
+    medium: 'normal',
+    large: 'large',
+    'x-large': 'extraLarge',
+    'xx-large': 'huge',
+    '-webkit-xxx-large': 'huge'
+  };
+  const keywordPreset = keywordMap[normalized];
+
+  if (keywordPreset) {
+    return getPreset(keywordPreset);
+  }
+
+  return TEXT_SIZE_PRESETS.find((preset) => preset.fontSize === normalized) ?? null;
 }

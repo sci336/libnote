@@ -426,8 +426,8 @@ function SettingsSection({
           the app. These settings persist in this browser across reloads.
         </p>
         <p>
-          Page text size is also adjustable from each open page with the <strong>Text Size</strong> slider. That size is
-          saved on the page itself, not as a global default.
+          Text size is adjustable from each open page with the <strong>Text size</strong> menu in the editor toolbar.
+          It applies to selected text or to what you type next, and is saved with the page content.
         </p>
       </section>
 

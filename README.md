@@ -49,12 +49,12 @@ The app is designed as a personal writing and knowledge-organizing workspace. Bo
 ### Page Editing
 
 - Rich-text editing foundation built on a `contentEditable` editor.
-- Formatting toolbar for bold, italic, underline, highlight, heading, bullet lists, numbered lists, and checkbox/task lists.
+- Formatting toolbar for bold, italic, underline, highlight, heading, text size, bullet lists, numbered lists, and checkbox/task lists.
 - Keyboard formatting shortcuts for common editor actions, including bold, italic, underline, bullet lists, and numbered lists.
 - Inline title editing for books, chapters, and pages.
 - Auto-save through debounced IndexedDB persistence.
 - `pagehide` persistence flush to reduce the chance of losing recent edits when the tab closes.
-- Per-page text size control from `14px` to `24px`.
+- Inline text size presets for selected text or newly typed text.
 - Individual page export as `.txt`.
 
 ### Links, Backlinks, and Metadata

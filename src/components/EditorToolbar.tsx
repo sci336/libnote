@@ -8,8 +8,21 @@ export type EditorFormatAction =
   | 'numberedList'
   | 'checkbox';
 
+export const TEXT_SIZE_PRESETS = [
+  { id: 'small', label: 'Small', fontSize: '0.875rem', legacyPx: 14, commandSize: '2' },
+  { id: 'normal', label: 'Normal', fontSize: '1rem', legacyPx: 16, commandSize: '3' },
+  { id: 'large', label: 'Large', fontSize: '1.25rem', legacyPx: 20, commandSize: '4' },
+  { id: 'extraLarge', label: 'Extra Large', fontSize: '1.5rem', legacyPx: 24, commandSize: '5' },
+  { id: 'huge', label: 'Huge', fontSize: '2rem', legacyPx: 32, commandSize: '7' }
+] as const;
+
+export type TextSizePresetId = (typeof TEXT_SIZE_PRESETS)[number]['id'];
+
 interface EditorToolbarProps {
   onFormat: (action: EditorFormatAction) => void;
+  activeTextSize: TextSizePresetId;
+  onTextSizeChange: (size: TextSizePresetId) => void;
+  onBeforeTextSizeChange: () => void;
 }
 
 const TOOLBAR_BUTTONS: Array<{
@@ -28,9 +41,30 @@ const TOOLBAR_BUTTONS: Array<{
   { action: 'checkbox', label: 'Checkbox list', title: 'Checkbox list', text: '[] Task' }
 ];
 
-export function EditorToolbar({ onFormat }: EditorToolbarProps): JSX.Element {
+export function EditorToolbar({
+  onFormat,
+  activeTextSize,
+  onTextSizeChange,
+  onBeforeTextSizeChange
+}: EditorToolbarProps): JSX.Element {
   return (
     <div className="editor-toolbar" role="toolbar" aria-label="Text formatting">
+      <label className="editor-text-size-control">
+        <span>Text size</span>
+        <select
+          value={activeTextSize}
+          aria-label="Text size"
+          onMouseDown={onBeforeTextSizeChange}
+          onFocus={onBeforeTextSizeChange}
+          onChange={(event) => onTextSizeChange(event.target.value as TextSizePresetId)}
+        >
+          {TEXT_SIZE_PRESETS.map((preset) => (
+            <option key={preset.id} value={preset.id}>
+              {preset.label}
+            </option>
+          ))}
+        </select>
+      </label>
       {TOOLBAR_BUTTONS.map((button) => (
         <button
           key={button.action}
