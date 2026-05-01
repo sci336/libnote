@@ -77,6 +77,7 @@ button {
 .editor-title,
 .list-card-title,
 .book-card-title,
+.sidebar-section-toggle,
 .sidebar-section-title-button,
 .sidebar-link-button {
   border: 0;
@@ -214,6 +215,51 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #6b7280;
+  min-width: 0;
+}
+
+.sidebar-section-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-transform: inherit;
+}
+
+.sidebar-section-toggle.is-active {
+  color: #111827;
+}
+
+.sidebar-section-toggle:focus-visible,
+.sidebar-link-button:focus-visible,
+.sidebar-item:focus-visible {
+  outline: 2px solid rgba(31, 41, 55, 0.38);
+  outline-offset: 3px;
+}
+
+.sidebar-section-chevron {
+  display: inline-block;
+  width: 0.85rem;
+  flex-shrink: 0;
+  color: #9ca3af;
+  font-size: 0.8rem;
+  line-height: 1;
+  transition: transform 0.16s ease;
+}
+
+.sidebar-section-chevron.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+.sidebar-section-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-section-title-button {

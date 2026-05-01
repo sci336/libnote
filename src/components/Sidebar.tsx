@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { Book, Chapter, Page, ViewState } from '../types/domain';
 import { ReorderableList } from './ReorderableList';
 import { isLoosePage } from '../utils/pageState';
@@ -8,6 +9,18 @@ export interface RecentSidebarPage {
   title: string;
   contextLabel: string;
 }
+
+type SidebarSectionId =
+  | 'books'
+  | 'loosePages'
+  | 'recentPages'
+  | 'trash'
+  | 'currentBookChapters'
+  | 'currentChapterPages';
+
+type CollapsedSidebarSections = Partial<Record<SidebarSectionId, boolean>>;
+
+const COLLAPSED_SIDEBAR_SECTIONS_KEY = 'libnote:collapsedSidebarSections';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -89,21 +102,33 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     : [];
   const [isLoosePagesExpanded, setIsLoosePagesExpanded] = useState(false);
   const visibleLoosePages = isLoosePagesExpanded ? loosePages : loosePages.slice(0, 3);
+  const [collapsedSidebarSections, setCollapsedSidebarSections] = useState<CollapsedSidebarSections>(() =>
+    loadCollapsedSidebarSections()
+  );
+
+  useEffect(() => {
+    saveCollapsedSidebarSections(collapsedSidebarSections);
+  }, [collapsedSidebarSections]);
+
+  const toggleSidebarSection = (sectionId: SidebarSectionId): void => {
+    setCollapsedSidebarSections((current) => ({
+      ...current,
+      [sectionId]: !current[sectionId]
+    }));
+  };
+
+  const isSectionCollapsed = (sectionId: SidebarSectionId): boolean => collapsedSidebarSections[sectionId] === true;
 
   const loosePagesSection = (
-    <section className="sidebar-section">
-      <div className="sidebar-section-header">
-        <h2>
-          <button
-            type="button"
-            className={`sidebar-section-title-button ${currentView.type === 'loosePages' ? 'is-active' : ''}`}
-            onClick={onNavigateLoosePages}
-          >
-            Loose Pages
-          </button>
-        </h2>
-        <div className="sidebar-section-actions">
-          {loosePages.length > 3 ? (
+    <CollapsibleSidebarSection
+      sectionId="loosePages"
+      title="Loose Pages"
+      isCollapsed={isSectionCollapsed('loosePages')}
+      isActive={currentView.type === 'loosePages'}
+      onToggle={toggleSidebarSection}
+      actions={
+        <>
+          {loosePages.length > 3 && !isSectionCollapsed('loosePages') ? (
             <button
               type="button"
               className="sidebar-link-button"
@@ -122,9 +147,9 @@ export function Sidebar(props: SidebarProps): JSX.Element {
               + New
             </button>
           ) : null}
-        </div>
-      </div>
-
+        </>
+      }
+    >
       <div className={`sidebar-list ${isLoosePagesExpanded ? 'sidebar-list-scrollable' : ''}`}>
         {visibleLoosePages.length > 0 ? (
           visibleLoosePages.map((page) => (
@@ -144,7 +169,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
           <p className="sidebar-empty">Nothing here yet.</p>
         )}
       </div>
-    </section>
+    </CollapsibleSidebarSection>
   );
 
   return (
@@ -158,9 +183,12 @@ export function Sidebar(props: SidebarProps): JSX.Element {
             reachable even while book/chapter/page context changes below. */}
         {showsBooks && (
           <SidebarSection
+            sectionId="books"
             title="Books"
             actionLabel="All Books"
             onAction={onNavigateRoot}
+            isCollapsed={isSectionCollapsed('books')}
+            onToggle={toggleSidebarSection}
             items={books.map((book) => ({
               id: book.id,
               label: book.title,
@@ -180,9 +208,12 @@ export function Sidebar(props: SidebarProps): JSX.Element {
         {/* CHAPTERS */}
         {showsChapters && (
           <SidebarSection
+            sectionId="currentBookChapters"
             title="Chapters"
             actionLabel={onCreateChapterInContext ? '+ New Chapter' : undefined}
             onAction={onCreateChapterInContext}
+            isCollapsed={isSectionCollapsed('currentBookChapters')}
+            onToggle={toggleSidebarSection}
             items={visibleChapters.map((chapter) => ({
               id: chapter.id,
               label: chapter.title,
@@ -199,9 +230,12 @@ export function Sidebar(props: SidebarProps): JSX.Element {
         {/* PAGES (only in chapter/page context, never at book level) */}
         {showsPages && (
           <SidebarSection
+            sectionId="currentChapterPages"
             title="Pages"
             actionLabel={onCreatePageInContext ? '+ New Page' : undefined}
             onAction={onCreatePageInContext}
+            isCollapsed={isSectionCollapsed('currentChapterPages')}
+            onToggle={toggleSidebarSection}
             items={pages.map((page) => ({
               id: page.id,
               label: page.title,
@@ -215,10 +249,12 @@ export function Sidebar(props: SidebarProps): JSX.Element {
           />
         )}
 
-        <section className="sidebar-section">
-          <div className="sidebar-section-header">
-            <h2>Trash</h2>
-          </div>
+        <CollapsibleSidebarSection
+          sectionId="trash"
+          title="Trash"
+          isCollapsed={isSectionCollapsed('trash')}
+          onToggle={toggleSidebarSection}
+        >
           <div className="sidebar-list">
             <button
               type="button"
@@ -231,14 +267,15 @@ export function Sidebar(props: SidebarProps): JSX.Element {
               Open Trash
             </button>
           </div>
-        </section>
+        </CollapsibleSidebarSection>
 
         {recentPages.length > 0 ? (
-          <section className="sidebar-section">
-            <div className="sidebar-section-header">
-              <h2>Recent Pages</h2>
-            </div>
-
+          <CollapsibleSidebarSection
+            sectionId="recentPages"
+            title="Recent Pages"
+            isCollapsed={isSectionCollapsed('recentPages')}
+            onToggle={toggleSidebarSection}
+          >
             <div className="sidebar-list">
               {recentPages.map((page) => (
                 <button
@@ -255,7 +292,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
                 </button>
               ))}
             </div>
-          </section>
+          </CollapsibleSidebarSection>
         ) : null}
       </aside>
     </>
@@ -263,15 +300,21 @@ export function Sidebar(props: SidebarProps): JSX.Element {
 }
 
 function SidebarSection({
+  sectionId,
   title,
   actionLabel,
   onAction,
+  isCollapsed,
+  onToggle,
   items,
   onReorder
 }: {
+  sectionId: SidebarSectionId;
   title: string;
   actionLabel?: string;
   onAction?: () => void;
+  isCollapsed: boolean;
+  onToggle: (sectionId: SidebarSectionId) => void;
   items: Array<{
     id: string;
     label: string;
@@ -281,10 +324,13 @@ function SidebarSection({
   onReorder?: (orderedIds: string[]) => void;
 }): JSX.Element {
   return (
-    <section className="sidebar-section">
-      <div className="sidebar-section-header">
-        <h2>{title}</h2>
-        {actionLabel && onAction && (
+    <CollapsibleSidebarSection
+      sectionId={sectionId}
+      title={title}
+      isCollapsed={isCollapsed}
+      onToggle={onToggle}
+      actions={
+        actionLabel && onAction ? (
           <button
             type="button"
             className="sidebar-link-button"
@@ -292,9 +338,9 @@ function SidebarSection({
           >
             {actionLabel}
           </button>
-        )}
-      </div>
-
+        ) : undefined
+      }
+    >
       <div className="sidebar-list">
         {items.length > 0 ? (
           onReorder ? (
@@ -335,9 +381,112 @@ function SidebarSection({
           <p className="sidebar-empty">Nothing here yet.</p>
         )}
       </div>
+    </CollapsibleSidebarSection>
+  );
+}
+
+function CollapsibleSidebarSection({
+  sectionId,
+  title,
+  isCollapsed,
+  isActive = false,
+  onToggle,
+  actions,
+  children
+}: {
+  sectionId: SidebarSectionId;
+  title: string;
+  isCollapsed: boolean;
+  isActive?: boolean;
+  onToggle: (sectionId: SidebarSectionId) => void;
+  actions?: ReactNode;
+  children: ReactNode;
+}): JSX.Element {
+  const contentId = `sidebar-section-${sectionId}`;
+
+  return (
+    <section className="sidebar-section">
+      <div className="sidebar-section-header">
+        <h2>
+          <button
+            type="button"
+            className={`sidebar-section-toggle ${isActive ? 'is-active' : ''}`}
+            aria-expanded={!isCollapsed}
+            aria-controls={contentId}
+            onClick={() => onToggle(sectionId)}
+          >
+            <span className={`sidebar-section-chevron ${isCollapsed ? 'is-collapsed' : ''}`} aria-hidden="true">
+              ▾
+            </span>
+            <span className="sidebar-section-title">{title}</span>
+          </button>
+        </h2>
+        {actions ? <div className="sidebar-section-actions">{actions}</div> : null}
+      </div>
+
+      <div id={contentId} className="sidebar-section-content" hidden={isCollapsed}>
+        {children}
+      </div>
     </section>
   );
 }
+
+function loadCollapsedSidebarSections(): CollapsedSidebarSections {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(COLLAPSED_SIDEBAR_SECTIONS_KEY);
+    if (!rawValue) {
+      return {};
+    }
+
+    const parsedValue = JSON.parse(rawValue);
+    if (!parsedValue || typeof parsedValue !== 'object' || Array.isArray(parsedValue)) {
+      return {};
+    }
+
+    return SIDEBAR_SECTION_IDS.reduce<CollapsedSidebarSections>((sections, sectionId) => {
+      if ((parsedValue as Record<string, unknown>)[sectionId] === true) {
+        sections[sectionId] = true;
+      }
+
+      return sections;
+    }, {});
+  } catch {
+    return {};
+  }
+}
+
+function saveCollapsedSidebarSections(sections: CollapsedSidebarSections): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    const collapsedSections = SIDEBAR_SECTION_IDS.reduce<CollapsedSidebarSections>((nextSections, sectionId) => {
+      if (sections[sectionId] === true) {
+        nextSections[sectionId] = true;
+      }
+
+      return nextSections;
+    }, {});
+
+    window.localStorage.setItem(COLLAPSED_SIDEBAR_SECTIONS_KEY, JSON.stringify(collapsedSections));
+  } catch {
+    // Collapse state is a convenience preference; the sidebar still works without persistence.
+  }
+}
+
+const SIDEBAR_SECTION_IDS: SidebarSectionId[] = [
+  'books',
+  'loosePages',
+  'recentPages',
+  'trash',
+  'currentBookChapters',
+  'currentChapterPages'
+];
 
 /**
  * Detects whether the current page route should be treated like the loose-page
