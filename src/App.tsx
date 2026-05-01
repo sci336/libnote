@@ -200,7 +200,8 @@ export default function App(): JSX.Element {
         pageTitleLookup,
         activePageBacklinks,
         tagResults,
-        availableTags
+        availableTags,
+        pages: allPages
       })}
       <AppMenu
         isOpen={app.appMenuOpen}
@@ -236,6 +237,7 @@ function renderMainContent(
     activePageBacklinks: Array<{ pageId: string; title: string; path: string }>;
     tagResults: ReturnType<typeof getTagResults>;
     availableTags: string[];
+    pages: Page[];
   }
 ): JSX.Element {
   // Keep route-to-view branching centralized here so individual view components
@@ -379,6 +381,7 @@ function renderMainContent(
         page={activePage}
         books={app.books}
         chapters={app.allChapters}
+        pages={pageLinkState.pages}
         parentBook={app.derivedBookForPage}
         parentChapter={app.derivedChapterForPage}
         initialMoveBookId={app.initialMoveBookId}

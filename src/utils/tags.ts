@@ -62,6 +62,12 @@ export interface TagTokenMatch {
   end: number;
 }
 
+export interface SlashTagTriggerMatch {
+  query: string;
+  start: number;
+  end: number;
+}
+
 export function getActiveSlashTagToken(raw: string, caret: number): TagTokenMatch | null {
   const safeCaret = Math.max(0, Math.min(caret, raw.length));
   let start = safeCaret;
@@ -86,6 +92,27 @@ export function getActiveSlashTagToken(raw: string, caret: number): TagTokenMatc
     start,
     end
   };
+}
+
+export function detectActiveSlashTagTrigger(raw: string, cursorPosition: number): SlashTagTriggerMatch | null {
+  const match = getActiveSlashTagToken(raw, cursorPosition);
+  if (!match || match.token.includes('#') || match.token.includes(',')) {
+    return null;
+  }
+
+  return {
+    query: match.normalizedQuery,
+    start: match.start,
+    end: cursorPosition
+  };
+}
+
+export function getAllTagSuggestions(
+  pages: Page[],
+  query: string,
+  options?: { excludeTags?: string[]; limit?: number }
+): string[] {
+  return getTagSuggestions(getAllTags(pages), query, options);
 }
 
 export function getTagSuggestions(

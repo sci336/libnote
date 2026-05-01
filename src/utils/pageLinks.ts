@@ -24,6 +24,12 @@ export interface PageConnectionLink {
   targetPageId: string | null;
 }
 
+export interface WikiLinkTriggerMatch {
+  query: string;
+  start: number;
+  end: number;
+}
+
 const BRACKET_LINK_PATTERN = /\[\[([\s\S]*?)\]\]/g;
 const WHITESPACE_PATTERN = /\s+/g;
 
@@ -71,6 +77,106 @@ export function buildPageTitleLookup(allPages: Page[]): PageTitleLookup {
   }
 
   return lookup;
+}
+
+export function getAllPageTitleSuggestions(
+  pages: Page[],
+  query: string,
+  currentPageId?: string,
+  options?: { limit?: number }
+): string[] {
+  const normalizedQuery = normalizeSuggestionQuery(query);
+  const limit = options?.limit ?? 6;
+
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const seenTitles = new Set<string>();
+  const ranked = pages
+    .filter((page) => !page.deletedAt && page.id !== currentPageId)
+    .map((page) => page.title.trim())
+    .filter((title) => {
+      const normalizedTitle = normalizePageTitle(title);
+      if (!normalizedTitle || seenTitles.has(normalizedTitle)) {
+        return false;
+      }
+
+      seenTitles.add(normalizedTitle);
+      return true;
+    })
+    .map((title) => {
+      const normalizedTitle = normalizeSuggestionQuery(title);
+
+      if (normalizedTitle === normalizedQuery) {
+        return { title, score: 0, index: 0 };
+      }
+
+      if (normalizedTitle.startsWith(normalizedQuery)) {
+        return { title, score: 1, index: 0 };
+      }
+
+      const containsIndex = normalizedTitle.indexOf(normalizedQuery);
+      if (containsIndex !== -1) {
+        return { title, score: 2, index: containsIndex };
+      }
+
+      return null;
+    })
+    .filter((entry): entry is { title: string; score: number; index: number } => entry !== null)
+    .sort((left, right) => {
+      if (left.score !== right.score) {
+        return left.score - right.score;
+      }
+
+      if (left.index !== right.index) {
+        return left.index - right.index;
+      }
+
+      return left.title.localeCompare(right.title);
+    });
+
+  return ranked.slice(0, limit).map((entry) => entry.title);
+}
+
+export function detectActiveWikiLinkTrigger(text: string, cursorPosition: number): WikiLinkTriggerMatch | null {
+  const safeText = toSafeString(text);
+  const cursor = Math.max(0, Math.min(cursorPosition, safeText.length));
+  const beforeCursor = safeText.slice(0, cursor);
+  const triggerIndex = beforeCursor.lastIndexOf('[[');
+
+  if (triggerIndex === -1) {
+    return null;
+  }
+
+  const closingBeforeTrigger = beforeCursor.lastIndexOf(']]');
+  if (closingBeforeTrigger > triggerIndex) {
+    return null;
+  }
+
+  const query = safeText.slice(triggerIndex + 2, cursor);
+  if (/[\r\n]/.test(query) || query.includes('[') || query.includes(']')) {
+    return null;
+  }
+
+  return {
+    query,
+    start: triggerIndex,
+    end: cursor
+  };
+}
+
+export function replaceTextRangeWithSuggestion(
+  text: string,
+  startIndex: number,
+  endIndex: number,
+  replacement: string
+): string {
+  const safeText = toSafeString(text);
+  const start = Math.max(0, Math.min(startIndex, safeText.length));
+  const end = Math.max(start, Math.min(endIndex, safeText.length));
+
+  return `${safeText.slice(0, start)}${replacement}${safeText.slice(end)}`;
 }
 
 export function resolveBracketLink(linkText: string, allPages: Page[]): Page | null {
@@ -233,4 +339,8 @@ function toSafeString(value: unknown): string {
 
 function flattenText(value: unknown): string {
   return toSafeString(value).trim().replace(WHITESPACE_PATTERN, ' ');
+}
+
+function normalizeSuggestionQuery(value: string): string {
+  return flattenText(value).toLowerCase();
 }

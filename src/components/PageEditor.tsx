@@ -8,18 +8,24 @@ import {
 } from './EditorToolbar';
 import { PageMetadataPanel } from './PageMetadataPanel';
 import { SaveStatusIndicator } from './SaveStatusIndicator';
+import { TagSuggestionsDropdown } from './TagSuggestionsDropdown';
 import { WikiLinkPreview } from './WikiLinkPreview';
 import type { Book, Chapter, Page, SaveStatus } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
 import { isLoosePage } from '../utils/pageState';
 import type { ContentSegment, PageTitleLookup } from '../utils/pageLinks';
+import {
+  detectActiveWikiLinkTrigger,
+  getAllPageTitleSuggestions
+} from '../utils/pageLinks';
 import { contentToEditableHtml, normalizeEditorHtml } from '../utils/richText';
-import { parseSingleTagInput } from '../utils/tags';
+import { detectActiveSlashTagTrigger, getAllTagSuggestions, parseSingleTagInput } from '../utils/tags';
 
 interface PageEditorProps {
   page: Page;
   books: Book[];
   chapters: Chapter[];
+  pages: Page[];
   parentBook?: Book;
   parentChapter?: Chapter;
   initialMoveBookId: string;
@@ -41,10 +47,21 @@ interface PageEditorProps {
   onRetrySave: () => void;
 }
 
+type EditorAutocompleteKind = 'link' | 'tag';
+
+interface EditorAutocompleteState {
+  kind: EditorAutocompleteKind;
+  suggestions: string[];
+  activeIndex: number;
+  start: number;
+  end: number;
+}
+
 export function PageEditor({
   page,
   books,
   chapters,
+  pages,
   parentBook,
   parentChapter,
   initialMoveBookId,
@@ -72,6 +89,9 @@ export function PageEditor({
   const [selectedBookId, setSelectedBookId] = useState(initialMoveBookId);
   const [selectedChapterId, setSelectedChapterId] = useState('');
   const [tagInput, setTagInput] = useState('');
+  const [tagSuggestionsVisible, setTagSuggestionsVisible] = useState(false);
+  const [activeTagSuggestionIndex, setActiveTagSuggestionIndex] = useState(0);
+  const [editorAutocomplete, setEditorAutocomplete] = useState<EditorAutocompleteState | null>(null);
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedSelectionRef = useRef<Range | null>(null);
   const pendingTextSizeRef = useRef<TextSizePresetId | null>(null);
@@ -79,6 +99,14 @@ export function PageEditor({
   const lastSyncedPageIdRef = useRef<string | null>(null);
   const isSyncingEditorRef = useRef(false);
   const [activeTextSize, setActiveTextSize] = useState<TextSizePresetId>(() => getPresetForLegacyPx(page.textSize).id);
+  const pageTagSuggestions = useMemo(
+    () =>
+      tagInput.trim().length > 0
+        ? getAllTagSuggestions(pages, parseSingleTagInput(tagInput) ?? '', { excludeTags: page.tags })
+        : [],
+    [page.tags, pages, tagInput]
+  );
+  const shouldShowPageTagSuggestions = tagSuggestionsVisible && pageTagSuggestions.length > 0;
 
   useEffect(() => {
     setSelectedBookId(initialMoveBookId);
@@ -149,7 +177,15 @@ export function PageEditor({
 
   useEffect(() => {
     setEditorMode('edit');
+    setEditorAutocomplete(null);
+    setTagSuggestionsVisible(false);
   }, [page.id]);
+
+  useEffect(() => {
+    if (activeTagSuggestionIndex >= pageTagSuggestions.length) {
+      setActiveTagSuggestionIndex(0);
+    }
+  }, [activeTagSuggestionIndex, pageTagSuggestions.length]);
 
   useEffect(() => {
     function handleSelectionChange(): void {
@@ -166,12 +202,13 @@ export function PageEditor({
         setActiveTextSize(
           pendingTextSizeRef.current && range.collapsed ? pendingTextSizeRef.current : detectedTextSize
         );
+        updateEditorAutocomplete();
       }
     }
 
     document.addEventListener('selectionchange', handleSelectionChange);
     return () => document.removeEventListener('selectionchange', handleSelectionChange);
-  }, [page.textSize]);
+  }, [page.id, page.textSize, pages]);
 
   const canMove = useMemo(() => {
     return Boolean(selectedBookId && selectedChapterId);
@@ -232,6 +269,102 @@ export function PageEditor({
     lastAppliedContentRef.current = normalizedHtml;
     updateEditorEmptyState(editor);
     onChangeContent(normalizedHtml);
+  }
+
+  function updateEditorAutocomplete(): void {
+    const editor = editorRef.current;
+    const caret = getCaretTextOffset(editor);
+
+    if (!editor || caret === null || document.activeElement !== editor) {
+      setEditorAutocomplete(null);
+      return;
+    }
+
+    const text = editor.textContent ?? '';
+    const wikiTrigger = detectActiveWikiLinkTrigger(text, caret);
+
+    if (wikiTrigger) {
+      const suggestions = getAllPageTitleSuggestions(pages, wikiTrigger.query, page.id);
+      setEditorAutocomplete((current) =>
+        suggestions.length > 0
+          ? buildNextEditorAutocomplete(current, 'link', suggestions, wikiTrigger.start, wikiTrigger.end)
+          : null
+      );
+      return;
+    }
+
+    const tagTrigger = detectActiveSlashTagTrigger(text, caret);
+
+    if (tagTrigger) {
+      const suggestions = getAllTagSuggestions(pages, tagTrigger.query);
+      setEditorAutocomplete((current) =>
+        suggestions.length > 0
+          ? buildNextEditorAutocomplete(current, 'tag', suggestions, tagTrigger.start, tagTrigger.end)
+          : null
+      );
+      return;
+    }
+
+    setEditorAutocomplete(null);
+  }
+
+  function applyEditorSuggestion(suggestion: string): void {
+    const editor = editorRef.current;
+    const autocomplete = editorAutocomplete;
+
+    if (!editor || !autocomplete) {
+      return;
+    }
+
+    const replacement = autocomplete.kind === 'link' ? `[[${suggestion}]]` : `/${suggestion}`;
+    editor.focus();
+
+    const range = createRangeFromTextOffsets(editor, autocomplete.start, autocomplete.end);
+    if (!range) {
+      return;
+    }
+
+    range.deleteContents();
+    const insertedText = document.createTextNode(replacement);
+    range.insertNode(insertedText);
+
+    const nextRange = document.createRange();
+    nextRange.setStartAfter(insertedText);
+    nextRange.collapse(true);
+
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(nextRange);
+
+    normalizeFontSizeMarkup(editor);
+    syncEditorContent();
+    saveSelection();
+    setEditorAutocomplete(null);
+  }
+
+  function handleAddTagFromInput(): void {
+    const normalizedTag = parseSingleTagInput(tagInput);
+    // Keep editor-entered tags on the same normalized path as search
+    // filters so clicking a tag always routes back to matching pages.
+    if (!normalizedTag || page.tags.includes(normalizedTag)) {
+      setTagInput('');
+      setTagSuggestionsVisible(false);
+      return;
+    }
+
+    onChangeTags([...page.tags, normalizedTag]);
+    setTagInput('');
+    setTagSuggestionsVisible(false);
+  }
+
+  function applyPageTagSuggestion(tag: string): void {
+    if (!page.tags.includes(tag)) {
+      onChangeTags([...page.tags, tag]);
+    }
+
+    setTagInput('');
+    setTagSuggestionsVisible(false);
+    setActiveTagSuggestionIndex(0);
   }
 
   function applyFormattingAction(action: EditorFormatAction): void {
@@ -311,6 +444,49 @@ export function PageEditor({
   function handleEditorKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
     if (event.nativeEvent.isComposing || event.altKey) {
       return;
+    }
+
+    if (editorAutocomplete) {
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setEditorAutocomplete((current) =>
+          current
+            ? {
+                ...current,
+                activeIndex: (current.activeIndex + 1) % current.suggestions.length
+              }
+            : current
+        );
+        return;
+      }
+
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        setEditorAutocomplete((current) =>
+          current
+            ? {
+                ...current,
+                activeIndex: (current.activeIndex - 1 + current.suggestions.length) % current.suggestions.length
+              }
+            : current
+        );
+        return;
+      }
+
+      if (event.key === 'Enter' || event.key === 'Tab') {
+        const suggestion = editorAutocomplete.suggestions[editorAutocomplete.activeIndex];
+        if (suggestion) {
+          event.preventDefault();
+          applyEditorSuggestion(suggestion);
+        }
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setEditorAutocomplete(null);
+        return;
+      }
     }
 
     const key = event.key.toLowerCase();
@@ -480,25 +656,60 @@ export function PageEditor({
               type="text"
               className="tag-input"
               value={tagInput}
-              onChange={(event) => setTagInput(event.target.value)}
+              onChange={(event) => {
+                setTagInput(event.target.value);
+                setTagSuggestionsVisible(true);
+                setActiveTagSuggestionIndex(0);
+              }}
+              onFocus={() => setTagSuggestionsVisible(true)}
+              onBlur={() => {
+                window.setTimeout(() => setTagSuggestionsVisible(false), 120);
+              }}
               onKeyDown={(event) => {
+                if (shouldShowPageTagSuggestions) {
+                  if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    setActiveTagSuggestionIndex((current) => (current + 1) % pageTagSuggestions.length);
+                    return;
+                  }
+
+                  if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    setActiveTagSuggestionIndex(
+                      (current) => (current - 1 + pageTagSuggestions.length) % pageTagSuggestions.length
+                    );
+                    return;
+                  }
+
+                  if (event.key === 'Enter' || event.key === 'Tab') {
+                    const suggestion = pageTagSuggestions[activeTagSuggestionIndex];
+                    if (suggestion) {
+                      event.preventDefault();
+                      applyPageTagSuggestion(suggestion);
+                    }
+                    return;
+                  }
+                }
+
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  setTagSuggestionsVisible(false);
+                  return;
+                }
+
                 if (event.key !== 'Enter') {
                   return;
                 }
 
                 event.preventDefault();
-                const normalizedTag = parseSingleTagInput(tagInput);
-                // Keep editor-entered tags on the same normalized path as search
-                // filters so clicking a tag always routes back to matching pages.
-                if (!normalizedTag || page.tags.includes(normalizedTag)) {
-                  setTagInput('');
-                  return;
-                }
-
-                onChangeTags([...page.tags, normalizedTag]);
-                setTagInput('');
+                handleAddTagFromInput();
               }}
               placeholder="Add tag"
+            />
+            <TagSuggestionsDropdown
+              suggestions={shouldShowPageTagSuggestions ? pageTagSuggestions : []}
+              activeIndex={activeTagSuggestionIndex}
+              onSelect={applyPageTagSuggestion}
             />
           </div>
         </div>
@@ -638,23 +849,43 @@ export function PageEditor({
                     normalizeCurrentList();
                     syncEditorContent();
                     saveSelection();
+                    updateEditorAutocomplete();
                   }}
                   onBlur={() => {
                     syncEditorContent();
                     saveSelection();
+                    window.setTimeout(() => setEditorAutocomplete(null), 120);
                   }}
                   onFocus={() => {
                     updateEditorEmptyState(editorRef.current);
                     saveSelection();
+                    updateEditorAutocomplete();
                   }}
                   onKeyDown={handleEditorKeyDown}
-                  onKeyUp={saveSelection}
+                  onKeyUp={(event) => {
+                    saveSelection();
+                    if (['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(event.key)) {
+                      return;
+                    }
+                    updateEditorAutocomplete();
+                  }}
                   onMouseDown={() => {
                     pendingTextSizeRef.current = null;
                   }}
-                  onMouseUp={saveSelection}
+                  onMouseUp={() => {
+                    saveSelection();
+                    updateEditorAutocomplete();
+                  }}
                   onClick={handleEditorClick}
                   style={{ fontSize: `${page.textSize}px` }}
+                />
+                <TagSuggestionsDropdown
+                  suggestions={editorAutocomplete?.suggestions ?? []}
+                  activeIndex={editorAutocomplete?.activeIndex ?? 0}
+                  onSelect={applyEditorSuggestion}
+                  ariaLabel={editorAutocomplete?.kind === 'link' ? 'Page link suggestions' : 'Tag suggestions'}
+                  prefix={editorAutocomplete?.kind === 'link' ? '' : '/'}
+                  className="editor-autocomplete-dropdown"
                 />
               </div>
             </>
@@ -717,6 +948,145 @@ function placeCaretAtEnd(element: HTMLElement): void {
   range.collapse(false);
   selection.removeAllRanges();
   selection.addRange(range);
+}
+
+function getCaretTextOffset(editor: HTMLElement | null): number | null {
+  const selection = window.getSelection();
+
+  if (!editor || !selection || selection.rangeCount === 0) {
+    return null;
+  }
+
+  const range = selection.getRangeAt(0);
+  if (!range.collapsed || !editor.contains(range.commonAncestorContainer)) {
+    return null;
+  }
+
+  const textOffset = getTextOffsetForDomPosition(editor, range.endContainer, range.endOffset);
+  if (textOffset !== null) {
+    return textOffset;
+  }
+
+  const fallbackRange = range.cloneRange();
+  fallbackRange.selectNodeContents(editor);
+  fallbackRange.setEnd(range.endContainer, range.endOffset);
+  return fallbackRange.toString().length;
+}
+
+function buildNextEditorAutocomplete(
+  current: EditorAutocompleteState | null,
+  kind: EditorAutocompleteKind,
+  suggestions: string[],
+  start: number,
+  end: number
+): EditorAutocompleteState {
+  const keepsActiveSuggestion =
+    current?.kind === kind &&
+    current.start === start &&
+    current.end === end &&
+    current.suggestions.join('\n') === suggestions.join('\n');
+
+  return {
+    kind,
+    suggestions,
+    activeIndex: keepsActiveSuggestion ? Math.min(current.activeIndex, suggestions.length - 1) : 0,
+    start,
+    end
+  };
+}
+
+function createRangeFromTextOffsets(editor: HTMLElement, startOffset: number, endOffset: number): Range | null {
+  const start = Math.max(0, startOffset);
+  const end = Math.max(start, endOffset);
+  const startPosition = getTextNodePosition(editor, start);
+  const endPosition = getTextNodePosition(editor, end);
+
+  if (!startPosition || !endPosition) {
+    return null;
+  }
+
+  const range = document.createRange();
+  range.setStart(startPosition.node, startPosition.offset);
+  range.setEnd(endPosition.node, endPosition.offset);
+  return range;
+}
+
+function getTextOffsetForDomPosition(root: HTMLElement, container: Node, offset: number): number | null {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let current = walker.nextNode();
+  let textOffset = 0;
+
+  if (container.nodeType === Node.TEXT_NODE) {
+    while (current) {
+      const textNode = current as Text;
+      if (textNode === container) {
+        return textOffset + Math.max(0, Math.min(offset, textNode.data.length));
+      }
+
+      textOffset += textNode.data.length;
+      current = walker.nextNode();
+    }
+
+    return null;
+  }
+
+  if (container instanceof Element) {
+    const childAtOffset = container.childNodes[offset] ?? null;
+
+    while (current) {
+      const textNode = current as Text;
+      if (
+        childAtOffset &&
+        (textNode === childAtOffset || (childAtOffset instanceof Element && childAtOffset.contains(textNode)))
+      ) {
+        return textOffset;
+      }
+
+      textOffset += textNode.data.length;
+      current = walker.nextNode();
+    }
+
+    return textOffset;
+  }
+
+  return null;
+}
+
+function getTextNodePosition(root: HTMLElement, targetOffset: number): { node: Text; offset: number } | null {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let remainingOffset = targetOffset;
+  let current = walker.nextNode();
+  let lastTextNode: Text | null = null;
+
+  while (current) {
+    const textNode = current as Text;
+    const textLength = textNode.data.length;
+    lastTextNode = textNode;
+
+    if (remainingOffset <= textLength) {
+      return {
+        node: textNode,
+        offset: remainingOffset
+      };
+    }
+
+    remainingOffset -= textLength;
+    current = walker.nextNode();
+  }
+
+  if (lastTextNode) {
+    return {
+      node: lastTextNode,
+      offset: lastTextNode.data.length
+    };
+  }
+
+  const textNode = document.createTextNode('');
+  root.appendChild(textNode);
+  return {
+    node: textNode,
+    offset: 0
+  };
 }
 
 function getPreset(size: TextSizePresetId): (typeof TEXT_SIZE_PRESETS)[number] {
