@@ -5,6 +5,17 @@ import { ReorderableList } from '../components/ReorderableList';
 import type { Book, LibraryBooksPerRow } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
 
+const COVER_THEMES = [
+  'cover-theme-ivory',
+  'cover-theme-sage',
+  'cover-theme-blue-mountain',
+  'cover-theme-terracotta',
+  'cover-theme-lavender',
+  'cover-theme-sand',
+  'cover-theme-misty-blue',
+  'cover-theme-taupe'
+] as const;
+
 interface RootViewProps {
   books: Book[];
   getChapterCountForBook: (bookId: string) => number;
@@ -16,6 +27,18 @@ interface RootViewProps {
   onRenameBook: (bookId: string, title: string) => void;
   onOpenLoosePages: () => void;
   booksPerRow: LibraryBooksPerRow;
+}
+
+type CoverTheme = (typeof COVER_THEMES)[number];
+
+function getBookCoverTheme(bookIdOrTitle: string): CoverTheme {
+  let hash = 0;
+
+  for (let index = 0; index < bookIdOrTitle.length; index += 1) {
+    hash = (hash * 31 + bookIdOrTitle.charCodeAt(index)) >>> 0;
+  }
+
+  return COVER_THEMES[hash % COVER_THEMES.length];
 }
 
 export function RootView({
@@ -76,65 +99,71 @@ export function RootView({
             itemDropTopClassName="drop-top"
             itemDropBottomClassName="drop-bottom"
             isEnabled={books.length > 1}
-            renderItem={(book) => (
-              <article className="book-card">
-                <div
-                  className="book-card-surface"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Open ${book.title || 'Untitled'}`}
-                  onClick={() => onOpenBook(book.id)}
-                  onKeyDown={(event) => handleCardKeyDown(event, book.id)}
-                >
-                  <div className="book-card-cover">
-                    <span className="book-card-label">Book</span>
-                    <span className="book-card-meta">{getChapterCountForBook(book.id)} chapters</span>
-                    <span className="book-card-meta">Updated {formatTimestamp(book.updatedAt)}</span>
-                    <span className="book-card-open-hint">Open book</span>
-                  </div>
-                </div>
-                <div className="book-card-footer">
-                  <div className="book-card-heading" onClick={stopCardOpen}>
-                    <span className="drag-handle" aria-hidden="true">
-                      ::
-                    </span>
-                    <div className="book-card-title-wrap" onClick={stopCardOpen}>
+            renderItem={(book) => {
+              const chapterCount = getChapterCountForBook(book.id);
+              const themeClassName = getBookCoverTheme(`${book.id}:${book.title}:${book.createdAt}`);
+
+              return (
+                <article className="book-card">
+                  <div className="book-card-cover-frame">
+                    <div
+                      className="book-card-surface"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Open ${book.title || 'Untitled'}`}
+                      onClick={() => onOpenBook(book.id)}
+                      onKeyDown={(event) => handleCardKeyDown(event, book.id)}
+                    >
+                      <div className={`book-card-cover ${themeClassName}`}>
+                        <span className="book-card-label">Book</span>
+                        <div className="book-card-cover-spacer" aria-hidden="true" />
+                        <div className="book-card-cover-meta">
+                          <span className="book-card-meta">
+                            {chapterCount} {chapterCount === 1 ? 'chapter' : 'chapters'}
+                          </span>
+                          <span className="book-card-meta">Updated {formatTimestamp(book.updatedAt)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="book-card-title-wrap book-card-title-on-cover" onClick={stopCardOpen}>
                       <InlineEditableText
                         value={book.title}
                         onSave={(title) => onRenameBook(book.id, title)}
                         className="book-card-title"
-                        inputClassName="inline-input block-input"
+                        inputClassName="inline-input block-input book-card-title-input"
                       />
                     </div>
                   </div>
-                </div>
-                <div
-                  className="card-actions book-card-actions"
-                  onClick={stopCardOpen}
-                >
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => onCreateChapter(book.id)}
-                  >
-                    Add Chapter
-                  </button>
-                  <button
-                    type="button"
-                    className="danger-button subtle"
-                    onClick={() => onDeleteBook(book.id)}
-                  >
-                    Move to Trash
-                  </button>
-                </div>
-              </article>
-            )}
+                  <div className="book-card-footer" onClick={stopCardOpen}>
+                    <span className="drag-handle" aria-label="Drag to reorder books" title="Drag to reorder">
+                      ::
+                    </span>
+                    <div className="card-actions book-card-actions">
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => onCreateChapter(book.id)}
+                      >
+                        Add Chapter
+                      </button>
+                      <button
+                        type="button"
+                        className="danger-button subtle"
+                        onClick={() => onDeleteBook(book.id)}
+                      >
+                        Move to Trash
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            }}
           />
         </div>
       ) : (
         <EmptyState
-          title="No books yet"
-          message="Create your first book to start organizing chapters and pages."
+          title="Your shelves are empty."
+          message="Create your first book to start building your library."
           actionLabel="Create Book"
           onAction={onCreateBook}
         />
