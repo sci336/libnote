@@ -1,111 +1,118 @@
 # LibNote
 
-LibNote is a local-first, library-inspired note app built with React, TypeScript, and Vite. It runs in the browser and organizes notes around four core concepts:
+LibNote is a local-first, library-inspired note app for organizing writing into books, chapters, pages, and loose pages.
 
-- Books
-- Chapters
-- Pages
-- Loose Pages
+It is built with React, TypeScript, Vite, IndexedDB, a Web App Manifest, and a production service worker. It does not currently use a backend, account system, cloud sync, URL routing, external state-management library, routing library, or full editor framework.
 
-The app is designed as a personal writing and knowledge-organizing workspace. Books contain chapters, chapters contain pages, and Loose Pages act like an inbox for standalone notes that have not been moved into a chapter yet.
+## What LibNote Is
+
+LibNote is a personal writing and knowledge-organizing workspace that runs in the browser. Books contain chapters, chapters contain pages, and Loose Pages act like an inbox for notes that have not been filed into a chapter yet.
+
+The app stores your library locally in the current browser profile. Backup and restore tools are available, but syncing across devices is not implemented yet.
 
 ## Current Features
 
 ### Library Organization
 
 - Create, rename, reorder, and move books to Trash.
-- Create, rename, reorder, move, and move chapters to Trash.
-- Create, rename, reorder, move, and move pages to Trash.
+- Create, rename, reorder, move between books, and move chapters to Trash.
+- Create, rename, reorder, move between chapters, and move pages to Trash.
 - Create, rename, open, and move Loose Pages to Trash.
-- Move chapters between books.
-- Move chapter pages between chapters.
 - Move Loose Pages into an existing chapter.
-- Restore trashed books, chapters, pages, and Loose Pages.
-- Permanently delete individual trashed items or empty Trash.
-- Recently opened pages appear in the sidebar.
+- Inline title editing for books, chapters, and pages.
 
 ### Navigation
 
 - Sidebar navigation for Books, Chapters, Pages, Loose Pages, Trash, and Recent Pages.
 - Contextual sidebar sections that change based on the active view.
-- Collapsible sidebar with wider-screen and smaller-screen behavior.
-- Top-bar navigation with Home, Back, sidebar toggle, and breadcrumb-style context.
-- In-memory view state for navigation. Browser URL routing and deep links are not implemented yet.
+- Top-bar navigation with Home, Back, sidebar toggle, search, and breadcrumb-style context.
+- Recent Pages is automatic and fixed at 4 recent pages.
+- The App Menu opens a Library Guide with Help, Shortcuts, Settings, Tag Management, Backup & Restore, and Credits.
 
-### Search and Tags
+### Search and Slash Tags
 
-- Global search from the top bar.
-- Search across book titles, chapter titles, page titles, and page content.
-- Search result cards show the result type, path context, and snippets for page content matches.
-- Slash-based tag filtering, such as `/history`.
-- Multiple slash tags can be combined, such as `/history /mythology`.
-- Multi-tag filtering uses AND logic, so pages must include every selected tag.
-- Tag suggestions are available while typing slash tags.
-- Pages have explicit tag fields under the title.
-- Tags are normalized to lowercase and displayed as tag pills.
-- Clicking a page tag opens tag filtering.
-- Recent tags are tracked during the current app session.
+- Search runs live from the top bar.
+- Text search covers live book titles, chapter titles, page titles, and page content.
+- Results show the result type, location/path context, and snippets for page content matches.
+- Slash tag search uses `/tag` syntax, such as `/history`.
+- Multiple slash tags use AND filtering, such as `/history /mythology`; results must include every selected tag.
+- Tag suggestions appear while typing slash tags.
+- Pages have tag fields under the title, tags are normalized to lowercase, and clicking a tag opens tag filtering.
+
+### Tag Management
+
+- Tag Management is implemented in the App Menu.
+- Users can review existing slash tags, filter the tag list, sort alphabetically or by use count, rename tags across the library, delete a tag from all pages, and merge one tag into another.
+- Tags are derived from page metadata, so unused tags disappear when no page uses them.
 
 ### Page Editing
 
-- Rich-text editing foundation built on a `contentEditable` editor.
-- Formatting toolbar for bold, italic, underline, highlight, heading, text size, bullet lists, numbered lists, and checkbox/task lists.
-- Keyboard formatting shortcuts for common editor actions, including bold, italic, underline, bullet lists, and numbered lists.
-- Inline title editing for books, chapters, and pages.
-- Auto-save through debounced IndexedDB persistence.
-- `pagehide` persistence flush to reduce the chance of losing recent edits when the tab closes.
-- Inline text size presets for selected text or newly typed text.
-- Individual page export as `.txt`.
+- Pages use a custom lightweight rich text editor built on `contentEditable`.
+- The editor has Edit and Preview modes.
+- The formatting toolbar supports text size presets, bold, italic, underline, highlight, headings, bullet lists, numbered lists, and checkbox/task lists.
+- Common editor shortcuts are available for bold, italic, underline, highlight, bullet lists, and numbered lists.
+- Checkbox/task list items can be checked and unchecked in the editor.
+- Page content is saved as rich HTML locally, while search, backlinks, and `.txt` export use plain-text conversion helpers.
+- Edits persist through debounced IndexedDB writes, with a `pagehide` flush to help protect recent changes when the tab closes.
 
-### Links, Backlinks, and Metadata
+### Links, Backlinks, and Page Info
 
-- Wiki-style page links written as `[[Page Title]]`.
-- Link resolution is case-insensitive and whitespace-normalized.
-- The page metadata panel shows basics, location, created/updated timestamps, writing stats, tags, outgoing links, backlinks, and broken links.
-- Backlinks are derived from existing `[[Page Title]]` links.
-- Duplicate page titles currently resolve to the first matching page.
+- Wiki-style page links use `[[Page Title]]`.
+- Link matching is case-insensitive and whitespace-normalized.
+- Duplicate page titles are resolved by first match, which can make destinations ambiguous.
+- Preview mode renders resolved page links and lets users create pages for broken links.
+- Page Info is implemented and shows location, created/updated information, writing stats, tags, outgoing wiki links, backlinks, and broken links.
 
-### Backup, Settings, and Shortcuts
+### Trash
 
-- Full-library JSON export.
-- Full-library JSON import with validation and confirmation before replacing the current library.
-- Backups include books, chapters, pages, Loose Pages, and saved settings.
-- Settings are stored locally.
-- Root library books-per-row setting.
-- Customizable global shortcuts for:
-  - New Loose Page
-  - New Page in Current Chapter
-  - Toggle Sidebar
-  - Go Home
-  - Go Back
-- Reset controls for individual shortcuts and all shortcuts.
+- Deleting a book, chapter, page, or Loose Page moves it to Trash first.
+- Trash supports restore, delete forever, and empty Trash.
+- Restoring a book also restores its chapters and pages.
+- Restoring a chapter also restores its pages.
+- Restoring a page tries to return it to its original chapter. If that chapter is unavailable, the page is restored as a Loose Page.
+- Delete Forever and Empty Trash are permanent.
 
-### PWA and Offline Shell
+### Backup, Restore, and Export
 
-- Web app manifest in `public/manifest.webmanifest`.
-- Production service worker in `public/sw.js`.
+- Full-library export creates a JSON backup.
+- Backups include books, chapters, pages, loose pages, tags, page text sizes, recent pages, books-per-row settings, and custom shortcuts.
+- Import reads a JSON backup, validates it, asks for confirmation, and then replaces the current library and saved settings. It does not merge libraries.
+- Individual pages can be exported as plain `.txt` files.
+
+### Settings and Shortcuts
+
+- Settings are stored locally in the browser.
+- The root library view has a books-per-row setting.
+- Global shortcuts are customizable for New Loose Page, New Page in Current Chapter, Toggle Sidebar, Go Home, and Go Back.
+- Shortcut settings can be cleared, reset individually, or reset all at once.
+- Recent Pages is automatic and is not configurable yet.
+
+### PWA/Offline Shell
+
+- `public/manifest.webmanifest` provides the web app manifest.
+- `public/sw.js` provides the production service worker.
 - The service worker precaches the app shell and caches same-origin GET assets as they are fetched.
-- Development mode unregisters existing service workers and removes matching app caches to avoid stale local builds.
+- Offline behavior depends on cached assets and local browser storage. Development mode unregisters existing service workers and clears matching app caches to avoid stale local builds.
 
 ## How Data Is Stored
 
-LibNote stores user data locally in the browser using IndexedDB. The library is persisted as a normalized local snapshot containing books, chapters, and pages. App settings are also stored in IndexedDB.
+LibNote stores user data locally in IndexedDB. The library is persisted as a normalized snapshot containing books, chapters, and pages. App settings are stored separately in the same IndexedDB object store.
 
 There is no backend service, account system, or cloud sync in the current implementation. Notes belong to the current browser profile and device unless they are manually exported and imported with the backup tools. Clearing browser storage can delete the local library.
 
 ## Current Limitations
 
 - No cloud sync yet.
-- No account system or authentication yet.
+- No account system/authentication yet.
 - No browser URL routing, shareable page URLs, or deep links yet.
 - Local browser data can be lost if browser storage is cleared.
 - Collaboration and multi-user editing are not implemented.
-- The editor has useful rich-text basics, but it is still a lightweight custom editor rather than a full editor framework.
-- There is no explicit save status indicator beyond updated timestamps and local persistence behavior.
-- Mixed text-plus-tag queries are not combined into one search mode. The search bar currently handles normal text search or slash-tag filtering.
-- Full tag management is not implemented yet. Tags are managed per page and through filtering surfaces.
-- Backlink handling is useful but basic; duplicate page titles can create ambiguous wiki-link destinations.
-- Offline behavior depends on what the production service worker has cached in the current browser.
+- The editor is custom/lightweight and still not a full editor framework.
+- No explicit save status indicator beyond timestamps and local persistence behavior.
+- Mixed text-plus-tag queries are not combined into one search mode yet.
+- Recent Pages is fixed at 4 and not configurable yet.
+- Duplicate page titles can make wiki-link destinations ambiguous.
+- Offline behavior depends on what the production service worker has cached.
 - Mobile behavior exists, but mobile polish can still improve.
 
 ## Setup
@@ -120,6 +127,12 @@ Run the development server:
 
 ```bash
 npm run dev
+```
+
+Run TypeScript checks:
+
+```bash
+npm run typecheck
 ```
 
 Build for production:
@@ -162,23 +175,21 @@ vite.config.ts           Vite configuration
 tsconfig*.json           TypeScript configuration
 ```
 
-## Roadmap
+## Roadmap / Future Ideas
 
-These are planned or future ideas, not current implemented features:
+These are planned or possible future improvements, not current implemented features:
 
-- More complete Trash and restore workflows
-- More capable page metadata panel
-- Better backlink view
-- Full tag management
-- Better settings page
-- Better search filters
-- Browser URL routing and deep links
+- Save status indicator
+- Better settings page/layout polish
+- More advanced search filters
+- Browser URL routing/deep links
 - Better mobile layout
-- Visual design polish
+- Design polish
 - Sync across devices
 - Version history
 - Templates
-- Attachments and images
+- Attachments/images
+- More robust editor foundation if needed later
 
 ## Tech Stack
 
@@ -188,5 +199,3 @@ These are planned or future ideas, not current implemented features:
 - IndexedDB
 - Web App Manifest
 - Service Worker
-
-LibNote intentionally avoids a backend, external state-management library, routing library, and editor framework in the current codebase.
