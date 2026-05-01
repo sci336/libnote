@@ -5,6 +5,7 @@ import type {
   LibraryBooksPerRow,
   LibraryData,
   Page,
+  SaveStatus,
   ShortcutAction,
   ShortcutBinding,
   TrashItem,
@@ -109,10 +110,13 @@ export function useLibraryApp() {
   const [tagOriginView, setTagOriginView] = useState<ViewState>({ type: 'root' });
   const [recentTags, setRecentTags] = useState<string[]>([]);
   const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>({ state: 'idle' });
   const latestDataRef = useRef<LibraryData | null>(null);
   const latestSettingsRef = useRef<AppSettings>(DEFAULT_APP_SETTINGS);
   const currentViewRef = useRef<ViewState>({ type: 'root' });
   const navigationHistoryRef = useRef<ViewState[]>([]);
+  const latestDataVersionRef = useRef(0);
+  const saveRequestIdRef = useRef(0);
 
   useEffect(() => {
     Promise.all([hydrateLibraryData(), hydrateAppSettings()])
@@ -126,6 +130,9 @@ export function useLibraryApp() {
 
   useEffect(() => {
     latestDataRef.current = data;
+    if (data) {
+      latestDataVersionRef.current += 1;
+    }
   }, [data]);
 
   useEffect(() => {
@@ -148,7 +155,7 @@ export function useLibraryApp() {
 
       // Typing in the editor updates state immediately, then persistence trails
       // behind slightly so edits stay responsive.
-      persistLibraryData(data).catch(console.error);
+      void persistLibrarySnapshot(data, latestDataVersionRef.current);
     },
     [data],
     PERSISTENCE_DELAY_MS
@@ -306,6 +313,38 @@ export function useLibraryApp() {
 
   function updateData(nextData: LibraryData): void {
     setData(nextData);
+  }
+
+  async function persistLibrarySnapshot(snapshot: LibraryData, dataVersion: number): Promise<void> {
+    const requestId = saveRequestIdRef.current + 1;
+    saveRequestIdRef.current = requestId;
+    setSaveStatus({ state: 'saving' });
+
+    try {
+      await persistLibraryData(snapshot);
+
+      if (requestId === saveRequestIdRef.current && dataVersion === latestDataVersionRef.current) {
+        setSaveStatus({ state: 'saved', lastSavedAt: Date.now() });
+      }
+    } catch (error) {
+      console.error('Failed to save library data', error);
+
+      if (requestId === saveRequestIdRef.current && dataVersion === latestDataVersionRef.current) {
+        setSaveStatus({
+          state: 'failed',
+          error: error instanceof Error ? error.message : undefined
+        });
+      }
+    }
+  }
+
+  function retryLibrarySave(): void {
+    const latestData = latestDataRef.current;
+    if (!latestData) {
+      return;
+    }
+
+    void persistLibrarySnapshot(latestData, latestDataVersionRef.current);
   }
 
   function replaceView(nextView: ViewState, options?: { shouldCloseSidebar?: boolean }): void {
@@ -900,6 +939,7 @@ export function useLibraryApp() {
 
       latestDataRef.current = nextData;
       latestSettingsRef.current = nextSettings;
+      setSaveStatus({ state: 'saved', lastSavedAt: Date.now() });
       setData(nextData);
       setSettings(nextSettings);
       setSearchQuery('');
@@ -1004,6 +1044,7 @@ export function useLibraryApp() {
     tagOriginView,
     recentTags,
     backupStatus,
+    saveStatus,
     recentPageIds: settings.recentPageIds,
     books,
     loosePages,
@@ -1024,6 +1065,7 @@ export function useLibraryApp() {
     initialMoveBookId,
     trashItems,
     updateData,
+    retryLibrarySave,
     navigateToView,
     replaceView,
     setSidebarOpen,

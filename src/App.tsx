@@ -375,6 +375,7 @@ function renderMainContent(
         contentSegments={pageLinkState.activePageSegments}
         pageTitleLookup={pageLinkState.pageTitleLookup}
         backlinks={pageLinkState.activePageBacklinks}
+        saveStatus={app.saveStatus}
         shouldAutoFocus={app.shouldAutoFocusEditor}
         onChangeTitle={(title) => app.handleRenamePage(activePage.id, title)}
         onChangeContent={(content) => app.handleUpdatePageContent(activePage.id, content)}
@@ -386,6 +387,7 @@ function renderMainContent(
         onCreatePageFromLink={(title) => app.handleCreatePageFromLink(activePage, title)}
         onExportPage={() => app.handleExportPage(activePage.id)}
         onOpenTagSearch={app.handleOpenTag}
+        onRetrySave={app.retryLibrarySave}
       />
     );
   }

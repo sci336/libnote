@@ -91,6 +91,12 @@ export interface AppSettings {
   recentPageIds: ID[];
 }
 
+export type SaveStatus =
+  | { state: 'idle' }
+  | { state: 'saving' }
+  | { state: 'saved'; lastSavedAt: number }
+  | { state: 'failed'; error?: string };
+
 export type AppMenuSection = 'help' | 'shortcuts' | 'settings' | 'tagManagement' | 'backup' | 'credits';
 
 /**

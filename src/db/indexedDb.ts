@@ -53,7 +53,9 @@ export async function saveLibraryData(data: LibraryData): Promise<void> {
     const store = transaction.objectStore(STORE_NAME);
     const request = store.put(data, SNAPSHOT_KEY);
 
-    request.onsuccess = () => resolve();
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
     request.onerror = () => reject(request.error);
   });
 }
@@ -79,7 +81,9 @@ export async function saveAppSettings(settings: AppSettings): Promise<void> {
     const store = transaction.objectStore(STORE_NAME);
     const request = store.put(settings, SETTINGS_KEY);
 
-    request.onsuccess = () => resolve();
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error);
     request.onerror = () => reject(request.error);
   });
 }

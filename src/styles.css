@@ -1000,6 +1000,50 @@ h1 {
   color: #6b7280;
 }
 
+.save-status {
+  width: fit-content;
+  min-height: 1.75rem;
+  margin-top: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.32rem 0.65rem;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.66);
+  color: #6b7280;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.save-status-saving {
+  color: #4b5563;
+}
+
+.save-status-saved {
+  color: #586273;
+}
+
+.save-status-failed {
+  border-color: rgba(143, 58, 42, 0.24);
+  background: rgba(255, 246, 244, 0.92);
+  color: var(--danger);
+}
+
+.save-status-retry {
+  border: 1px solid rgba(143, 58, 42, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--danger);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.save-status-retry:hover {
+  background: #ffffff;
+}
+
 .book-card-open-hint {
   margin: 0;
   color: #4b5563;
