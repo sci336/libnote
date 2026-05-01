@@ -906,8 +906,20 @@ export function useLibraryApp() {
       return;
     }
 
-    const payload = createBackupPayload(data, settings);
-    downloadJsonFile(createBackupFileName(payload.exportedAt), payload);
+    const payload = createBackupPayload(data, latestSettingsRef.current);
+    const nextSettings = {
+      ...latestSettingsRef.current,
+      lastBackupExportedAt: payload.exportedAt
+    };
+    const payloadWithBackupTimestamp = {
+      ...payload,
+      settings: nextSettings
+    };
+
+    downloadJsonFile(createBackupFileName(payload.exportedAt), payloadWithBackupTimestamp);
+    latestSettingsRef.current = nextSettings;
+    setSettings(nextSettings);
+    saveAppSettings(nextSettings).catch(console.error);
     setBackupStatus({
       tone: 'success',
       message: 'Backup download started. Check your browser downloads or Downloads folder.'
@@ -923,7 +935,11 @@ export function useLibraryApp() {
       const rawPayload = await readBackupFile(file);
       const validated = validateBackupPayload(rawPayload);
 
-      if (!window.confirm('This will replace your current library with the imported backup. Continue?')) {
+      if (
+        !window.confirm(
+          'Importing this backup will replace your current library in this browser. Export a backup first if you want to keep a copy of the current library. Continue?'
+        )
+      ) {
         setBackupStatus({ tone: 'info', message: 'Import canceled. Your current library was not changed.' });
         return;
       }

@@ -8,7 +8,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
     booksPerRow: 4
   },
   shortcuts: DEFAULT_SHORTCUTS,
-  recentPageIds: []
+  recentPageIds: [],
+  lastBackupExportedAt: null
 };
 
 export function normalizeAppSettings(settings: Partial<AppSettings> | null | undefined): AppSettings {
@@ -22,7 +23,8 @@ export function normalizeAppSettings(settings: Partial<AppSettings> | null | und
           : DEFAULT_APP_SETTINGS.libraryView.booksPerRow
     },
     shortcuts: normalizeShortcutSettings(settings?.shortcuts),
-    recentPageIds: normalizeRecentPageIds(settings?.recentPageIds)
+    recentPageIds: normalizeRecentPageIds(settings?.recentPageIds),
+    lastBackupExportedAt: normalizeLastBackupExportedAt(settings?.lastBackupExportedAt)
   };
 }
 
@@ -55,4 +57,12 @@ function normalizeRecentPageIds(recentPageIds: unknown): string[] {
   }
 
   return normalizedIds;
+}
+
+function normalizeLastBackupExportedAt(value: unknown): string | null {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return null;
+  }
+
+  return Number.isNaN(new Date(value).getTime()) ? null : value;
 }

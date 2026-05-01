@@ -669,6 +669,36 @@ kbd {
   background: rgba(239, 246, 255, 0.9);
 }
 
+.backup-reminder-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.backup-reminder-card h2 {
+  margin: 0;
+}
+
+.backup-reminder-card.is-success {
+  border-color: rgba(21, 128, 61, 0.25);
+  background: rgba(240, 253, 244, 0.88);
+}
+
+.backup-reminder-card.is-warning {
+  border-color: rgba(143, 58, 42, 0.28);
+  background: rgba(255, 247, 245, 0.92);
+}
+
+.backup-reminder-card.is-info {
+  border-color: rgba(59, 130, 246, 0.22);
+  background: rgba(239, 246, 255, 0.9);
+}
+
+.backup-last-export {
+  color: #111827 !important;
+  font-weight: 700;
+}
+
 .settings-control-copy {
   display: flex;
   flex-direction: column;

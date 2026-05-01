@@ -17,6 +17,7 @@ import {
   validateShortcutBinding
 } from '../utils/shortcuts';
 import { RECENT_PAGES_LIMIT } from '../utils/appSettings';
+import { formatLastBackupTime, getBackupReminderState } from '../utils/backupReminder';
 import { parseSingleTagInput, type TagSummary } from '../utils/tags';
 
 const LIBRARY_ROW_OPTIONS: LibraryBooksPerRow[] = [2, 3, 4, 5];
@@ -876,11 +877,20 @@ function formatPageCount(pageCount: number): string {
 }
 
 function BackupSection({
+  settings,
   backupStatus,
   onExportLibrary,
   onImportLibrary
-}: Pick<AppMenuProps, 'backupStatus' | 'onExportLibrary' | 'onImportLibrary'>): JSX.Element {
+}: Pick<AppMenuProps, 'settings' | 'backupStatus' | 'onExportLibrary' | 'onImportLibrary'>): JSX.Element {
   const [isImporting, setIsImporting] = useState(false);
+  const reminderState = getBackupReminderState(settings.lastBackupExportedAt);
+  const reminderTone = reminderState.type === 'current' ? 'success' : reminderState.type === 'stale' ? 'warning' : 'info';
+  const reminderMessage =
+    reminderState.type === 'current'
+      ? 'Backup is up to date.'
+      : reminderState.type === 'stale'
+        ? `Last backup was ${reminderState.daysSinceBackup} days ago. Consider exporting a new backup.`
+        : 'Backup recommended - your notes are saved only in this browser.';
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>): Promise<void> {
     const file = event.target.files?.[0] ?? null;
@@ -908,6 +918,19 @@ function BackupSection({
         </p>
       </section>
 
+      <section className={`menu-card backup-reminder-card is-${reminderTone}`} aria-live="polite">
+        <div className="settings-placeholder-head">
+          <h2>Backup Reminder</h2>
+          <span className="search-result-badge">{reminderState.type === 'current' ? 'Current' : 'Recommended'}</span>
+        </div>
+        <p className="backup-last-export">{formatLastBackupTime(settings.lastBackupExportedAt)}</p>
+        <p>{reminderMessage}</p>
+        <p>
+          Your notes are saved in this browser. Export backups regularly, especially before clearing browser data,
+          switching devices, or importing another library.
+        </p>
+      </section>
+
       <section className="menu-card settings-card-grid">
         <article className="settings-placeholder-card settings-control-card">
           <div className="settings-placeholder-head">
@@ -932,9 +955,9 @@ function BackupSection({
             <span className="search-result-badge">Replaces current library</span>
           </div>
           <p>
-            Import a previously exported JSON backup. Restore replaces the current library and saved settings with the
-            contents of the backup; it does not merge the two libraries. You will be asked to confirm before anything
-            is replaced.
+            Import a previously exported JSON backup. Restore replaces the current library and saved settings in this
+            browser with the contents of the backup; it does not merge the two libraries. Export a backup first if you
+            want to keep a copy of the current library.
           </p>
           <label className="backup-import-label">
             <input

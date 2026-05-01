@@ -89,6 +89,7 @@ export interface AppSettings {
   libraryView: LibraryViewSettings;
   shortcuts: ShortcutSettings;
   recentPageIds: ID[];
+  lastBackupExportedAt: string | null;
 }
 
 export type SaveStatus =
