@@ -91,7 +91,7 @@ export interface AppSettings {
   recentPageIds: ID[];
 }
 
-export type AppMenuSection = 'help' | 'shortcuts' | 'settings' | 'backup' | 'credits';
+export type AppMenuSection = 'help' | 'shortcuts' | 'settings' | 'tagManagement' | 'backup' | 'credits';
 
 /**
  * ViewState acts as the app's lightweight router.

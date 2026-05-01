@@ -88,7 +88,7 @@ export function TagResultsView({
             <div className="active-tag-list" aria-label="Active tag filters">
               {tags.map((tag) => (
                 <span key={tag} className="active-tag-pill">
-                  <span>#{tag}</span>
+                  <span>/{tag}</span>
                   <button
                     type="button"
                     className="active-tag-remove"
@@ -191,7 +191,7 @@ export function TagResultsView({
                       className="inline-tag-button recent-tag-button"
                       onClick={() => onOpenTag(tag)}
                     >
-                      #{tag}
+                      /{tag}
                     </button>
                   ))}
                 </div>
@@ -234,7 +234,7 @@ export function TagResultsView({
                       }
                     }}
                   >
-                    #{tag}
+                    /{tag}
                   </button>
                 ))}
               </div>
