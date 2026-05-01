@@ -1393,13 +1393,13 @@ mark {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 1rem;
 }
 
-.editor-workspace.is-metadata-collapsed {
-  grid-template-columns: minmax(0, 1fr) minmax(7rem, max-content);
+.editor-workspace.has-metadata-panel {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
 }
 
 .editor-content-surface,
@@ -1452,10 +1452,6 @@ mark {
   overflow: hidden;
 }
 
-.page-metadata-panel.is-collapsed {
-  align-self: start;
-}
-
 .metadata-panel-header {
   display: flex;
   align-items: center;
@@ -1495,6 +1491,22 @@ mark {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.76rem;
+}
+
+.metadata-connections-section {
+  gap: 0.8rem;
+}
+
+.metadata-connection-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.metadata-connection-group h4 {
+  margin: 0;
+  color: #374151;
+  font-size: 0.9rem;
 }
 
 .metadata-list {
@@ -1565,6 +1577,11 @@ mark {
   gap: 0.45rem;
 }
 
+.metadata-broken-list {
+  flex-direction: column;
+  align-items: stretch;
+}
+
 .metadata-tag-button,
 .metadata-link-item,
 .metadata-broken-link {
@@ -1591,6 +1608,24 @@ mark {
   border-color: rgba(143, 58, 42, 0.24);
   background: rgba(255, 247, 245, 0.92);
   color: #8f3a2a;
+}
+
+.metadata-broken-link-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.metadata-broken-link-row .metadata-broken-link {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.metadata-create-link-button {
+  min-height: 2rem;
+  flex: 0 0 auto;
+  padding: 0.35rem 0.6rem;
 }
 
 .editor-rich-text p,
@@ -1803,7 +1838,7 @@ mark {
   }
 
   .editor-workspace,
-  .editor-workspace.is-metadata-collapsed {
+  .editor-workspace.has-metadata-panel {
     grid-template-columns: 1fr;
   }
 

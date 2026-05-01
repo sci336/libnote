@@ -189,13 +189,13 @@ export function moveChapterToTrash(data: LibraryData, chapterId: ID): LibraryDat
 
 export function createPage(
   data: LibraryData,
-  options: { chapterId: ID | null; isLoose: boolean }
+  options: { chapterId: ID | null; isLoose: boolean; title?: string }
 ): { data: LibraryData; page: Page } {
   const timestamp = nowIso();
   const page: Page = {
     id: createId('page'),
     chapterId: options.chapterId,
-    title: options.isLoose ? 'Untitled Loose Page' : 'Untitled Page',
+    title: normalizeTitle(options.title ?? '', options.isLoose ? 'Untitled Loose Page' : 'Untitled Page'),
     content: '',
     tags: [],
     textSize: DEFAULT_TEXT_SIZE,

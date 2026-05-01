@@ -375,6 +375,7 @@ function renderMainContent(
         onDelete={() => app.handleDeletePage(activePage)}
         onMoveLoosePage={(payload) => app.handleMoveLoosePage(activePage.id, payload)}
         onOpenPage={pageLinkState.openPageById}
+        onCreatePageFromLink={(title) => app.handleCreatePageFromLink(activePage, title)}
         onExportPage={() => app.handleExportPage(activePage.id)}
         onOpenTagSearch={app.handleOpenTag}
       />

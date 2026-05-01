@@ -31,6 +31,7 @@ interface PageEditorProps {
   onDelete: () => void;
   onMoveLoosePage: (payload: { chapterId: string }) => void;
   onOpenPage: (pageId: string) => void;
+  onCreatePageFromLink: (title: string) => void;
   onOpenTagSearch?: (tag: string) => void;
   onExportPage?: () => void;
 }
@@ -52,12 +53,13 @@ export function PageEditor({
   onDelete,
   onMoveLoosePage,
   onOpenPage,
+  onCreatePageFromLink,
   onOpenTagSearch,
   onExportPage
 }: PageEditorProps): JSX.Element {
   const pageIsLoose = isLoosePage(page);
   const [showMovePanel, setShowMovePanel] = useState(false);
-  const [isMetadataCollapsed, setIsMetadataCollapsed] = useState(false);
+  const [showMetadataPanel, setShowMetadataPanel] = useState(false);
   const [selectedBookId, setSelectedBookId] = useState(initialMoveBookId);
   const [selectedChapterId, setSelectedChapterId] = useState('');
   const [tagInput, setTagInput] = useState('');
@@ -494,6 +496,16 @@ export function PageEditor({
             </button>
           ) : null}
 
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => setShowMetadataPanel((open) => !open)}
+            aria-expanded={showMetadataPanel}
+            aria-controls="page-info-panel"
+          >
+            {showMetadataPanel ? 'Hide Page Info' : 'Show Page Info'}
+          </button>
+
           {onExportPage ? (
             <button type="button" className="secondary-button" onClick={onExportPage}>
               Export Page (.txt)
@@ -559,7 +571,7 @@ export function PageEditor({
         </div>
       ) : null}
 
-      <div className={`editor-workspace${isMetadataCollapsed ? ' is-metadata-collapsed' : ''}`}>
+      <div className={`editor-workspace${showMetadataPanel ? ' has-metadata-panel' : ''}`}>
         <div className="editor-content-surface is-editing">
           <EditorToolbar
             onFormat={applyFormattingAction}
@@ -607,17 +619,18 @@ export function PageEditor({
           </div>
         </div>
 
-        <PageMetadataPanel
-          page={page}
-          parentBook={parentBook}
-          parentChapter={parentChapter}
-          contentSegments={contentSegments}
-          backlinks={backlinks}
-          isCollapsed={isMetadataCollapsed}
-          onToggleCollapsed={() => setIsMetadataCollapsed((collapsed) => !collapsed)}
-          onOpenPage={onOpenPage}
-          onOpenTagSearch={onOpenTagSearch}
-        />
+        {showMetadataPanel ? (
+          <PageMetadataPanel
+            page={page}
+            parentBook={parentBook}
+            parentChapter={parentChapter}
+            contentSegments={contentSegments}
+            backlinks={backlinks}
+            onOpenPage={onOpenPage}
+            onCreatePageFromLink={onCreatePageFromLink}
+            onOpenTagSearch={onOpenTagSearch}
+          />
+        ) : null}
       </div>
     </section>
   );

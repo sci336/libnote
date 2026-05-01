@@ -1,7 +1,7 @@
 import type { Book, Chapter, Page } from '../types/domain';
 import { formatFullTimestamp } from '../utils/date';
 import { isLoosePage } from '../utils/pageState';
-import type { ContentSegment } from '../utils/pageLinks';
+import { getConnectionLinksFromSegments, type ContentSegment } from '../utils/pageLinks';
 import { getPageWritingStats } from '../utils/pageStats';
 
 interface PageMetadataPanelProps {
@@ -10,16 +10,9 @@ interface PageMetadataPanelProps {
   parentChapter?: Chapter;
   contentSegments: ContentSegment[];
   backlinks: Array<{ pageId: string; title: string; path: string }>;
-  isCollapsed: boolean;
-  onToggleCollapsed: () => void;
   onOpenPage: (pageId: string) => void;
+  onCreatePageFromLink: (title: string) => void;
   onOpenTagSearch?: (tag: string) => void;
-}
-
-interface OutgoingPageLink {
-  key: string;
-  label: string;
-  targetPageId: string | null;
 }
 
 export function PageMetadataPanel({
@@ -28,28 +21,23 @@ export function PageMetadataPanel({
   parentChapter,
   contentSegments,
   backlinks,
-  isCollapsed,
-  onToggleCollapsed,
   onOpenPage,
+  onCreatePageFromLink,
   onOpenTagSearch
 }: PageMetadataPanelProps): JSX.Element {
   const pageIsLoose = isLoosePage(page);
   const stats = getPageWritingStats(page.content);
-  const outgoingLinks = getOutgoingLinks(contentSegments);
+  const outgoingLinks = getConnectionLinksFromSegments(contentSegments);
   const validOutgoingLinks = outgoingLinks.filter((link) => link.targetPageId);
   const brokenOutgoingLinks = outgoingLinks.filter((link) => !link.targetPageId);
 
   return (
-    <aside className={`page-metadata-panel${isCollapsed ? ' is-collapsed' : ''}`} aria-label="Page Info">
+    <aside id="page-info-panel" className="page-metadata-panel" aria-label="Page Info">
       <div className="metadata-panel-header">
         <h2>Page Info</h2>
-        <button type="button" className="secondary-button metadata-toggle-button" onClick={onToggleCollapsed}>
-          {isCollapsed ? 'Show' : 'Hide'}
-        </button>
       </div>
 
-      {isCollapsed ? null : (
-        <div className="metadata-panel-body">
+      <div className="metadata-panel-body">
           <section className="metadata-section">
             <h3>Basics</h3>
             <dl className="metadata-list">
@@ -114,63 +102,73 @@ export function PageMetadataPanel({
             )}
           </section>
 
-          <section className="metadata-section">
-            <h3>Outgoing Links</h3>
-            {validOutgoingLinks.length > 0 ? (
-              <div className="metadata-link-list">
-                {validOutgoingLinks.map((link) => (
-                  <button
-                    key={link.key}
-                    type="button"
-                    className="metadata-link-item"
-                    onClick={() => link.targetPageId && onOpenPage(link.targetPageId)}
-                  >
-                    {link.label}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="metadata-empty">No outgoing links</p>
-            )}
-          </section>
+          <section className="metadata-section metadata-connections-section">
+            <h3>Page Connections</h3>
 
-          <section className="metadata-section">
-            <h3>Backlinks</h3>
-            {backlinks.length > 0 ? (
-              <div className="metadata-link-list">
-                {backlinks.map((backlink) => (
-                  <button
-                    key={backlink.pageId}
-                    type="button"
-                    className="metadata-link-item metadata-link-item-stacked"
-                    onClick={() => onOpenPage(backlink.pageId)}
-                  >
-                    <span>{backlink.title}</span>
-                    <span>{backlink.path}</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="metadata-empty">No backlinks yet</p>
-            )}
-          </section>
+            <div className="metadata-connection-group">
+              <h4>Outgoing Links</h4>
+              {validOutgoingLinks.length > 0 ? (
+                <div className="metadata-link-list">
+                  {validOutgoingLinks.map((link) => (
+                    <button
+                      key={link.key}
+                      type="button"
+                      className="metadata-link-item"
+                      onClick={() => link.targetPageId && onOpenPage(link.targetPageId)}
+                    >
+                      {link.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="metadata-empty">No outgoing links yet.</p>
+              )}
+            </div>
 
-          <section className="metadata-section">
-            <h3>Broken Links</h3>
-            {brokenOutgoingLinks.length > 0 ? (
-              <div className="metadata-broken-list">
-                {brokenOutgoingLinks.map((link) => (
-                  <span key={link.key} className="metadata-broken-link">
-                    {link.label}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="metadata-empty">No broken links</p>
-            )}
+            <div className="metadata-connection-group">
+              <h4>Backlinks</h4>
+              {backlinks.length > 0 ? (
+                <div className="metadata-link-list">
+                  {backlinks.map((backlink) => (
+                    <button
+                      key={backlink.pageId}
+                      type="button"
+                      className="metadata-link-item metadata-link-item-stacked"
+                      onClick={() => onOpenPage(backlink.pageId)}
+                    >
+                      <span>{backlink.title}</span>
+                      <span>{backlink.path}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="metadata-empty">No backlinks yet.</p>
+              )}
+            </div>
+
+            <div className="metadata-connection-group">
+              <h4>Broken Links</h4>
+              {brokenOutgoingLinks.length > 0 ? (
+                <div className="metadata-broken-list">
+                  {brokenOutgoingLinks.map((link) => (
+                    <div key={link.key} className="metadata-broken-link-row">
+                      <span className="metadata-broken-link">{link.label}</span>
+                      <button
+                        type="button"
+                        className="secondary-button metadata-create-link-button"
+                        onClick={() => onCreatePageFromLink(link.label)}
+                      >
+                        Create page
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="metadata-empty">No broken links.</p>
+              )}
+            </div>
           </section>
-        </div>
-      )}
+      </div>
     </aside>
   );
 }
@@ -182,31 +180,6 @@ function MetadataStat({ label, value }: { label: string; value: string }): JSX.E
       <span>{label}</span>
     </div>
   );
-}
-
-function getOutgoingLinks(contentSegments: ContentSegment[]): OutgoingPageLink[] {
-  const seen = new Set<string>();
-  const links: OutgoingPageLink[] = [];
-
-  for (const segment of contentSegments) {
-    if (segment.type !== 'link' || segment.displayText.length === 0) {
-      continue;
-    }
-
-    const key = `${segment.normalizedTargetTitle}:${segment.targetPageId ?? 'missing'}`;
-    if (seen.has(key)) {
-      continue;
-    }
-
-    seen.add(key);
-    links.push({
-      key,
-      label: segment.displayText,
-      targetPageId: segment.targetPageId
-    });
-  }
-
-  return links;
 }
 
 function formatCount(value: number): string {

@@ -17,6 +17,12 @@ export type ContentSegment =
 export type PageTitleLookup = Map<string, Page>;
 export type BacklinkIndex = Record<string, string[]>;
 
+export interface PageConnectionLink {
+  key: string;
+  label: string;
+  targetPageId: string | null;
+}
+
 const BRACKET_LINK_PATTERN = /\[\[([\s\S]*?)\]\]/g;
 const WHITESPACE_PATTERN = /\s+/g;
 
@@ -28,6 +34,8 @@ const WHITESPACE_PATTERN = /\s+/g;
 export function normalizePageTitle(title: string): string {
   return flattenText(title).toLowerCase();
 }
+
+export const normalizeWikiLinkTitle = normalizePageTitle;
 
 export function extractBracketLinks(text: string): string[] {
   const matches: string[] = [];
@@ -42,6 +50,8 @@ export function extractBracketLinks(text: string): string[] {
 
   return matches;
 }
+
+export const extractWikiLinks = extractBracketLinks;
 
 export function buildPageTitleLookup(allPages: Page[]): PageTitleLookup {
   const lookup: PageTitleLookup = new Map();
@@ -93,7 +103,7 @@ export function parseContentIntoSegments(
     segments.push({
       type: 'link',
       raw,
-      displayText,
+      displayText: targetPage?.title ?? displayText,
       targetPageId: targetPage?.id ?? null,
       normalizedTargetTitle
     });
@@ -120,6 +130,52 @@ export function parseContentIntoSegments(
   return segments;
 }
 
+export function getOutgoingLinks(currentPage: Page, allPages: Page[]): PageConnectionLink[] {
+  const titleLookup = buildPageTitleLookup(allPages);
+  return getConnectionLinksFromSegments(parseContentIntoSegments(currentPage.content, titleLookup))
+    .filter((link) => link.targetPageId);
+}
+
+export function getBrokenLinks(currentPage: Page, allPages: Page[]): PageConnectionLink[] {
+  const titleLookup = buildPageTitleLookup(allPages);
+  return getConnectionLinksFromSegments(parseContentIntoSegments(currentPage.content, titleLookup))
+    .filter((link) => !link.targetPageId);
+}
+
+export function getBacklinks(currentPage: Page, allPages: Page[]): Page[] {
+  const backlinkIndex = buildBacklinkIndex(allPages);
+  const pageById = new Map(allPages.map((page) => [page.id, page]));
+
+  return (backlinkIndex[currentPage.id] ?? [])
+    .map((pageId) => pageById.get(pageId))
+    .filter((page): page is Page => Boolean(page));
+}
+
+export function getConnectionLinksFromSegments(contentSegments: ContentSegment[]): PageConnectionLink[] {
+  const seen = new Set<string>();
+  const links: PageConnectionLink[] = [];
+
+  for (const segment of contentSegments) {
+    if (segment.type !== 'link' || segment.displayText.length === 0) {
+      continue;
+    }
+
+    const key = segment.targetPageId ?? `missing:${segment.normalizedTargetTitle}`;
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    links.push({
+      key,
+      label: segment.displayText,
+      targetPageId: segment.targetPageId
+    });
+  }
+
+  return links;
+}
+
 /**
  * Builds a reverse lookup of "which pages reference this page".
  * Backlinks are derived at render time from raw page content rather than stored,
@@ -134,7 +190,7 @@ export function buildBacklinkIndex(allPages: Page[]): BacklinkIndex {
 
     for (const linkText of extractBracketLinks(sourcePage.content)) {
       const targetPage = resolveBracketLinkFromLookup(linkText, titleLookup);
-      if (targetPage) {
+      if (targetPage && targetPage.id !== sourcePage.id) {
         linkedTargetIds.add(targetPage.id);
       }
     }

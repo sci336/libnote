@@ -489,6 +489,21 @@ export function useLibraryApp() {
     });
   }
 
+  function handleCreatePageFromLink(sourcePage: Page, title: string): void {
+    runIfDataLoaded((currentData) => {
+      const isLoose = isLoosePage(sourcePage);
+      const result = createPage(currentData, {
+        chapterId: isLoose ? null : sourcePage.chapterId,
+        isLoose,
+        title
+      });
+
+      updateData(result.data);
+      setShouldAutoFocusEditor(true);
+      navigateToView({ type: 'page', pageId: result.page.id }, { shouldCloseSidebar: true });
+    });
+  }
+
   function handleDeleteBook(bookId: string): void {
     if (!data || !window.confirm('Move this book and all of its chapters and pages to Trash?')) {
       return;
@@ -1002,6 +1017,7 @@ export function useLibraryApp() {
     handleCreateChapter,
     handleCreatePage,
     handleCreateLoosePage,
+    handleCreatePageFromLink,
     handleDeleteBook,
     handleDeleteChapter,
     handleDeletePage,
