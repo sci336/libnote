@@ -1822,6 +1822,16 @@ mark {
     padding: 0.8rem;
   }
 
+  .app-menu-nav {
+    flex-direction: column;
+    overflow-x: visible;
+  }
+
+  .app-menu-nav-item {
+    min-width: 0;
+    width: 100%;
+  }
+
   .book-grid {
     grid-template-columns: 1fr;
   }

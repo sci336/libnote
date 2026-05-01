@@ -16,6 +16,7 @@ import {
   formatShortcut,
   validateShortcutBinding
 } from '../utils/shortcuts';
+import { RECENT_PAGES_LIMIT } from '../utils/appSettings';
 
 const LIBRARY_ROW_OPTIONS: LibraryBooksPerRow[] = [2, 3, 4, 5];
 
@@ -167,48 +168,126 @@ function HelpSection(): JSX.Element {
       <section className="menu-card">
         <h2>How the library is organized</h2>
         <p>
-          Books are your top-level containers. Each book can hold chapters, and each chapter holds pages. Open a page to
-          write, rename it inline, adjust its text size, and delete it when you no longer need it.
+          LibNote is organized like a small personal library. Books contain chapters, and chapters contain pages.
+          The sidebar helps you move between those places, while the main writing area is where you edit the page
+          you have open.
         </p>
         <p>
-          Loose pages are pages that are not assigned to any chapter yet. They stay in their own area until you move
-          them into a book chapter from the page editor.
+          Loose Pages are pages that are not inside a book or chapter yet. They are useful for quick notes, drafts,
+          or ideas you want to file later. Open a loose page and use <strong>Move to Chapter</strong> when you are
+          ready to put it into a book.
+        </p>
+        <p>
+          Your library is saved locally in this browser using browser storage. It is not automatically synced to
+          other browsers or devices, so regular backups are important.
+        </p>
+      </section>
+
+      <section className="menu-card">
+        <h2>Creating, renaming, and deleting</h2>
+        <ul className="menu-list">
+          <li>Create a book from the main Books screen with <strong>New Book</strong>.</li>
+          <li>Create a chapter from a book card with <strong>Add Chapter</strong>, or from the sidebar while you are in a book.</li>
+          <li>Create a page from the page list while you are inside a chapter, or use the new-page shortcut in a chapter.</li>
+          <li>Create a loose page from the sidebar's <strong>Loose Pages</strong> section or with the new loose page shortcut.</li>
+          <li>Rename books, chapters, and pages by clicking their title text, typing the new name, and pressing Enter.</li>
+          <li>Delete actions move items to Trash first. Restore them from Trash if you change your mind.</li>
+        </ul>
+      </section>
+
+      <section className="menu-card">
+        <h2>Moving around</h2>
+        <p>
+          Use the top bar to go home, go back, open the sidebar, search, or open this guide. The sidebar shows the
+          parts of the library that matter for your current view, including books, chapters, pages, loose pages,
+          Trash, and Recent Pages.
+        </p>
+        <p>
+          Books, chapters, and pages can be reordered by dragging their handles in the lists where reordering is
+          available.
+        </p>
+      </section>
+
+      <section className="menu-card">
+        <h2>Recent Pages</h2>
+        <p>
+          Recent Pages appears in the sidebar after you open or edit pages. It is a quick-access list for getting back
+          to active work, not a replacement for the full page list.
+        </p>
+        <p>
+          The app currently keeps up to {RECENT_PAGES_LIMIT} recent pages. Clicking a recent page opens it. The limit
+          is fixed right now and is not configurable in Settings.
+        </p>
+      </section>
+
+      <section className="menu-card">
+        <h2>Trash and restore</h2>
+        <p>
+          Deleting a book, chapter, or page moves it to Trash instead of deleting it forever. This helps protect you
+          from accidental deletion.
+        </p>
+        <p>
+          Open Trash from the sidebar to restore an item, delete one item forever, or empty all Trash. Restoring a page
+          tries to put it back in its original chapter when that chapter still exists; otherwise the page comes back as
+          a loose page. Restoring a trashed chapter also restores its pages. Restoring a trashed book also restores its
+          chapters and pages.
+        </p>
+        <p>
+          Emptying Trash or using <strong>Delete Forever</strong> permanently removes items. Permanent deletion cannot
+          be undone.
+        </p>
+      </section>
+
+      <section className="menu-card">
+        <h2>Writing and formatting</h2>
+        <p>
+          Pages use a rich text editor. The toolbar can apply bold, italic, underline, highlight, heading, bullet list,
+          numbered list, and checkbox list formatting. Formatting applies to selected text when text is selected, or to
+          what you type next when the cursor is active.
+        </p>
+        <p>
+          The editor also supports common formatting shortcuts for bold, italic, underline, highlight, bullet lists,
+          and numbered lists. Checkbox items can be checked or unchecked by clicking the checkbox area at the start of
+          the list item.
+        </p>
+        <p>
+          Formatting is rich text stored with the page, not Markdown conversion. The single-page text export turns the
+          visible writing into a plain <code>.txt</code> file.
         </p>
       </section>
 
       <section className="menu-card">
         <h2>Search and tags</h2>
         <p>
-          The search bar looks through book titles, chapter titles, and page titles or note content. Results are grouped
-          by type so you can jump straight to a book, chapter, or page from one search surface.
+          The search bar finds live book titles, chapter titles, page titles, and page content. Results are grouped by
+          type so you can jump straight to a matching book, chapter, or page.
         </p>
         <p>
           To add tags to a page, open that page and use the <strong>Add tag</strong> field under the title. Type a tag
-          and press Enter. Tags are stored in lowercase, and clicking an existing tag pill opens that tag search.
+          and press Enter. Tags are stored in lowercase. Clicking a tag pill on a page or in Page Info opens a tag
+          search for that tag.
         </p>
         <p>
-          To search by tag, type slash tags directly into the search bar like <code>/history</code>. The app treats a
-          search as tag search only when every search token starts with <code>/</code>.
+          Tag search uses forward slash syntax in the search bar, like <code>/history</code>. Multi-tag search works
+          with queries like <code>/history /mythology</code>. Results only include pages that contain
+          <strong> all</strong> selected tags, so the list narrows as you add more tags.
         </p>
         <p>
-          Multi-tag search works with queries like <code>/history /mythology</code>. Results only include pages that
-          contain <strong>all</strong> selected tags, so the list narrows as you add more tags.
-        </p>
-        <p>
-          Tag results show matching pages and any tags already on those pages. If no page has every selected tag, the app
-          shows an empty state instead of partial matches.
+          In the tag results view, you can add another existing tag with the Add tag field, use recent tag suggestions,
+          remove active tags, or click other tag pills to narrow the filter.
         </p>
       </section>
 
       <section className="menu-card">
         <h2>Links and backlinks</h2>
         <p>
-          Pages support wiki-style links written as <code>[[Page Title]]</code>. When a title matches another page, the
-          editor turns it into a clickable inline link.
+          Pages support wiki-style links written as <code>[[Page Title]]</code>. When the title matches another page,
+          Page Info shows it as an outgoing link you can click.
         </p>
         <p>
-          If a page is linked from somewhere else, a <strong>Referenced by</strong> section appears at the bottom of the
-          editor so you can jump back through those backlinks.
+          If another page links to the page you are reading, Page Info shows it in the <strong>Backlinks</strong>{' '}
+          section. Broken links are listed separately when a <code>[[Page Title]]</code> link does not match an
+          existing page.
         </p>
       </section>
 
@@ -217,9 +296,9 @@ function HelpSection(): JSX.Element {
         <ul className="menu-list">
           <li>Tag search is exact-match and lowercase-based, so <code>/History</code> becomes <code>/history</code>.</li>
           <li>Mixed queries like text plus slash tags are not combined yet; the search bar currently handles either text search or tag-only search.</li>
-          <li>Backlinks only resolve from <code>[[Page Title]]</code> links, and duplicate page titles use the first matching page right now.</li>
-          <li>The editor still uses the lightweight plain-text note flow rather than rich text formatting.</li>
+          <li>Links and backlinks only resolve from <code>[[Page Title]]</code> links, and duplicate page titles use the first matching page right now.</li>
           <li>Global shortcuts can be changed in Settings, but browser and system-reserved combinations are blocked.</li>
+          <li>Recent Pages is limited to {RECENT_PAGES_LIMIT} pages and does not have a setting yet.</li>
         </ul>
       </section>
     </div>
@@ -268,6 +347,55 @@ function ShortcutsSection({ settings }: Pick<AppMenuProps, 'settings'>): JSX.Ele
           </div>
           <div className="shortcut-row">
             <div>
+              <strong>Bold selected text</strong>
+              <p>Works while the page editor is focused.</p>
+            </div>
+            <kbd>Ctrl/Cmd+B</kbd>
+          </div>
+          <div className="shortcut-row">
+            <div>
+              <strong>Italic selected text</strong>
+              <p>Works while the page editor is focused.</p>
+            </div>
+            <kbd>Ctrl/Cmd+I</kbd>
+          </div>
+          <div className="shortcut-row">
+            <div>
+              <strong>Underline selected text</strong>
+              <p>Works while the page editor is focused.</p>
+            </div>
+            <kbd>Ctrl/Cmd+U</kbd>
+          </div>
+          <div className="shortcut-row">
+            <div>
+              <strong>Highlight selected text</strong>
+              <p>Works while the page editor is focused.</p>
+            </div>
+            <kbd>Ctrl/Cmd+Shift+H</kbd>
+          </div>
+          <div className="shortcut-row">
+            <div>
+              <strong>Start or toggle a bullet list</strong>
+              <p>Works while the page editor is focused.</p>
+            </div>
+            <kbd>Ctrl/Cmd+Shift+8</kbd>
+          </div>
+          <div className="shortcut-row">
+            <div>
+              <strong>Start or toggle a numbered list</strong>
+              <p>Works while the page editor is focused.</p>
+            </div>
+            <kbd>Ctrl/Cmd+Shift+7</kbd>
+          </div>
+          <div className="shortcut-row">
+            <div>
+              <strong>Use tag suggestions</strong>
+              <p>In the tag results Add tag field, move through suggestions and choose one.</p>
+            </div>
+            <kbd>↑ / ↓ / Enter</kbd>
+          </div>
+          <div className="shortcut-row">
+            <div>
               <strong>Close this menu</strong>
               <p>Works anywhere inside the app menu overlay.</p>
             </div>
@@ -295,7 +423,11 @@ function SettingsSection({
         <h2>Settings</h2>
         <p>
           Adjust how dense the main books screen feels and customize the global shortcuts that help you move through
-          the app. These settings persist across reloads.
+          the app. These settings persist in this browser across reloads.
+        </p>
+        <p>
+          Page text size is also adjustable from each open page with the <strong>Text Size</strong> slider. That size is
+          saved on the page itself, not as a global default.
         </p>
       </section>
 
@@ -305,7 +437,7 @@ function SettingsSection({
             <strong>Library View</strong>
             <span className="search-result-badge">Live</span>
           </div>
-          <p>Choose how many books fit on each shelf. The root books screen now scales card size automatically from this layout setting.</p>
+          <p>Choose how many books fit on each shelf. The main Books screen scales card size from this layout setting.</p>
 
           <div className="settings-control-group">
             <div className="settings-control-copy">
@@ -344,10 +476,13 @@ function SettingsSection({
         </article>
         <article className="settings-placeholder-card">
           <div className="settings-placeholder-head">
-            <strong>Behavior</strong>
-            <span className="search-result-badge">Coming later</span>
+            <strong>Recent Pages</strong>
+            <span className="search-result-badge">Automatic</span>
           </div>
-          <p>Good future fits include startup view, sidebar behavior, search defaults, and editor-wide preferences.</p>
+          <p>
+            Recent Pages is updated automatically when pages are opened or edited. It currently keeps up to
+            {' '}{RECENT_PAGES_LIMIT} pages and does not have a separate setting.
+          </p>
         </article>
       </section>
     </div>
@@ -381,7 +516,10 @@ function BackupSection({
     <div className="menu-section-stack">
       <section className="menu-card">
         <h2>Backup &amp; Restore</h2>
-        <p>LibNote stores your notes in this browser. Export backups regularly to keep your notes safe.</p>
+        <p>
+          LibNote stores your notes locally in this browser. Export backups regularly so you can recover your library
+          if browser data is cleared, you switch devices, or you want a copy before making big changes.
+        </p>
       </section>
 
       <section className="menu-card settings-card-grid">
@@ -390,7 +528,11 @@ function BackupSection({
             <strong>Full Library Backup</strong>
             <span className="search-result-badge">Local only</span>
           </div>
-          <p>Download one JSON file containing your books, chapters, pages, loose pages, and saved settings.</p>
+          <p>
+            Download one <code>.json</code> file containing your books, chapters, pages, loose pages, page tags, page
+            text sizes, recent pages, books-per-row setting, and custom shortcuts. Your browser may ask where to save
+            the file, or it may place it directly in your Downloads folder.
+          </p>
           <div className="backup-actions">
             <button type="button" className="primary-button" onClick={onExportLibrary}>
               Export Library
@@ -403,7 +545,11 @@ function BackupSection({
             <strong>Restore from Backup</strong>
             <span className="search-result-badge">Replaces current library</span>
           </div>
-          <p>Import a previously exported JSON backup. You will be asked to confirm before your current library is replaced.</p>
+          <p>
+            Import a previously exported JSON backup. Restore replaces the current library and saved settings with the
+            contents of the backup; it does not merge the two libraries. You will be asked to confirm before anything
+            is replaced.
+          </p>
           <label className="backup-import-label">
             <input
               type="file"
@@ -593,12 +739,11 @@ function CreditsSection(): JSX.Element {
       <section className="menu-card">
         <h2>Credits</h2>
         <p>
-          This note library is built as a lightweight writing and knowledge-organizing workspace for books, chapters,
-          loose pages, tags, and linked notes.
+          LibNote is a lightweight writing and knowledge-organizing workspace for books, chapters, loose pages, tags,
+          links, backlinks, and local backups.
         </p>
         <p>
-          The new app menu is designed to make the project feel easier to learn today while leaving a clean path for
-          future settings, shortcuts, and companion documentation.
+          Built with React, TypeScript, and Vite, with browser storage for the local library data.
         </p>
       </section>
     </div>
