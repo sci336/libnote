@@ -356,7 +356,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: clamp(0.75rem, 2vw, 1.5rem);
 }
 
 .app-menu-backdrop {
@@ -371,7 +371,9 @@ button {
 .app-menu-panel {
   position: relative;
   width: 100%;
-  max-height: calc(100vh - 48px);
+  max-width: 1120px;
+  height: min(820px, 100%);
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -411,7 +413,8 @@ button {
 .app-menu-nav,
 .app-menu-content,
 .menu-card,
-.settings-placeholder-card {
+.settings-placeholder-card,
+.settings-category-card {
   border: 1px solid var(--border);
   border-radius: 1.25rem;
   background: rgba(255, 255, 255, 0.76);
@@ -535,7 +538,8 @@ kbd {
   gap: 0.9rem;
 }
 
-.settings-placeholder-card {
+.settings-placeholder-card,
+.settings-category-card {
   padding: 1rem;
 }
 
@@ -554,6 +558,72 @@ kbd {
 
 .settings-shortcuts-card {
   grid-column: 1 / -1;
+}
+
+.settings-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+.settings-category-card {
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.05);
+}
+
+.settings-category-card p {
+  margin: 0.3rem 0 0;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.settings-mini-list {
+  margin: 0.75rem 0 0;
+  padding-left: 1.1rem;
+  color: #4b5563;
+  line-height: 1.55;
+}
+
+.settings-warning {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(143, 58, 42, 0.22);
+  border-radius: 0.9rem;
+  background: rgba(255, 247, 245, 0.9);
+  color: #7c2d12 !important;
+  font-weight: 700;
+}
+
+.settings-info-card {
+  grid-column: 1 / -1;
+}
+
+.settings-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.95rem;
+}
+
+.settings-stat {
+  min-height: 4.4rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.95rem;
+  background: rgba(255, 255, 255, 0.72);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+}
+
+.settings-stat strong {
+  color: #111827;
+  font-size: 1.25rem;
+}
+
+.settings-stat span {
+  color: #6b7280;
+  font-size: 0.88rem;
+  font-weight: 600;
 }
 
 .settings-control-group {
@@ -1979,6 +2049,8 @@ mark {
   }
 
   .app-menu-panel {
+    height: 100%;
+    max-height: 100%;
     padding: 1rem;
   }
 
@@ -1997,6 +2069,14 @@ mark {
 
   .app-menu-nav-item {
     min-width: 220px;
+  }
+
+  .settings-category-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .section-header,
@@ -2077,6 +2157,8 @@ mark {
   }
 
   .app-menu-panel {
+    height: 100%;
+    max-height: 100%;
     gap: 1rem;
     padding: 0.9rem;
     border-radius: 1rem;
@@ -2096,6 +2178,10 @@ mark {
   .app-menu-nav-item {
     min-width: 0;
     width: 100%;
+  }
+
+  .settings-stat-grid {
+    grid-template-columns: 1fr;
   }
 
   .book-grid {

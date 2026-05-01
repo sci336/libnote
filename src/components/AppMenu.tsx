@@ -21,12 +21,21 @@ import { parseSingleTagInput, type TagSummary } from '../utils/tags';
 
 const LIBRARY_ROW_OPTIONS: LibraryBooksPerRow[] = [2, 3, 4, 5];
 
+interface StorageStats {
+  bookCount: number;
+  chapterCount: number;
+  pageCount: number;
+  loosePageCount: number;
+  trashedItemCount: number;
+}
+
 interface AppMenuProps {
   isOpen: boolean;
   activeSection: AppMenuSection;
   settings: AppSettings;
   backupStatus: { tone: 'success' | 'error' | 'info'; message: string } | null;
   tagSummaries: TagSummary[];
+  storageStats: StorageStats;
   onUpdateLibraryBooksPerRow: (booksPerRow: LibraryBooksPerRow) => void;
   onUpdateShortcut: (action: ShortcutAction, binding: ShortcutBinding | null) => void;
   onResetShortcut: (action: ShortcutAction) => void;
@@ -55,6 +64,7 @@ export function AppMenu({
   settings,
   backupStatus,
   tagSummaries,
+  storageStats,
   onUpdateLibraryBooksPerRow,
   onUpdateShortcut,
   onResetShortcut,
@@ -126,6 +136,7 @@ export function AppMenu({
               settings,
               backupStatus,
               tagSummaries,
+              storageStats,
               onUpdateLibraryBooksPerRow,
               onUpdateShortcut,
               onResetShortcut,
@@ -151,6 +162,7 @@ function renderSection(
     | 'settings'
     | 'backupStatus'
     | 'tagSummaries'
+    | 'storageStats'
     | 'onUpdateLibraryBooksPerRow'
     | 'onUpdateShortcut'
     | 'onResetShortcut'
@@ -433,6 +445,7 @@ function ShortcutsSection({ settings }: Pick<AppMenuProps, 'settings'>): JSX.Ele
 
 function SettingsSection({
   settings,
+  storageStats,
   onUpdateLibraryBooksPerRow,
   onUpdateShortcut,
   onResetShortcut,
@@ -441,6 +454,7 @@ function SettingsSection({
 }: Pick<
   AppMenuProps,
   | 'settings'
+  | 'storageStats'
   | 'onUpdateLibraryBooksPerRow'
   | 'onUpdateShortcut'
   | 'onResetShortcut'
@@ -452,22 +466,21 @@ function SettingsSection({
       <section className="menu-card">
         <h2>Settings</h2>
         <p>
-          Adjust how dense the main books screen feels and customize the global shortcuts that help you move through
-          the app. These settings persist in this browser across reloads.
-        </p>
-        <p>
-          Text size is adjustable from each open page with the <strong>Text size</strong> menu in the editor toolbar.
-          It applies to selected text or to what you type next, and is saved with the page content.
+          Use Settings as LibNote's control center. The live controls below keep their existing behavior, while the
+          other cards explain how automatic or dedicated areas of the app work.
         </p>
       </section>
 
-      <section className="menu-card settings-card-grid">
-        <article className="settings-placeholder-card settings-control-card">
+      <div className="settings-category-grid">
+        <section className="settings-category-card settings-control-card">
           <div className="settings-placeholder-head">
             <strong>Library View</strong>
             <span className="search-result-badge">Live</span>
           </div>
-          <p>Choose how many books fit on each shelf. The main Books screen scales card size from this layout setting.</p>
+          <p>
+            Choose how many books fit on each shelf. Fewer books per row makes larger book cards, while more books per
+            row makes the library denser.
+          </p>
 
           <div className="settings-control-group">
             <div className="settings-control-copy">
@@ -489,44 +502,121 @@ function SettingsSection({
               ))}
             </div>
           </div>
-        </article>
+        </section>
 
-        <article className="settings-placeholder-card settings-shortcuts-card">
+        <section className="settings-category-card">
           <div className="settings-placeholder-head">
-            <strong>Keyboard Shortcuts</strong>
+            <strong>Editor</strong>
+            <span className="search-result-badge">Page tools</span>
+          </div>
+          <p>
+            Pages use rich text editing with toolbar formatting for bold, italic, underline, highlight, headings,
+            lists, and checkbox lists.
+          </p>
+          <ul className="settings-mini-list">
+            <li>Text size controls live in each page editor and save with the page content.</li>
+            <li>Edit and Preview modes let you switch between writing and reading resolved page links.</li>
+            <li>Saved page content stays rich text; single-page text export creates a plain text copy.</li>
+          </ul>
+        </section>
+
+        <section className="settings-category-card settings-shortcuts-card">
+          <div className="settings-placeholder-head">
+            <strong>Shortcuts</strong>
             <span className="search-result-badge">Live</span>
           </div>
-          <p>Change, clear, or reset the global shortcuts used for page creation and navigation.</p>
+          <p>
+            Change, clear, or reset the global shortcuts used for page creation and navigation. Browser and
+            system-reserved combinations are still blocked.
+          </p>
           <ShortcutEditor
             settings={settings}
             onUpdateShortcut={onUpdateShortcut}
             onResetShortcut={onResetShortcut}
             onResetAllShortcuts={onResetAllShortcuts}
           />
-        </article>
-        <article className="settings-placeholder-card">
+        </section>
+
+        <section className="settings-category-card">
           <div className="settings-placeholder-head">
             <strong>Recent Pages</strong>
             <span className="search-result-badge">Automatic</span>
           </div>
           <p>
-            Recent Pages is updated automatically when pages are opened or edited. It currently keeps up to
-            {' '}{RECENT_PAGES_LIMIT} pages and does not have a separate setting.
+            Recent Pages updates automatically when pages are opened or edited. It currently keeps up to
+            {' '}{RECENT_PAGES_LIMIT} recent pages and does not have a separate setting.
           </p>
-        </article>
-        <article className="settings-placeholder-card settings-control-card">
+        </section>
+
+        <section className="settings-category-card settings-control-card">
           <div className="settings-placeholder-head">
-            <strong>Tag Management</strong>
+            <strong>Tags</strong>
             <span className="search-result-badge">Slash tags</span>
           </div>
-          <p>Review all current page tags, rename them everywhere, remove them from pages, or merge duplicates.</p>
+          <p>
+            Tags use slash syntax like <code>/school</code>. You can rename, delete, and merge tags across pages from
+            the dedicated Tag Management tools.
+          </p>
           <div className="backup-actions">
             <button type="button" className="secondary-button" onClick={() => onSelectSection('tagManagement')}>
               Open Tag Management
             </button>
           </div>
-        </article>
-      </section>
+        </section>
+
+        <section className="settings-category-card settings-control-card">
+          <div className="settings-placeholder-head">
+            <strong>Backup &amp; Restore</strong>
+            <span className="search-result-badge">Local data</span>
+          </div>
+          <p>
+            LibNote stores data locally in this browser. Exporting creates a JSON backup, and importing replaces the
+            current library after validation and confirmation.
+          </p>
+          <p className="settings-warning">
+            Your notes are saved in this browser. Export backups regularly, especially before clearing browser data or
+            switching devices.
+          </p>
+          <div className="backup-actions">
+            <button type="button" className="secondary-button" onClick={() => onSelectSection('backup')}>
+              Open Backup &amp; Restore
+            </button>
+          </div>
+        </section>
+
+        <section className="settings-category-card settings-info-card">
+          <div className="settings-placeholder-head">
+            <strong>App Info / Storage</strong>
+            <span className="search-result-badge">Local-first</span>
+          </div>
+          <p>
+            LibNote is local-first. Your library is stored in IndexedDB in this browser, with no cloud sync or account
+            system yet. Production builds use PWA/service worker behavior for a more app-like experience.
+          </p>
+          <div className="settings-stat-grid" aria-label="Library storage summary">
+            <div className="settings-stat">
+              <strong>{storageStats.bookCount}</strong>
+              <span>Books</span>
+            </div>
+            <div className="settings-stat">
+              <strong>{storageStats.chapterCount}</strong>
+              <span>Chapters</span>
+            </div>
+            <div className="settings-stat">
+              <strong>{storageStats.pageCount}</strong>
+              <span>Pages</span>
+            </div>
+            <div className="settings-stat">
+              <strong>{storageStats.loosePageCount}</strong>
+              <span>Loose Pages</span>
+            </div>
+            <div className="settings-stat">
+              <strong>{storageStats.trashedItemCount}</strong>
+              <span>Trash</span>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

@@ -63,6 +63,16 @@ export default function App(): JSX.Element {
   );
   const availableTags = useMemo(() => getAllTags(allPages), [allPages]);
   const tagSummaries = useMemo(() => getTagSummaries(allPages), [allPages]);
+  const storageStats = useMemo(
+    () => ({
+      bookCount: liveBooks.length,
+      chapterCount: liveChapters.length,
+      pageCount: allPages.length,
+      loosePageCount: allPages.filter((page) => isLoosePage(page)).length,
+      trashedItemCount: app.trashItems.length
+    }),
+    [allPages, app.trashItems.length, liveBooks.length, liveChapters.length]
+  );
   const recentPages = useMemo<RecentSidebarPage[]>(
     () =>
       app.recentPageIds
@@ -199,6 +209,7 @@ export default function App(): JSX.Element {
         settings={app.settings}
         backupStatus={app.backupStatus}
         tagSummaries={tagSummaries}
+        storageStats={storageStats}
         onUpdateLibraryBooksPerRow={app.handleUpdateLibraryBooksPerRow}
         onUpdateShortcut={app.handleUpdateShortcut}
         onResetShortcut={app.handleResetShortcut}
