@@ -106,6 +106,11 @@ export default function App(): JSX.Element {
   );
   const openSearchResult = useCallback(
     (result: SearchResult) => {
+      if (result.type === 'trash') {
+        app.handleOpenTrash();
+        return;
+      }
+
       if (result.type === 'book') {
         app.handleOpenBook(result.id);
         return;
@@ -118,7 +123,7 @@ export default function App(): JSX.Element {
 
       openPageById(result.id);
     },
-    [app.handleOpenBook, app.handleOpenChapter, openPageById]
+    [app.handleOpenBook, app.handleOpenChapter, app.handleOpenTrash, openPageById]
   );
 
   if (!data) {
@@ -265,6 +270,7 @@ function renderMainContent(
         query={app.searchQuery}
         mode={app.searchMode}
         results={app.searchResults}
+        trashResults={app.trashSearchResults}
         onOpenResult={pageLinkState.openSearchResult}
       />
     );

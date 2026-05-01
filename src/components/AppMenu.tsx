@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type {
   AppMenuSection,
@@ -202,8 +202,7 @@ function renderSection(
 function HelpSection(): JSX.Element {
   return (
     <div className="menu-section-stack">
-      <section className="menu-card">
-        <h2>How the library is organized</h2>
+      <GuideSection title="How the library is organized" defaultOpen>
         <p>
           LibNote is organized like a small personal library. Books contain chapters, and chapters contain pages.
           The sidebar helps you move between those places, while the main writing area is where you edit the page
@@ -218,10 +217,9 @@ function HelpSection(): JSX.Element {
           Your library is saved locally in this browser using browser storage. It is not automatically synced to
           other browsers or devices, so regular backups are important.
         </p>
-      </section>
+      </GuideSection>
 
-      <section className="menu-card">
-        <h2>Creating, renaming, and deleting</h2>
+      <GuideSection title="Creating, renaming, and deleting">
         <ul className="menu-list">
           <li>Create a book from the main Books screen with <strong>New Book</strong>.</li>
           <li>Create a chapter from a book card with <strong>Add Chapter</strong>, or from the sidebar while you are in a book.</li>
@@ -230,10 +228,9 @@ function HelpSection(): JSX.Element {
           <li>Rename books, chapters, and pages by clicking their title text, typing the new name, and pressing Enter.</li>
           <li>Delete actions move items to Trash first. Restore them from Trash if you change your mind.</li>
         </ul>
-      </section>
+      </GuideSection>
 
-      <section className="menu-card">
-        <h2>Moving around</h2>
+      <GuideSection title="Moving around">
         <p>
           Use the top bar to go home, go back, open the sidebar, search, or open this guide. The sidebar shows the
           parts of the library that matter for your current view, including books, chapters, pages, loose pages,
@@ -243,10 +240,9 @@ function HelpSection(): JSX.Element {
           Books, chapters, and pages can be reordered by dragging their handles in the lists where reordering is
           available.
         </p>
-      </section>
+      </GuideSection>
 
-      <section className="menu-card">
-        <h2>Recent Pages</h2>
+      <GuideSection title="Recent Pages">
         <p>
           Recent Pages appears in the sidebar after you open or edit pages. It is a quick-access list for getting back
           to active work, not a replacement for the full page list.
@@ -255,10 +251,9 @@ function HelpSection(): JSX.Element {
           The app currently keeps up to {RECENT_PAGES_LIMIT} recent pages. Clicking a recent page opens it. The limit
           is fixed right now and is not configurable in Settings.
         </p>
-      </section>
+      </GuideSection>
 
-      <section className="menu-card">
-        <h2>Trash and restore</h2>
+      <GuideSection title="Trash and restore">
         <p>
           Deleting a book, chapter, or page moves it to Trash instead of deleting it forever. This helps protect you
           from accidental deletion.
@@ -273,10 +268,9 @@ function HelpSection(): JSX.Element {
           Emptying Trash or using <strong>Delete Forever</strong> permanently removes items. Permanent deletion cannot
           be undone.
         </p>
-      </section>
+      </GuideSection>
 
-      <section className="menu-card">
-        <h2>Writing and formatting</h2>
+      <GuideSection title="Writing and formatting">
         <p>
           Pages use a rich text editor. The toolbar can apply bold, italic, underline, highlight, heading, bullet list,
           numbered list, and checkbox list formatting. Formatting applies to selected text when text is selected, or to
@@ -291,18 +285,16 @@ function HelpSection(): JSX.Element {
           Formatting is rich text stored with the page, not Markdown conversion. The single-page text export turns the
           visible writing into a plain <code>.txt</code> file.
         </p>
-      </section>
+      </GuideSection>
 
-      <section className="menu-card">
-        <h2>Search and tags</h2>
+      <GuideSection title="Search and tags" defaultOpen>
         <p>
-          The search bar finds live book titles, chapter titles, page titles, and page content. Results are grouped by
-          type so you can jump straight to a matching book, chapter, or page.
+          The search bar finds live book titles, chapter titles, page titles, and page content. Results show the
+          matching title, path or context, and a page snippet when content exists.
         </p>
         <p>
-          To add tags to a page, open that page and use the <strong>Add tag</strong> field under the title. Type a tag
-          and press Enter. Tags are stored in lowercase. Clicking a tag pill on a page or in Page Info opens a tag
-          search for that tag.
+          Normal text searches work like <code>zeus</code> or <code>history notes</code>. These use the existing
+          title and content ranking so strong title matches usually appear above content matches.
         </p>
         <p>
           Tag search uses forward slash syntax in the search bar, like <code>/history</code>. Multi-tag search works
@@ -310,13 +302,32 @@ function HelpSection(): JSX.Element {
           <strong> all</strong> selected tags, so the list narrows as you add more tags.
         </p>
         <p>
+          You can combine normal text with slash tags, such as <code>zeus /mythology /school</code>,
+          <code> history notes /school</code>, or <code>project plan /work /important</code>. The text part must
+          match the page title or content, and the page must include every slash tag in the query.
+        </p>
+        <p>
+          To add tags to a page, open that page and use the <strong>Add tag</strong> field under the title. Type a tag
+          and press Enter. Tags are stored in lowercase. Clicking a tag pill on a page or in Page Info opens a tag
+          search for that tag.
+        </p>
+        <p>
           In the tag results view, you can add another existing tag with the Add tag field, use recent tag suggestions,
           remove active tags, or click other tag pills to narrow the filter.
         </p>
-      </section>
+        <h3>Search manual checks</h3>
+        <ul className="menu-list">
+          <li><strong>Text-only:</strong> <code>zeus</code> should preserve the existing book, chapter, title, and content search behavior.</li>
+          <li><strong>Tag-only:</strong> <code>/mythology /school</code> should show pages containing both tags.</li>
+          <li><strong>Mixed one tag:</strong> <code>history notes /school</code> should match the text and require <code>/school</code>.</li>
+          <li><strong>Mixed multiple tags:</strong> <code>zeus /mythology /school</code> should match the text and require both tags.</li>
+          <li><strong>No results:</strong> a missing text query with an existing tag should still show no matches.</li>
+          <li><strong>Loose pages:</strong> matching loose pages should show <code>Loose Pages</code> as their path.</li>
+          <li><strong>Books and chapters:</strong> matching chapter pages should show <code>Book Title / Chapter Title</code>.</li>
+        </ul>
+      </GuideSection>
 
-      <section className="menu-card">
-        <h2>Links and backlinks</h2>
+      <GuideSection title="Links and backlinks">
         <p>
           Pages support wiki-style links written as <code>[[Page Title]]</code>. When the title matches another page,
           Page Info shows it as an outgoing link you can click.
@@ -326,19 +337,43 @@ function HelpSection(): JSX.Element {
           section. Broken links are listed separately when a <code>[[Page Title]]</code> link does not match an
           existing page.
         </p>
-      </section>
+      </GuideSection>
 
-      <section className="menu-card">
-        <h2>Current limitations</h2>
+      <GuideSection title="Current limitations">
         <ul className="menu-list">
           <li>Tag search is exact-match and lowercase-based, so <code>/History</code> becomes <code>/history</code>.</li>
-          <li>Mixed queries like text plus slash tags are not combined yet; the search bar currently handles either text search or tag-only search.</li>
           <li>Links and backlinks only resolve from <code>[[Page Title]]</code> links, and duplicate page titles use the first matching page right now.</li>
           <li>Global shortcuts can be changed in Settings, but browser and system-reserved combinations are blocked.</li>
           <li>Recent Pages is limited to {RECENT_PAGES_LIMIT} pages and does not have a setting yet.</li>
         </ul>
-      </section>
+      </GuideSection>
     </div>
+  );
+}
+
+function GuideSection({
+  title,
+  defaultOpen = false,
+  children
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}): JSX.Element {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <details
+      className="menu-card guide-disclosure"
+      open={isOpen}
+      onToggle={(event) => setIsOpen(event.currentTarget.open)}
+    >
+      <summary className="guide-disclosure-summary">
+        <h2>{title}</h2>
+        <span className="guide-disclosure-icon" aria-hidden="true">v</span>
+      </summary>
+      <div className="guide-disclosure-content">{children}</div>
+    </details>
   );
 }
 

@@ -560,6 +560,11 @@ button {
   font-size: 1.1rem;
 }
 
+.menu-card h3 {
+  margin: 1rem 0 0.55rem;
+  font-size: 0.98rem;
+}
+
 .menu-card p {
   margin: 0;
   color: #374151;
@@ -575,6 +580,53 @@ button {
   padding-left: 1.2rem;
   color: #374151;
   line-height: 1.6;
+}
+
+.guide-disclosure {
+  padding: 0;
+  overflow: hidden;
+}
+
+.guide-disclosure-summary {
+  min-height: 3.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 1rem 1.15rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.guide-disclosure-summary::-webkit-details-marker {
+  display: none;
+}
+
+.guide-disclosure-summary h2 {
+  margin: 0;
+}
+
+.guide-disclosure-icon {
+  flex: 0 0 auto;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #4b5563;
+  font-size: 0.78rem;
+  font-weight: 800;
+  transition: transform 0.18s ease;
+}
+
+.guide-disclosure[open] .guide-disclosure-icon {
+  transform: rotate(180deg);
+}
+
+.guide-disclosure-content {
+  padding: 0 1.15rem 1.15rem;
 }
 
 .shortcut-list {
@@ -1838,6 +1890,38 @@ h1 {
 .search-subtitle {
   margin: 0.55rem 0 0;
   color: #6b7280;
+}
+
+.search-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: -0.2rem 0 1rem;
+}
+
+.search-filter-button {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.42rem 0.72rem;
+  background: rgba(255, 255, 255, 0.75);
+  color: #4b5563;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.search-filter-button:hover {
+  border-color: rgba(31, 41, 55, 0.22);
+  background: rgba(255, 255, 255, 0.96);
+  transform: translateY(-1px);
+}
+
+.search-filter-button.is-active {
+  border-color: rgba(31, 41, 55, 0.38);
+  background: #111827;
+  color: #ffffff;
 }
 
 .search-result-card {

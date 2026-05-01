@@ -1,10 +1,14 @@
+import { useEffect, useMemo, useState } from 'react';
 import type { SearchMode, SearchResult } from '../utils/search';
 import { getHighlightedParts, getSearchResultBadgeLabel, getSearchResultPath } from '../utils/search';
+
+type SearchFilter = 'all' | 'pages' | 'books' | 'chapters' | 'loosePages' | 'trash';
 
 interface SearchResultsViewProps {
   query: string;
   mode: SearchMode;
   results: SearchResult[];
+  trashResults: SearchResult[];
   onOpenResult: (result: SearchResult) => void;
 }
 
@@ -12,12 +16,26 @@ export function SearchResultsView({
   query,
   mode,
   results,
+  trashResults,
   onOpenResult
 }: SearchResultsViewProps): JSX.Element {
+  const [activeFilter, setActiveFilter] = useState<SearchFilter>('all');
   const trimmedQuery = query.trim();
   const isTagSearch = mode.type === 'tag';
   const isMixedSearch = mode.type === 'mixed';
   const isEmptyTag = mode.type === 'emptyTag';
+  const filteredResults = useMemo(
+    () => filterSearchResults(results, trashResults, activeFilter),
+    [activeFilter, results, trashResults]
+  );
+  const filterOptions = useMemo(
+    () => buildFilterOptions(results, trashResults),
+    [results, trashResults]
+  );
+
+  useEffect(() => {
+    setActiveFilter('all');
+  }, [trimmedQuery]);
 
   return (
     <section className="content-section">
@@ -39,6 +57,22 @@ export function SearchResultsView({
         </div>
       </div>
 
+      {trimmedQuery && !isEmptyTag ? (
+        <div className="search-filter-row" aria-label="Search result filters">
+          {filterOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`search-filter-button ${activeFilter === option.value ? 'is-active' : ''}`}
+              aria-pressed={activeFilter === option.value}
+              onClick={() => setActiveFilter(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       {!trimmedQuery ? (
         <div className="empty-state">
           <h2>Start a search</h2>
@@ -49,20 +83,16 @@ export function SearchResultsView({
           <h2>Enter a tag</h2>
           <p>Type a tag after "/" to search pages by exact tag, for example `/school`.</p>
         </div>
-      ) : results.length === 0 ? (
+      ) : filteredResults.length === 0 ? (
         <div className="empty-state">
-          <h2>No matches found</h2>
+          <h2>{getEmptyStateTitle(activeFilter)}</h2>
           <p>
-            {isTagSearch
-              ? 'No pages match all selected tags.'
-              : isMixedSearch
-                ? 'No pages match that text with all selected tags.'
-              : 'Try a shorter phrase, different wording, or another exact fragment from the page you remember.'}
+            {getEmptyStateMessage(activeFilter, isTagSearch, isMixedSearch)}
           </p>
         </div>
       ) : (
         <div className="stack-list">
-          {results.map((result) => (
+          {filteredResults.map((result) => (
             <button
               key={`${result.type}-${result.id}`}
               type="button"
@@ -91,4 +121,109 @@ export function SearchResultsView({
       )}
     </section>
   );
+}
+
+function buildFilterOptions(
+  results: SearchResult[],
+  trashResults: SearchResult[]
+): Array<{ value: SearchFilter; label: string }> {
+  const options: Array<{ value: SearchFilter; label: string }> = [
+    { value: 'all', label: 'All' },
+    { value: 'pages', label: `Pages (${results.filter(isBookPageResult).length})` },
+    { value: 'books', label: `Books (${results.filter((result) => result.type === 'book').length})` },
+    { value: 'chapters', label: `Chapters (${results.filter((result) => result.type === 'chapter').length})` },
+    { value: 'loosePages', label: `Loose Pages (${results.filter(isLoosePageResult).length})` }
+  ];
+
+  options.push({ value: 'trash', label: `Trash (${trashResults.length})` });
+
+  return options;
+}
+
+function filterSearchResults(
+  results: SearchResult[],
+  trashResults: SearchResult[],
+  activeFilter: SearchFilter
+): SearchResult[] {
+  if (activeFilter === 'all') {
+    return results;
+  }
+
+  if (activeFilter === 'trash') {
+    return trashResults;
+  }
+
+  if (activeFilter === 'pages') {
+    return results.filter(isBookPageResult);
+  }
+
+  if (activeFilter === 'loosePages') {
+    return results.filter(isLoosePageResult);
+  }
+
+  if (activeFilter === 'books') {
+    return results.filter((result) => result.type === 'book');
+  }
+
+  return results.filter((result) => result.type === 'chapter');
+}
+
+function isBookPageResult(result: SearchResult): boolean {
+  return result.type === 'page' && !result.isLoosePage;
+}
+
+function isLoosePageResult(result: SearchResult): boolean {
+  return result.type === 'page' && result.isLoosePage;
+}
+
+function getEmptyStateTitle(activeFilter: SearchFilter): string {
+  if (activeFilter === 'all') {
+    return 'No matches found';
+  }
+
+  return `No matching ${getFilterEmptyLabel(activeFilter)} found`;
+}
+
+function getEmptyStateMessage(activeFilter: SearchFilter, isTagSearch: boolean, isMixedSearch: boolean): string {
+  if (activeFilter === 'trash') {
+    return 'No trashed items matched this search.';
+  }
+
+  if (activeFilter === 'loosePages') {
+    return 'No matching loose pages found.';
+  }
+
+  if (activeFilter === 'chapters') {
+    return 'No matching chapters found.';
+  }
+
+  if (activeFilter === 'books') {
+    return 'No matching books found.';
+  }
+
+  if (activeFilter === 'pages') {
+    return 'No matching pages found.';
+  }
+
+  if (isTagSearch) {
+    return 'No pages match all selected tags.';
+  }
+
+  if (isMixedSearch) {
+    return 'No pages match that text with all selected tags.';
+  }
+
+  return 'Try a shorter phrase, different wording, or another exact fragment from the page you remember.';
+}
+
+function getFilterEmptyLabel(activeFilter: SearchFilter): string {
+  if (activeFilter === 'loosePages') {
+    return 'loose pages';
+  }
+
+  if (activeFilter === 'trash') {
+    return 'trashed items';
+  }
+
+  return activeFilter;
 }

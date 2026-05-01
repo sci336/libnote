@@ -60,7 +60,7 @@ import {
   getSortedBooks
 } from '../store/librarySelectors';
 import { useDebouncedEffect } from './useDebouncedEffect';
-import { buildSearchIndex, normalizeSearchQuery, parseSearchInput, searchPages } from '../utils/search';
+import { buildSearchIndex, normalizeSearchQuery, parseSearchInput, searchPages, searchTrashedEntities } from '../utils/search';
 import { isLoosePage } from '../utils/pageState';
 import {
   DEFAULT_SHORTCUTS,
@@ -274,6 +274,10 @@ export function useLibraryApp() {
   );
   const searchResults = useMemo(
     () => (searchIndex ? searchPages(searchQuery, searchIndex) : []),
+    [searchIndex, searchQuery]
+  );
+  const trashSearchResults = useMemo(
+    () => (searchIndex ? searchTrashedEntities(searchQuery, searchIndex) : []),
     [searchIndex, searchQuery]
   );
   const searchMode = useMemo(() => parseSearchInput(searchQuery), [searchQuery]);
@@ -1073,6 +1077,7 @@ export function useLibraryApp() {
     chapterList,
     pageList,
     searchResults,
+    trashSearchResults,
     searchMode,
     activeBook,
     activeChapter,

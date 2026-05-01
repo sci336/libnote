@@ -33,11 +33,24 @@ export interface PageSearchResult {
   parentChapterId?: ID;
   parentChapterTitle?: string;
   path: string;
+  isLoosePage: boolean;
   score: number;
   matchKind: SearchMatchKind;
 }
 
-export type SearchResult = BookSearchResult | ChapterSearchResult | PageSearchResult;
+export interface TrashSearchResult {
+  type: 'trash';
+  id: ID;
+  trashType: 'book' | 'chapter' | 'page' | 'loosePage';
+  title: string;
+  snippet?: string;
+  path: string;
+  isLoosePage: boolean;
+  score: number;
+  matchKind: SearchMatchKind;
+}
+
+export type SearchResult = BookSearchResult | ChapterSearchResult | PageSearchResult | TrashSearchResult;
 
 interface SearchIndexedBookRecord {
   book: Book;
@@ -64,12 +77,16 @@ interface SearchIndexedPageRecord {
   parentBookTitle?: string;
   parentChapterId?: ID;
   parentChapterTitle?: string;
+  isLoosePage: boolean;
 }
 
 export interface SearchIndex {
   books: SearchIndexedBookRecord[];
   chapters: SearchIndexedChapterRecord[];
   pages: SearchIndexedPageRecord[];
+  trashBooks: SearchIndexedBookRecord[];
+  trashChapters: SearchIndexedChapterRecord[];
+  trashPages: SearchIndexedPageRecord[];
 }
 
 export type SearchMode =
@@ -150,50 +167,21 @@ export function buildSearchIndex(data: LibraryData): SearchIndex {
   const liveBooks = data.books.filter((book) => !book.deletedAt);
   const liveChapters = data.chapters.filter((chapter) => !chapter.deletedAt);
   const livePages = data.pages.filter((page) => !page.deletedAt);
+  const trashBooks = data.books.filter((book) => book.deletedAt);
+  const trashChapters = data.chapters.filter((chapter) => chapter.deletedAt);
+  const trashPages = data.pages.filter((page) => page.deletedAt);
   const chapterMap = new Map(liveChapters.map((chapter) => [chapter.id, chapter] as const));
   const bookMap = new Map(liveBooks.map((book) => [book.id, book] as const));
+  const allChapterMap = new Map(data.chapters.map((chapter) => [chapter.id, chapter] as const));
+  const allBookMap = new Map(data.books.map((book) => [book.id, book] as const));
 
   return {
-    books: liveBooks.map((book) => {
-      const title = flattenText(book.title);
-
-      return {
-        book,
-        title,
-        normalizedTitle: normalizeSearchText(title)
-      };
-    }),
-    chapters: liveChapters.map((chapter) => {
-      const title = flattenText(chapter.title);
-      const parentBook = bookMap.get(chapter.bookId);
-
-      return {
-        chapter,
-        title,
-        normalizedTitle: normalizeSearchText(title),
-        parentBookId: chapter.bookId,
-        parentBookTitle: parentBook?.title ?? 'Book'
-      };
-    }),
-    pages: livePages.map((page) => {
-      const title = flattenText(page.title);
-      const content = flattenText(contentToPlainText(page.content));
-      const chapter = page.chapterId ? chapterMap.get(page.chapterId) : undefined;
-      const book = chapter ? bookMap.get(chapter.bookId) : undefined;
-
-      return {
-        page,
-        title,
-        content,
-        normalizedTitle: normalizeSearchText(title),
-        normalizedContent: normalizeSearchText(content),
-        path: isLoosePage(page) || !chapter ? 'Loose Pages' : `${book?.title ?? 'Book'} / ${chapter.title}`,
-        parentBookId: book?.id,
-        parentBookTitle: book?.title,
-        parentChapterId: chapter?.id,
-        parentChapterTitle: chapter?.title
-      };
-    })
+    books: liveBooks.map(indexBook),
+    chapters: liveChapters.map((chapter) => indexChapter(chapter, bookMap)),
+    pages: livePages.map((page) => indexPage(page, chapterMap, bookMap)),
+    trashBooks: trashBooks.map(indexBook),
+    trashChapters: trashChapters.map((chapter) => indexChapter(chapter, allBookMap)),
+    trashPages: trashPages.map((page) => indexPage(page, allChapterMap, allBookMap, true))
   };
 }
 
@@ -217,6 +205,7 @@ export function searchLibraryEntities(query: string, index: SearchIndex): Search
         parentChapterId: record.parentChapterId,
         parentChapterTitle: record.parentChapterTitle,
         path: record.path,
+        isLoosePage: record.isLoosePage,
         score: 1,
         matchKind: 'tag'
       }))
@@ -283,6 +272,80 @@ export function searchPages(query: string, index: SearchIndex): SearchResult[] {
   return searchLibraryEntities(query, index);
 }
 
+export function searchTrashedEntities(query: string, index: SearchIndex): SearchResult[] {
+  const mode = parseSearchInput(query);
+
+  if (mode.type === 'emptyTag') {
+    return [];
+  }
+
+  if (mode.type === 'tag') {
+    return index.trashPages
+      .filter((record) => pageHasAllTags(record, mode.tags))
+      .map((record) => pageRecordToTrashResult(record, 1, 'tag'))
+      .sort((left, right) => left.title.localeCompare(right.title));
+  }
+
+  const normalizedQuery = normalizeSearchText(mode.query);
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const tokens = tokenizeSearchText(mode.query);
+  const results: SearchResult[] = [];
+
+  if (mode.type === 'text') {
+    for (const book of index.trashBooks) {
+      const score = scoreTitleMatch(book.normalizedTitle, normalizedQuery, tokens);
+      if (!score) {
+        continue;
+      }
+
+      results.push({
+        type: 'trash',
+        id: book.book.id,
+        trashType: 'book',
+        title: book.book.title,
+        path: 'Trash / Book',
+        isLoosePage: false,
+        score: score.value,
+        matchKind: score.matchKind
+      });
+    }
+
+    for (const chapter of index.trashChapters) {
+      const score = scoreTitleMatch(chapter.normalizedTitle, normalizedQuery, tokens);
+      if (!score) {
+        continue;
+      }
+
+      results.push({
+        type: 'trash',
+        id: chapter.chapter.id,
+        trashType: 'chapter',
+        title: chapter.chapter.title,
+        path: `Trash / ${chapter.parentBookTitle}`,
+        isLoosePage: false,
+        score: score.value,
+        matchKind: score.matchKind
+      });
+    }
+  }
+
+  for (const page of index.trashPages) {
+    if (mode.type === 'mixed' && !pageHasAllTags(page, mode.tags)) {
+      continue;
+    }
+
+    const result = scorePageMatch(page, normalizedQuery, tokens);
+    if (result) {
+      results.push(pageRecordToTrashResult(page, result.score, result.matchKind, result.snippet));
+    }
+  }
+
+  return results.sort(compareSearchResults);
+}
+
 export function getHighlightedParts(text: string, query: string): Array<{ text: string; isMatch: boolean }> {
   const displayText = text || 'Untitled';
   const mode = parseSearchInput(query);
@@ -327,6 +390,14 @@ function pageHasAllTags(record: Pick<SearchIndexedPageRecord, 'page'>, tags: str
 }
 
 export function getSearchResultBadgeLabel(result: SearchResult): string {
+  if (result.type === 'trash') {
+    if (result.trashType === 'loosePage') {
+      return 'Trash / Loose Page';
+    }
+
+    return `Trash / ${capitalizeSearchLabel(result.trashType)}`;
+  }
+
   if (result.type === 'book') {
     return 'Book';
   }
@@ -341,6 +412,10 @@ export function getSearchResultBadgeLabel(result: SearchResult): string {
 export function getSearchResultPath(result: SearchResult): string | undefined {
   if (result.type === 'book') {
     return undefined;
+  }
+
+  if (result.type === 'trash') {
+    return result.path;
   }
 
   if (result.type === 'chapter') {
@@ -368,6 +443,7 @@ function scorePageMatch(
       parentChapterId: record.parentChapterId,
       parentChapterTitle: record.parentChapterTitle,
       path: record.path,
+      isLoosePage: record.isLoosePage,
       score: titleMatch.value,
       matchKind: titleMatch.matchKind
     };
@@ -385,6 +461,7 @@ function scorePageMatch(
       parentChapterId: record.parentChapterId,
       parentChapterTitle: record.parentChapterTitle,
       path: record.path,
+      isLoosePage: record.isLoosePage,
       score: 3000 - exactContentIndex,
       matchKind: 'content-exact'
     };
@@ -408,9 +485,85 @@ function scorePageMatch(
     parentChapterId: record.parentChapterId,
     parentChapterTitle: record.parentChapterTitle,
     path: record.path,
+    isLoosePage: record.isLoosePage,
     score: 2000 + tokenHits,
     matchKind: 'content-partial'
   };
+}
+
+function indexBook(book: Book): SearchIndexedBookRecord {
+  const title = flattenText(book.title);
+
+  return {
+    book,
+    title,
+    normalizedTitle: normalizeSearchText(title)
+  };
+}
+
+function indexChapter(chapter: Chapter, bookMap: Map<ID, Book>): SearchIndexedChapterRecord {
+  const title = flattenText(chapter.title);
+  const parentBook = bookMap.get(chapter.deletedFrom?.bookId ?? chapter.bookId);
+
+  return {
+    chapter,
+    title,
+    normalizedTitle: normalizeSearchText(title),
+    parentBookId: chapter.deletedFrom?.bookId ?? chapter.bookId,
+    parentBookTitle: parentBook?.title ?? 'Book'
+  };
+}
+
+function indexPage(
+  page: Page,
+  chapterMap: Map<ID, Chapter>,
+  bookMap: Map<ID, Book>,
+  useDeletedFrom = false
+): SearchIndexedPageRecord {
+  const title = flattenText(page.title);
+  const content = flattenText(contentToPlainText(page.content));
+  const sourceChapterId = useDeletedFrom ? page.deletedFrom?.chapterId ?? page.chapterId : page.chapterId;
+  const chapter = sourceChapterId ? chapterMap.get(sourceChapterId) : undefined;
+  const sourceBookId = useDeletedFrom ? page.deletedFrom?.bookId ?? chapter?.bookId : chapter?.bookId;
+  const book = sourceBookId ? bookMap.get(sourceBookId) : undefined;
+  const loosePage = useDeletedFrom ? page.deletedFrom?.wasLoose ?? isLoosePage(page) : isLoosePage(page) || !chapter;
+
+  return {
+    page,
+    title,
+    content,
+    normalizedTitle: normalizeSearchText(title),
+    normalizedContent: normalizeSearchText(content),
+    path: loosePage ? 'Loose Pages' : `${book?.title ?? 'Book'} / ${chapter?.title ?? 'Chapter'}`,
+    parentBookId: book?.id,
+    parentBookTitle: book?.title,
+    parentChapterId: chapter?.id,
+    parentChapterTitle: chapter?.title,
+    isLoosePage: loosePage
+  };
+}
+
+function pageRecordToTrashResult(
+  record: SearchIndexedPageRecord,
+  score: number,
+  matchKind: SearchMatchKind,
+  snippet = ''
+): TrashSearchResult {
+  return {
+    type: 'trash',
+    id: record.page.id,
+    trashType: record.isLoosePage ? 'loosePage' : 'page',
+    title: record.page.title,
+    snippet,
+    path: `Trash / ${record.path}`,
+    isLoosePage: record.isLoosePage,
+    score,
+    matchKind
+  };
+}
+
+function capitalizeSearchLabel(value: string): string {
+  return value.slice(0, 1).toUpperCase() + value.slice(1);
 }
 
 function scoreTitleMatch(
@@ -467,6 +620,10 @@ function getSearchResultTypeOrder(type: SearchResult['type']): number {
 
   if (type === 'chapter') {
     return 1;
+  }
+
+  if (type === 'trash') {
+    return 3;
   }
 
   return 2;
