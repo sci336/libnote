@@ -18,9 +18,11 @@ import {
   deleteBookForever,
   deleteChapterForever,
   deletePageForever,
+  deleteTagEverywhere,
   emptyTrash,
   getBook,
   hydrateLibraryData,
+  mergeTags,
   moveBookToTrash,
   moveChapterToTrash,
   movePageToTrash,
@@ -34,6 +36,7 @@ import {
   restoreBook,
   restoreChapter,
   restorePage,
+  renameTagEverywhere,
   updateBook,
   updateChapter,
   updatePage
@@ -803,6 +806,30 @@ export function useLibraryApp() {
     updateData(updatePage(data, pageId, { tags }));
   }
 
+  function handleRenameTagEverywhere(oldTag: string, newTag: string): void {
+    if (!data) {
+      return;
+    }
+
+    updateData(renameTagEverywhere(data, oldTag, newTag));
+  }
+
+  function handleDeleteTagEverywhere(tag: string): void {
+    if (!data) {
+      return;
+    }
+
+    updateData(deleteTagEverywhere(data, tag));
+  }
+
+  function handleMergeTags(sourceTag: string, targetTag: string): void {
+    if (!data) {
+      return;
+    }
+
+    updateData(mergeTags(data, sourceTag, targetTag));
+  }
+
   function handleUpdateLibraryBooksPerRow(booksPerRow: LibraryBooksPerRow): void {
     setSettings((currentSettings) => ({
       ...currentSettings,
@@ -1043,6 +1070,9 @@ export function useLibraryApp() {
     handleUpdatePageContent,
     handleUpdatePageTextSize,
     handleUpdatePageTags,
+    handleRenameTagEverywhere,
+    handleDeleteTagEverywhere,
+    handleMergeTags,
     handleUpdateLibraryBooksPerRow,
     handleUpdateShortcut,
     handleResetShortcut,

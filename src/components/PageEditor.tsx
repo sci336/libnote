@@ -13,7 +13,7 @@ import { formatTimestamp } from '../utils/date';
 import { isLoosePage } from '../utils/pageState';
 import type { ContentSegment, PageTitleLookup } from '../utils/pageLinks';
 import { contentToEditableHtml, normalizeEditorHtml } from '../utils/richText';
-import { isValidTag, normalizeTag } from '../utils/tags';
+import { parseSingleTagInput } from '../utils/tags';
 
 interface PageEditorProps {
   page: Page;
@@ -457,7 +457,7 @@ export function PageEditor({
                     aria-label={`Open tag filter for ${tag}`}
                     onClick={() => onOpenTagSearch?.(tag)}
                   >
-                    #{tag}
+                    /{tag}
                   </button>
                   <button
                     type="button"
@@ -481,10 +481,10 @@ export function PageEditor({
                 }
 
                 event.preventDefault();
-                const normalizedTag = normalizeTag(tagInput);
+                const normalizedTag = parseSingleTagInput(tagInput);
                 // Keep editor-entered tags on the same normalized path as search
                 // filters so clicking a tag always routes back to matching pages.
-                if (!isValidTag(normalizedTag) || page.tags.includes(normalizedTag)) {
+                if (!normalizedTag || page.tags.includes(normalizedTag)) {
                   setTagInput('');
                   return;
                 }

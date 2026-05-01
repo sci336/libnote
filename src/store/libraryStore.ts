@@ -3,7 +3,7 @@ import type { Book, Chapter, DeletedFrom, ID, LibraryData, Page, Trashable } fro
 import { nowIso } from '../utils/date';
 import { createId } from '../utils/ids';
 import { isChapterPage, isLoosePage } from '../utils/pageState';
-import { normalizeTagList } from '../utils/tags';
+import { normalizeTagList, parseSingleTagInput } from '../utils/tags';
 
 export const DEFAULT_TEXT_SIZE = 16;
 
@@ -643,6 +643,110 @@ export function reorderPagesInChapter(
   };
 }
 
+export function renameTagEverywhere(data: LibraryData, oldTag: string, newTag: string): LibraryData {
+  const sourceTag = parseSingleTagInput(oldTag);
+  const targetTag = parseSingleTagInput(newTag);
+
+  if (!sourceTag || !targetTag) {
+    return data;
+  }
+
+  return replaceTagEverywhere(data, sourceTag, targetTag);
+}
+
+export function deleteTagEverywhere(data: LibraryData, tag: string): LibraryData {
+  const normalizedTag = parseSingleTagInput(tag);
+  if (!normalizedTag) {
+    return data;
+  }
+
+  const timestamp = nowIso();
+  const touchedChapterIds = new Set<ID>();
+  const touchedBookIds = new Set<ID>();
+  let changed = false;
+
+  const pages = data.pages.map((page) => {
+    const currentTags = normalizeTags(page.tags);
+    const nextTags = currentTags.filter((pageTag) => pageTag !== normalizedTag);
+    if (areStringArraysEqual(currentTags, nextTags)) {
+      return page;
+    }
+
+    changed = true;
+    collectTouchedContainers(data, page, touchedChapterIds, touchedBookIds);
+    return { ...page, tags: nextTags, updatedAt: timestamp };
+  });
+
+  if (!changed) {
+    return data;
+  }
+
+  return {
+    ...data,
+    pages,
+    chapters: touchChapters(data.chapters, [...touchedChapterIds], timestamp),
+    books: touchBooks(data.books, [...touchedBookIds], timestamp)
+  };
+}
+
+export function mergeTags(data: LibraryData, sourceTag: string, targetTag: string): LibraryData {
+  const normalizedSourceTag = parseSingleTagInput(sourceTag);
+  const normalizedTargetTag = parseSingleTagInput(targetTag);
+
+  if (!normalizedSourceTag || !normalizedTargetTag || normalizedSourceTag === normalizedTargetTag) {
+    return data;
+  }
+
+  return replaceTagEverywhere(data, normalizedSourceTag, normalizedTargetTag);
+}
+
+function replaceTagEverywhere(data: LibraryData, sourceTag: string, targetTag: string): LibraryData {
+  const timestamp = nowIso();
+  const touchedChapterIds = new Set<ID>();
+  const touchedBookIds = new Set<ID>();
+  let changed = false;
+
+  const pages = data.pages.map((page) => {
+    const currentTags = normalizeTags(page.tags);
+    if (!currentTags.includes(sourceTag)) {
+      return page;
+    }
+
+    const nextTags = normalizeTags(currentTags.map((tag) => (tag === sourceTag ? targetTag : tag)));
+    changed = true;
+    collectTouchedContainers(data, page, touchedChapterIds, touchedBookIds);
+    return { ...page, tags: nextTags, updatedAt: timestamp };
+  });
+
+  if (!changed) {
+    return data;
+  }
+
+  return {
+    ...data,
+    pages,
+    chapters: touchChapters(data.chapters, [...touchedChapterIds], timestamp),
+    books: touchBooks(data.books, [...touchedBookIds], timestamp)
+  };
+}
+
+function collectTouchedContainers(
+  data: LibraryData,
+  page: Page,
+  chapterIds: Set<ID>,
+  bookIds: Set<ID>
+): void {
+  if (!page.chapterId) {
+    return;
+  }
+
+  chapterIds.add(page.chapterId);
+  const chapter = getChapter(data, page.chapterId);
+  if (chapter) {
+    bookIds.add(chapter.bookId);
+  }
+}
+
 function touchBook(books: Book[], bookId: ID, timestamp: string): Book[] {
   return books.map((book) => (book.id === bookId ? { ...book, updatedAt: timestamp } : book));
 }
@@ -773,6 +877,10 @@ function compareBySortOrder<T extends { sortOrder: number; createdAt: string; up
   }
 
   return left.id.localeCompare(right.id);
+}
+
+function areStringArraysEqual(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function getNextChapterSortOrder(data: LibraryData, bookId: ID): number {

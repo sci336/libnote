@@ -17,6 +17,7 @@ import {
   validateShortcutBinding
 } from '../utils/shortcuts';
 import { RECENT_PAGES_LIMIT } from '../utils/appSettings';
+import { parseSingleTagInput, type TagSummary } from '../utils/tags';
 
 const LIBRARY_ROW_OPTIONS: LibraryBooksPerRow[] = [2, 3, 4, 5];
 
@@ -25,10 +26,14 @@ interface AppMenuProps {
   activeSection: AppMenuSection;
   settings: AppSettings;
   backupStatus: { tone: 'success' | 'error' | 'info'; message: string } | null;
+  tagSummaries: TagSummary[];
   onUpdateLibraryBooksPerRow: (booksPerRow: LibraryBooksPerRow) => void;
   onUpdateShortcut: (action: ShortcutAction, binding: ShortcutBinding | null) => void;
   onResetShortcut: (action: ShortcutAction) => void;
   onResetAllShortcuts: () => void;
+  onRenameTagEverywhere: (oldTag: string, newTag: string) => void;
+  onDeleteTagEverywhere: (tag: string) => void;
+  onMergeTags: (sourceTag: string, targetTag: string) => void;
   onExportLibrary: () => void;
   onImportLibrary: (file: File | null) => void | Promise<void>;
   onClose: () => void;
@@ -39,6 +44,7 @@ const MENU_SECTIONS: Array<{ id: AppMenuSection; label: string; summary: string 
   { id: 'help', label: 'Help', summary: 'How the library, tags, search, and links work.' },
   { id: 'shortcuts', label: 'Shortcuts', summary: 'Current keyboard controls and customizable defaults.' },
   { id: 'settings', label: 'Settings', summary: 'Library density, shortcuts, and app behavior.' },
+  { id: 'tagManagement', label: 'Tag Management', summary: 'Rename, delete, and merge slash tags across pages.' },
   { id: 'backup', label: 'Backup & Restore', summary: 'Download a full library backup and restore it later.' },
   { id: 'credits', label: 'Credits', summary: 'A lightweight note about the project.' }
 ];
@@ -48,10 +54,14 @@ export function AppMenu({
   activeSection,
   settings,
   backupStatus,
+  tagSummaries,
   onUpdateLibraryBooksPerRow,
   onUpdateShortcut,
   onResetShortcut,
   onResetAllShortcuts,
+  onRenameTagEverywhere,
+  onDeleteTagEverywhere,
+  onMergeTags,
   onExportLibrary,
   onImportLibrary,
   onClose,
@@ -115,12 +125,17 @@ export function AppMenu({
             {renderSection(activeSection, {
               settings,
               backupStatus,
+              tagSummaries,
               onUpdateLibraryBooksPerRow,
               onUpdateShortcut,
               onResetShortcut,
               onResetAllShortcuts,
+              onRenameTagEverywhere,
+              onDeleteTagEverywhere,
+              onMergeTags,
               onExportLibrary,
-              onImportLibrary
+              onImportLibrary,
+              onSelectSection
             })}
           </div>
         </div>
@@ -135,12 +150,17 @@ function renderSection(
     AppMenuProps,
     | 'settings'
     | 'backupStatus'
+    | 'tagSummaries'
     | 'onUpdateLibraryBooksPerRow'
     | 'onUpdateShortcut'
     | 'onResetShortcut'
     | 'onResetAllShortcuts'
+    | 'onRenameTagEverywhere'
+    | 'onDeleteTagEverywhere'
+    | 'onMergeTags'
     | 'onExportLibrary'
     | 'onImportLibrary'
+    | 'onSelectSection'
   >
 ): JSX.Element {
   if (section === 'help') {
@@ -153,6 +173,10 @@ function renderSection(
 
   if (section === 'settings') {
     return <SettingsSection {...settingsProps} />;
+  }
+
+  if (section === 'tagManagement') {
+    return <TagManagementSection {...settingsProps} />;
   }
 
   if (section === 'backup') {
@@ -412,10 +436,16 @@ function SettingsSection({
   onUpdateLibraryBooksPerRow,
   onUpdateShortcut,
   onResetShortcut,
-  onResetAllShortcuts
+  onResetAllShortcuts,
+  onSelectSection
 }: Pick<
   AppMenuProps,
-  'settings' | 'onUpdateLibraryBooksPerRow' | 'onUpdateShortcut' | 'onResetShortcut' | 'onResetAllShortcuts'
+  | 'settings'
+  | 'onUpdateLibraryBooksPerRow'
+  | 'onUpdateShortcut'
+  | 'onResetShortcut'
+  | 'onResetAllShortcuts'
+  | 'onSelectSection'
 >): JSX.Element {
   return (
     <div className="menu-section-stack">
@@ -484,9 +514,275 @@ function SettingsSection({
             {' '}{RECENT_PAGES_LIMIT} pages and does not have a separate setting.
           </p>
         </article>
+        <article className="settings-placeholder-card settings-control-card">
+          <div className="settings-placeholder-head">
+            <strong>Tag Management</strong>
+            <span className="search-result-badge">Slash tags</span>
+          </div>
+          <p>Review all current page tags, rename them everywhere, remove them from pages, or merge duplicates.</p>
+          <div className="backup-actions">
+            <button type="button" className="secondary-button" onClick={() => onSelectSection('tagManagement')}>
+              Open Tag Management
+            </button>
+          </div>
+        </article>
       </section>
     </div>
   );
+}
+
+type TagManagementSort = 'alphabetical' | 'mostUsed';
+
+function TagManagementSection({
+  tagSummaries,
+  onRenameTagEverywhere,
+  onDeleteTagEverywhere,
+  onMergeTags
+}: Pick<
+  AppMenuProps,
+  'tagSummaries' | 'onRenameTagEverywhere' | 'onDeleteTagEverywhere' | 'onMergeTags'
+>): JSX.Element {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortMode, setSortMode] = useState<TagManagementSort>('alphabetical');
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [renameInput, setRenameInput] = useState('');
+  const [mergeSourceTag, setMergeSourceTag] = useState('');
+  const [mergeTargetInput, setMergeTargetInput] = useState('');
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  const normalizedSearch = searchQuery.trim().replace(/^\//, '').toLowerCase();
+  const filteredTags = tagSummaries
+    .filter((summary) => !normalizedSearch || summary.tag.includes(normalizedSearch))
+    .sort((left, right) => {
+      if (sortMode === 'mostUsed' && left.pageCount !== right.pageCount) {
+        return right.pageCount - left.pageCount;
+      }
+
+      return left.tag.localeCompare(right.tag);
+    });
+  const knownTags = tagSummaries.map((summary) => summary.tag);
+
+  function startRename(tag: string): void {
+    setEditingTag(tag);
+    setRenameInput(`/${tag}`);
+    setFeedback(null);
+  }
+
+  function submitRename(tag: string): void {
+    const targetTag = parseSingleTagInput(renameInput);
+
+    if (!targetTag) {
+      setFeedback('Use one slash tag, like /college.');
+      return;
+    }
+
+    if (targetTag === tag) {
+      setEditingTag(null);
+      setRenameInput('');
+      setFeedback(null);
+      return;
+    }
+
+    onRenameTagEverywhere(tag, targetTag);
+    setEditingTag(null);
+    setRenameInput('');
+    setFeedback(`Renamed /${tag} to /${targetTag}.`);
+  }
+
+  function deleteTag(tag: string): void {
+    const summary = tagSummaries.find((item) => item.tag === tag);
+    const count = summary?.pageCount ?? 0;
+
+    if (!window.confirm(`Remove /${tag} from ${formatPageCount(count)}? Pages will not be deleted.`)) {
+      return;
+    }
+
+    onDeleteTagEverywhere(tag);
+    if (mergeSourceTag === tag) {
+      setMergeSourceTag('');
+    }
+    setFeedback(`Removed /${tag} from all pages.`);
+  }
+
+  function submitMerge(): void {
+    const sourceTag = parseSingleTagInput(mergeSourceTag);
+    const targetTag = parseSingleTagInput(mergeTargetInput);
+
+    if (!sourceTag || !targetTag) {
+      setFeedback('Choose a source tag and enter one target slash tag.');
+      return;
+    }
+
+    if (sourceTag === targetTag) {
+      setFeedback('Choose two different tags to merge.');
+      return;
+    }
+
+    const sourceSummary = tagSummaries.find((summary) => summary.tag === sourceTag);
+    const count = sourceSummary?.pageCount ?? 0;
+
+    if (!window.confirm(`Merge /${sourceTag} into /${targetTag} across ${formatPageCount(count)}?`)) {
+      return;
+    }
+
+    onMergeTags(sourceTag, targetTag);
+    setMergeSourceTag('');
+    setMergeTargetInput('');
+    setFeedback(`Merged /${sourceTag} into /${targetTag}.`);
+  }
+
+  return (
+    <div className="menu-section-stack">
+      <section className="menu-card">
+        <h2>Tag Management</h2>
+        <p>
+          Review slash tags currently used by pages, then rename, delete, or merge them across the library.
+          Tags are derived from page metadata, so unused tags naturally disappear when no page uses them.
+        </p>
+      </section>
+
+      <section className="menu-card tag-management-card">
+        <div className="tag-management-toolbar">
+          <label className="tag-management-search">
+            <span>Find tag</span>
+            <input
+              type="search"
+              className="tag-input"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="/school"
+            />
+          </label>
+
+          <div className="settings-choice-row" role="group" aria-label="Sort tags">
+            <button
+              type="button"
+              className={`settings-choice-button ${sortMode === 'alphabetical' ? 'is-active' : ''}`}
+              onClick={() => setSortMode('alphabetical')}
+            >
+              Alphabetical
+            </button>
+            <button
+              type="button"
+              className={`settings-choice-button ${sortMode === 'mostUsed' ? 'is-active' : ''}`}
+              onClick={() => setSortMode('mostUsed')}
+            >
+              Most used
+            </button>
+          </div>
+        </div>
+
+        {tagSummaries.length === 0 ? (
+          <div className="empty-state tag-management-empty">
+            <h2>No tags yet.</h2>
+            <p>Add tags to pages using /tagname.</p>
+          </div>
+        ) : filteredTags.length === 0 ? (
+          <div className="empty-state tag-management-empty">
+            <h2>No matching tags.</h2>
+            <p>Try a shorter tag name or clear the filter.</p>
+          </div>
+        ) : (
+          <div className="tag-management-list">
+            {filteredTags.map((summary) => (
+              <article key={summary.tag} className="tag-management-row">
+                <div className="tag-management-main">
+                  <span className="tag-pill tag-management-pill">/{summary.tag}</span>
+                  <span className="tag-management-count">{formatPageCount(summary.pageCount)}</span>
+                </div>
+
+                {editingTag === summary.tag ? (
+                  <form
+                    className="tag-management-inline-form"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      submitRename(summary.tag);
+                    }}
+                  >
+                    <input
+                      type="text"
+                      className="tag-input"
+                      value={renameInput}
+                      onChange={(event) => setRenameInput(event.target.value)}
+                      autoFocus
+                      aria-label={`Rename /${summary.tag}`}
+                    />
+                    <button type="submit" className="primary-button">
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => {
+                        setEditingTag(null);
+                        setRenameInput('');
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </form>
+                ) : (
+                  <div className="tag-management-actions">
+                    <button type="button" className="secondary-button" onClick={() => startRename(summary.tag)}>
+                      Rename
+                    </button>
+                    <button type="button" className="danger-button" onClick={() => deleteTag(summary.tag)}>
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {tagSummaries.length > 0 ? (
+        <section className="menu-card tag-management-card">
+          <h2>Merge Tags</h2>
+          <div className="tag-management-merge">
+            <label>
+              <span>Merge</span>
+              <select value={mergeSourceTag} onChange={(event) => setMergeSourceTag(event.target.value)}>
+                <option value="">Select tag</option>
+                {knownTags.map((tag) => (
+                  <option key={tag} value={tag}>
+                    /{tag}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              <span>Into</span>
+              <input
+                type="text"
+                className="tag-input"
+                value={mergeTargetInput}
+                onChange={(event) => setMergeTargetInput(event.target.value)}
+                placeholder="/college"
+              />
+            </label>
+
+            <button type="button" className="primary-button" onClick={submitMerge}>
+              Merge
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {feedback ? (
+        <section className="menu-card backup-status-card is-info" aria-live="polite">
+          <h2>Tag Update</h2>
+          <p>{feedback}</p>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function formatPageCount(pageCount: number): string {
+  return pageCount === 1 ? '1 page' : `${pageCount} pages`;
 }
 
 function BackupSection({

@@ -13,7 +13,7 @@ import type { Book, Chapter, Page } from './types/domain';
 import { isLoosePage } from './utils/pageState';
 import { buildBacklinkIndex, buildPageTitleLookup, parseContentIntoSegments } from './utils/pageLinks';
 import type { SearchResult } from './utils/search';
-import { getAllTags, getTagResults } from './utils/tags';
+import { getAllTags, getTagResults, getTagSummaries } from './utils/tags';
 import { BookView } from './views/BookView';
 import { ChapterView } from './views/ChapterView';
 import { LoosePagesView } from './views/LoosePagesView';
@@ -62,6 +62,7 @@ export default function App(): JSX.Element {
     [allPages, app.view, liveBooks, liveChapters]
   );
   const availableTags = useMemo(() => getAllTags(allPages), [allPages]);
+  const tagSummaries = useMemo(() => getTagSummaries(allPages), [allPages]);
   const recentPages = useMemo<RecentSidebarPage[]>(
     () =>
       app.recentPageIds
@@ -197,10 +198,14 @@ export default function App(): JSX.Element {
         activeSection={app.appMenuSection}
         settings={app.settings}
         backupStatus={app.backupStatus}
+        tagSummaries={tagSummaries}
         onUpdateLibraryBooksPerRow={app.handleUpdateLibraryBooksPerRow}
         onUpdateShortcut={app.handleUpdateShortcut}
         onResetShortcut={app.handleResetShortcut}
         onResetAllShortcuts={app.handleResetAllShortcuts}
+        onRenameTagEverywhere={app.handleRenameTagEverywhere}
+        onDeleteTagEverywhere={app.handleDeleteTagEverywhere}
+        onMergeTags={app.handleMergeTags}
         onExportLibrary={app.handleExportLibrary}
         onImportLibrary={app.handleImportLibrary}
         onClose={app.closeAppMenu}

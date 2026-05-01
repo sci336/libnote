@@ -93,7 +93,7 @@ export function PageMetadataPanel({
                     className="tag-pill-label inline-tag-button metadata-tag-button"
                     onClick={() => onOpenTagSearch?.(tag)}
                   >
-                    #{tag}
+                    /{tag}
                   </button>
                 ))}
               </div>

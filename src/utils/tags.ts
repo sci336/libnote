@@ -186,6 +186,25 @@ export function getAllTags(pages: Page[]): string[] {
   );
 }
 
+export interface TagSummary {
+  tag: string;
+  pageCount: number;
+}
+
+export function getTagSummaries(pages: Page[]): TagSummary[] {
+  const counts = new Map<string, number>();
+
+  for (const page of pages) {
+    for (const tag of normalizeTagList(page.tags)) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+  }
+
+  return [...counts.entries()]
+    .map(([tag, pageCount]) => ({ tag, pageCount }))
+    .sort((left, right) => left.tag.localeCompare(right.tag));
+}
+
 export interface TagResult {
   pageId: string;
   pageTitle: string;
