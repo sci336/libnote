@@ -114,3 +114,14 @@ export type ViewState =
   | { type: 'trash' }
   | { type: 'tag'; tags: string[] }
   | { type: 'search'; query: string };
+
+export interface BreadcrumbItem {
+  label: string;
+  view?: ViewState;
+  current?: boolean;
+}
+
+export interface NavigationMetadata {
+  showBack: boolean;
+  breadcrumbs: BreadcrumbItem[];
+}

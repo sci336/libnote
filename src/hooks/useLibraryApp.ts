@@ -254,7 +254,9 @@ export function useLibraryApp() {
   );
   const nav = useMemo(
     () => {
-      const metadata = data ? getNavigationMetadata(data, view) : { showBack: false, currentLabel: 'Books' };
+      const metadata = data
+        ? getNavigationMetadata(data, view)
+        : { showBack: false, breadcrumbs: [{ label: 'Books', current: true }] };
       return {
         ...metadata,
         showBack: metadata.showBack || navigationHistory.length > 0

@@ -72,7 +72,7 @@ button {
 .primary-button,
 .secondary-button,
 .danger-button,
-.breadcrumb-parent,
+.breadcrumb-link,
 .heading-edit-button,
 .editor-title,
 .list-card-title,
@@ -112,11 +112,45 @@ button {
   font-size: 1rem;
 }
 
-.breadcrumb-parent {
-  color: #6b7280;
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.breadcrumb-item:last-child {
+  flex: 1;
+}
+
+.breadcrumb-link {
+  max-width: min(18rem, 24vw);
+  color: #4b5563;
+  text-decoration: underline;
+  text-decoration-color: rgba(75, 85, 99, 0.3);
+  text-underline-offset: 0.18em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.breadcrumb-link:hover,
+.breadcrumb-link:focus-visible {
+  color: #111827;
+  outline: 2px solid rgba(31, 41, 55, 0.28);
+  outline-offset: 0.18rem;
+  text-decoration-color: currentColor;
+}
+
+.breadcrumb-separator {
+  color: #9ca3af;
+  flex-shrink: 0;
 }
 
 .breadcrumb-current {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;

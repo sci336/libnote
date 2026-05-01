@@ -1,4 +1,4 @@
-import type { Book, Chapter, LibraryData, Page, ViewState } from '../types/domain';
+import type { Book, BreadcrumbItem, Chapter, LibraryData, NavigationMetadata, Page, Trashable, ViewState } from '../types/domain';
 import { getBook, getChapter, getChaptersForBook, getLoosePages, getPage, getPagesForChapter, getSortedBooks as getBooksInOrder } from './libraryStore';
 import { isChapterPage, isLoosePage } from '../utils/pageState';
 
@@ -107,41 +107,49 @@ export function getSidebarBookId(
 export function getNavigationMetadata(
   data: LibraryData,
   view: ViewState
-): { showBack: boolean; parentLabel?: string; currentLabel: string } {
+): NavigationMetadata {
   if (view.type === 'root') {
-    return { showBack: false, currentLabel: 'Books' };
+    return { showBack: false, breadcrumbs: [currentBreadcrumb('Books')] };
   }
 
   if (view.type === 'book') {
     const book = getBook(data, view.bookId);
     return {
       showBack: true,
-      parentLabel: 'Books',
-      currentLabel: book?.title ?? 'Book'
+      breadcrumbs: [
+        linkedBreadcrumb('Books', { type: 'root' }),
+        currentBreadcrumb(book?.title ?? 'Book')
+      ]
     };
   }
 
   if (view.type === 'search') {
     return {
       showBack: true,
-      parentLabel: 'Library',
-      currentLabel: 'Search Results'
+      breadcrumbs: [
+        linkedBreadcrumb('Books', { type: 'root' }),
+        currentBreadcrumb('Search')
+      ]
     };
   }
 
   if (view.type === 'trash') {
     return {
       showBack: true,
-      parentLabel: 'Library',
-      currentLabel: 'Trash'
+      breadcrumbs: [
+        linkedBreadcrumb('Books', { type: 'root' }),
+        currentBreadcrumb('Trash')
+      ]
     };
   }
 
   if (view.type === 'tag') {
     return {
       showBack: true,
-      parentLabel: 'Library',
-      currentLabel: view.tags.length > 0 ? view.tags.map((tag) => `#${tag}`).join(' ') : 'Tagged Pages'
+      breadcrumbs: [
+        linkedBreadcrumb('Books', { type: 'root' }),
+        currentBreadcrumb(view.tags.length > 0 ? view.tags.map((tag) => `/${tag}`).join(' ') : 'Tagged Pages')
+      ]
     };
   }
 
@@ -150,38 +158,96 @@ export function getNavigationMetadata(
     const book = chapter ? getBook(data, chapter.bookId) : undefined;
     return {
       showBack: true,
-      parentLabel: book?.title ?? 'Book',
-      currentLabel: chapter?.title ?? 'Chapter'
+      breadcrumbs: [
+        linkedBreadcrumb('Books', { type: 'root' }),
+        ...getBookBreadcrumb(book),
+        currentBreadcrumb(chapter?.title ?? 'Chapter')
+      ]
     };
   }
 
   if (view.type === 'loosePages') {
     return {
       showBack: true,
-      parentLabel: 'Books',
-      currentLabel: 'Loose Pages'
+      breadcrumbs: [
+        linkedBreadcrumb('Books', { type: 'root' }),
+        currentBreadcrumb('Loose Pages')
+      ]
     };
   }
 
   const page = getPage(data, view.pageId);
   if (!page) {
-    return { showBack: true, parentLabel: 'Books', currentLabel: 'Page' };
+    return {
+      showBack: true,
+      breadcrumbs: [
+        linkedBreadcrumb('Books', { type: 'root' }),
+        currentBreadcrumb('Page')
+      ]
+    };
+  }
+
+  if (isDeleted(page)) {
+    return {
+      showBack: true,
+      breadcrumbs: [
+        linkedBreadcrumb('Books', { type: 'root' }),
+        linkedBreadcrumb('Trash', { type: 'trash' }),
+        currentBreadcrumb(page.title)
+      ]
+    };
   }
 
   if (isLoosePage(page)) {
     return {
       showBack: true,
-      parentLabel: 'Loose Pages',
-      currentLabel: page.title
+      breadcrumbs: [
+        linkedBreadcrumb('Books', { type: 'root' }),
+        linkedBreadcrumb('Loose Pages', { type: 'loosePages' }),
+        currentBreadcrumb(page.title)
+      ]
     };
   }
 
   const chapter = page.chapterId ? getChapter(data, page.chapterId) : undefined;
+  const book = chapter ? getBook(data, chapter.bookId) : undefined;
   return {
     showBack: true,
-    parentLabel: chapter?.title ?? 'Chapter',
-    currentLabel: page.title
+    breadcrumbs: [
+      linkedBreadcrumb('Books', { type: 'root' }),
+      ...getBookBreadcrumb(book),
+      ...getChapterBreadcrumb(chapter),
+      currentBreadcrumb(page.title)
+    ]
   };
+}
+
+function linkedBreadcrumb(label: string, view: ViewState): BreadcrumbItem {
+  return { label, view };
+}
+
+function currentBreadcrumb(label: string): BreadcrumbItem {
+  return { label, current: true };
+}
+
+function getBookBreadcrumb(book?: Book): BreadcrumbItem[] {
+  if (!book || isDeleted(book)) {
+    return [];
+  }
+
+  return [linkedBreadcrumb(book.title, { type: 'book', bookId: book.id })];
+}
+
+function getChapterBreadcrumb(chapter?: Chapter): BreadcrumbItem[] {
+  if (!chapter || isDeleted(chapter)) {
+    return [];
+  }
+
+  return [linkedBreadcrumb(chapter.title, { type: 'chapter', chapterId: chapter.id })];
+}
+
+function isDeleted(record: Trashable): boolean {
+  return Boolean(record.deletedAt);
 }
 
 /**

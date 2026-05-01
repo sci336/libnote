@@ -153,15 +153,14 @@ export default function App(): JSX.Element {
       topBar={
         <TopBar
           showBack={app.nav.showBack}
-          parentLabel={app.nav.parentLabel}
-          currentLabel={app.nav.currentLabel}
+          breadcrumbs={app.nav.breadcrumbs}
           searchValue={app.searchQuery}
           availableTags={availableTags}
           onGoHome={app.navigateHome}
           onOpenAppMenu={() => app.openAppMenu()}
           onToggleSidebar={() => app.setSidebarOpen((open) => !open)}
           onGoBack={app.navigateBack}
-          onParentClick={app.goToParentView}
+          onBreadcrumbClick={(view) => app.navigateToView(view, { shouldCloseSidebar: true })}
           onSearchChange={app.handleSearchChange}
           onSearchFocus={app.handleSearchFocus}
         />

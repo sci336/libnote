@@ -1,33 +1,32 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TagSuggestionsDropdown } from './TagSuggestionsDropdown';
+import type { BreadcrumbItem, ViewState } from '../types/domain';
 import { getActiveSlashTagToken, getTagSuggestions, replaceSlashTagToken } from '../utils/tags';
 
 interface TopBarProps {
   showBack: boolean;
-  parentLabel?: string;
-  currentLabel: string;
+  breadcrumbs: BreadcrumbItem[];
   searchValue: string;
   availableTags: string[];
   onGoHome: () => void;
   onOpenAppMenu: () => void;
   onToggleSidebar: () => void;
   onGoBack: () => void;
-  onParentClick?: () => void;
+  onBreadcrumbClick: (view: ViewState) => void;
   onSearchChange: (value: string) => void;
   onSearchFocus: () => void;
 }
 
 export function TopBar({
   showBack,
-  parentLabel,
-  currentLabel,
+  breadcrumbs,
   searchValue,
   availableTags,
   onGoHome,
   onOpenAppMenu,
   onToggleSidebar,
   onGoBack,
-  onParentClick,
+  onBreadcrumbClick,
   onSearchChange,
   onSearchFocus
 }: TopBarProps): JSX.Element {
@@ -105,17 +104,30 @@ export function TopBar({
         </button>
       </div>
 
-      <div className="breadcrumb" aria-label="Current location">
-        {parentLabel ? (
-          <>
-            <button type="button" className="breadcrumb-parent" onClick={onParentClick}>
-              {parentLabel}
-            </button>
-            <span className="breadcrumb-separator">|</span>
-          </>
-        ) : null}
-        <span className="breadcrumb-current">{currentLabel}</span>
-      </div>
+      <nav className="breadcrumb" aria-label="Breadcrumb">
+        {breadcrumbs.map((item, index) => {
+          const targetView = item.view;
+          const isCurrent = item.current || !targetView;
+          return (
+            <span key={`${item.label}-${index}`} className="breadcrumb-item">
+              {index > 0 ? (
+                <span className="breadcrumb-separator" aria-hidden="true">
+                  &gt;
+                </span>
+              ) : null}
+              {isCurrent ? (
+                <span className="breadcrumb-current" aria-current="page">
+                  {item.label}
+                </span>
+              ) : (
+                <button type="button" className="breadcrumb-link" onClick={() => onBreadcrumbClick(targetView)}>
+                  {item.label}
+                </button>
+              )}
+            </span>
+          );
+        })}
+      </nav>
 
       <label className="search-shell">
         <span className="search-icon" aria-hidden="true">
