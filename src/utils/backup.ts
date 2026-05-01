@@ -206,7 +206,7 @@ function parsePages(input: unknown): Page[] {
       id: requireString(record.id, `Page ${index + 1} id`),
       chapterId,
       title: requireString(record.title, `Page ${index + 1} title`),
-      content: requireString(record.content, `Page ${index + 1} content`),
+      content: normalizePageContent(record.content),
       tags: parseTags(record.tags),
       textSize: optionalFiniteNumber(record.textSize) ?? DEFAULT_TEXT_SIZE,
       isLoose: chapterId === null,
@@ -221,7 +221,7 @@ function parsePages(input: unknown): Page[] {
 }
 
 function parseTags(input: unknown): string[] {
-  if (input === undefined) {
+  if (input === undefined || input === null) {
     return [];
   }
 
@@ -233,6 +233,10 @@ function parseTags(input: unknown): string[] {
     .filter((tag): tag is string => typeof tag === 'string')
     .map((tag) => tag.trim())
     .filter((tag) => tag.length > 0);
+}
+
+function normalizePageContent(input: unknown): string {
+  return typeof input === 'string' ? input : '';
 }
 
 function parseChapterId(input: unknown, index: number): string | null {

@@ -934,6 +934,11 @@ export function useLibraryApp() {
     try {
       const rawPayload = await readBackupFile(file);
       const validated = validateBackupPayload(rawPayload);
+      const nextData = validated.data;
+
+      if (nextData.books.length === 0 && nextData.chapters.length === 0 && nextData.pages.length === 0) {
+        throw new Error('Import failed. The backup does not contain any books, chapters, or pages to restore.');
+      }
 
       if (
         !window.confirm(
@@ -944,7 +949,6 @@ export function useLibraryApp() {
         return;
       }
 
-      const nextData = validated.data;
       const nextSettings =
         validated.settingsStatus === 'restored'
           ? validated.settings
