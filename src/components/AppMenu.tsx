@@ -3,6 +3,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type {
   AppMenuSection,
   AppSettings,
+  AppThemeId,
   LibraryBooksPerRow,
   ShortcutAction,
   ShortcutBinding
@@ -16,6 +17,7 @@ import {
   formatShortcut,
   validateShortcutBinding
 } from '../utils/shortcuts';
+import { APP_THEMES } from '../utils/appThemes';
 import { RECENT_PAGES_LIMIT } from '../utils/appSettings';
 import { formatLastBackupTime, getBackupReminderState } from '../utils/backupReminder';
 import { parseSingleTagInput, type TagSummary } from '../utils/tags';
@@ -37,6 +39,7 @@ interface AppMenuProps {
   backupStatus: { tone: 'success' | 'error' | 'info'; message: string } | null;
   tagSummaries: TagSummary[];
   storageStats: StorageStats;
+  onUpdateTheme: (theme: AppThemeId) => void;
   onUpdateLibraryBooksPerRow: (booksPerRow: LibraryBooksPerRow) => void;
   onUpdateShortcut: (action: ShortcutAction, binding: ShortcutBinding | null) => void;
   onResetShortcut: (action: ShortcutAction) => void;
@@ -54,6 +57,7 @@ const MENU_SECTIONS: Array<{ id: AppMenuSection; label: string; summary: string 
   { id: 'help', label: 'Help', summary: 'How the library, tags, search, and links work.' },
   { id: 'shortcuts', label: 'Shortcuts', summary: 'Current keyboard controls and customizable defaults.' },
   { id: 'settings', label: 'Settings', summary: 'Library density, shortcuts, and app behavior.' },
+  { id: 'themes', label: 'Themes', summary: 'Choose the app-wide visual tone.' },
   { id: 'tagManagement', label: 'Tag Management', summary: 'Rename, delete, and merge slash tags across pages.' },
   { id: 'backup', label: 'Backup & Restore', summary: 'Download a full library backup and restore it later.' },
   { id: 'credits', label: 'Credits', summary: 'A lightweight note about the project.' }
@@ -66,6 +70,7 @@ export function AppMenu({
   backupStatus,
   tagSummaries,
   storageStats,
+  onUpdateTheme,
   onUpdateLibraryBooksPerRow,
   onUpdateShortcut,
   onResetShortcut,
@@ -138,6 +143,7 @@ export function AppMenu({
               backupStatus,
               tagSummaries,
               storageStats,
+              onUpdateTheme,
               onUpdateLibraryBooksPerRow,
               onUpdateShortcut,
               onResetShortcut,
@@ -164,6 +170,7 @@ function renderSection(
     | 'backupStatus'
     | 'tagSummaries'
     | 'storageStats'
+    | 'onUpdateTheme'
     | 'onUpdateLibraryBooksPerRow'
     | 'onUpdateShortcut'
     | 'onResetShortcut'
@@ -186,6 +193,10 @@ function renderSection(
 
   if (section === 'settings') {
     return <SettingsSection {...settingsProps} />;
+  }
+
+  if (section === 'themes') {
+    return <ThemesSection settings={settingsProps.settings} onUpdateTheme={settingsProps.onUpdateTheme} />;
   }
 
   if (section === 'tagManagement') {
@@ -653,6 +664,48 @@ function SettingsSection({
           </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+function ThemesSection({
+  settings,
+  onUpdateTheme
+}: Pick<AppMenuProps, 'settings' | 'onUpdateTheme'>): JSX.Element {
+  return (
+    <div className="menu-section-stack">
+      <section className="menu-card">
+        <h2>Themes</h2>
+        <p>
+          Choose the app-wide visual tone. Themes adjust surfaces, accents, and workspace color without changing saved
+          book covers.
+        </p>
+      </section>
+
+      <section className="settings-category-card settings-control-card themes-settings-card">
+        <div className="settings-placeholder-head">
+          <strong>App Theme</strong>
+          <span className="search-result-badge">Live</span>
+        </div>
+
+        <div className="settings-theme-list" role="group" aria-label="App theme">
+          {APP_THEMES.map((theme) => (
+            <button
+              key={theme.id}
+              type="button"
+              className={`settings-theme-option ${settings.theme === theme.id ? 'is-active' : ''}`}
+              aria-pressed={settings.theme === theme.id}
+              onClick={() => onUpdateTheme(theme.id)}
+            >
+              <span className={`settings-theme-swatch theme-swatch-${theme.id}`} aria-hidden="true" />
+              <span className="settings-theme-copy">
+                <strong>{theme.label}</strong>
+                <span>{theme.description}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

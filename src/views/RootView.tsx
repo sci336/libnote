@@ -1,9 +1,9 @@
-import type { CSSProperties, KeyboardEvent, SyntheticEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type KeyboardEvent, type SyntheticEvent } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { InlineEditableText } from '../components/InlineEditableText';
 import { ReorderableList } from '../components/ReorderableList';
 import type { Book, LibraryBooksPerRow } from '../types/domain';
-import { getBookCoverTemplate } from '../utils/bookCovers';
+import { BOOK_COVER_TEMPLATES, getBookCoverTemplate } from '../utils/bookCovers';
 import { formatTimestamp } from '../utils/date';
 
 interface RootViewProps {
@@ -15,6 +15,7 @@ interface RootViewProps {
   onCreateChapter: (bookId: string) => void;
   onDeleteBook: (bookId: string) => void;
   onRenameBook: (bookId: string, title: string) => void;
+  onUpdateBookCover: (bookId: string, coverId: string) => void;
   onOpenLoosePages: () => void;
   booksPerRow: LibraryBooksPerRow;
 }
@@ -28,9 +29,38 @@ export function RootView({
   onCreateChapter,
   onDeleteBook,
   onRenameBook,
+  onUpdateBookCover,
   onOpenLoosePages,
   booksPerRow
 }: RootViewProps): JSX.Element {
+  const [coverPickerBookId, setCoverPickerBookId] = useState<string | null>(null);
+  const coverPickerBook = books.find((book) => book.id === coverPickerBookId);
+
+  useEffect(() => {
+    if (!coverPickerBookId) {
+      return;
+    }
+
+    if (!coverPickerBook) {
+      setCoverPickerBookId(null);
+    }
+  }, [coverPickerBook, coverPickerBookId]);
+
+  useEffect(() => {
+    if (!coverPickerBookId) {
+      return;
+    }
+
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setCoverPickerBookId(null);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [coverPickerBookId]);
+
   function stopCardOpen(event: SyntheticEvent) {
     event.stopPropagation();
   }
@@ -48,6 +78,8 @@ export function RootView({
   const galleryStyle = {
     '--books-per-row': String(booksPerRow)
   } as CSSProperties;
+
+  const selectedCoverTemplate = coverPickerBook ? getBookCoverTemplate(coverPickerBook) : null;
 
   return (
     <section className="content-section">
@@ -126,6 +158,13 @@ export function RootView({
                       </button>
                       <button
                         type="button"
+                        className="secondary-button"
+                        onClick={() => setCoverPickerBookId(book.id)}
+                      >
+                        Change Cover
+                      </button>
+                      <button
+                        type="button"
                         className="danger-button subtle"
                         onClick={() => onDeleteBook(book.id)}
                       >
@@ -146,6 +185,60 @@ export function RootView({
           onAction={onCreateBook}
         />
       )}
+
+      {coverPickerBook && selectedCoverTemplate ? (
+        <div className="cover-picker-layer" role="dialog" aria-modal="true" aria-labelledby="cover-picker-title">
+          <button
+            type="button"
+            className="cover-picker-backdrop"
+            aria-label="Close cover picker"
+            onClick={() => setCoverPickerBookId(null)}
+          />
+          <section className="cover-picker-panel">
+            <div className="cover-picker-header">
+              <div>
+                <p className="eyebrow">Book Cover</p>
+                <h2 id="cover-picker-title">Choose a Cover</h2>
+                <p className="cover-picker-subtitle">{coverPickerBook.title || 'Untitled Book'}</p>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setCoverPickerBookId(null)}
+                aria-label="Close cover picker"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="cover-picker-grid">
+              {BOOK_COVER_TEMPLATES.map((template) => {
+                const isSelected = template.id === selectedCoverTemplate.id;
+
+                return (
+                  <button
+                    key={template.id}
+                    type="button"
+                    className={`cover-picker-option ${isSelected ? 'is-selected' : ''}`}
+                    aria-label={`Use ${template.label} cover`}
+                    aria-pressed={isSelected}
+                    onClick={() => {
+                      onUpdateBookCover(coverPickerBook.id, template.id);
+                      setCoverPickerBookId(null);
+                    }}
+                  >
+                    <span className={`book-card-cover cover-picker-preview-cover ${template.className}`} aria-hidden="true">
+                      <span className="book-card-label">Book</span>
+                      <span className="cover-picker-preview-lines" />
+                    </span>
+                    <span className="cover-picker-option-label">{template.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }

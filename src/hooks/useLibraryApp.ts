@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   AppMenuSection,
   AppSettings,
+  AppThemeId,
   LibraryBooksPerRow,
   LibraryData,
   Page,
@@ -39,6 +40,7 @@ import {
   restorePage,
   renameTagEverywhere,
   updateBook,
+  updateBookCover,
   updateChapter,
   updatePage
 } from '../store/libraryStore';
@@ -811,6 +813,14 @@ export function useLibraryApp() {
     updateData(updateBook(data, bookId, title));
   }
 
+  function handleUpdateBookCover(bookId: string, coverId: string): void {
+    if (!data) {
+      return;
+    }
+
+    updateData(updateBookCover(data, bookId, coverId));
+  }
+
   function handleRenameChapter(chapterId: string, title: string): void {
     if (!data) {
       return;
@@ -882,6 +892,13 @@ export function useLibraryApp() {
         ...currentSettings.libraryView,
         booksPerRow
       }
+    }));
+  }
+
+  function handleUpdateTheme(theme: AppThemeId): void {
+    setSettings((currentSettings) => ({
+      ...currentSettings,
+      theme
     }));
   }
 
@@ -1134,6 +1151,7 @@ export function useLibraryApp() {
     handleDeleteTrashItemForever,
     handleEmptyTrash,
     handleRenameBook,
+    handleUpdateBookCover,
     handleRenameChapter,
     handleRenamePage,
     handleUpdatePageContent,
@@ -1142,6 +1160,7 @@ export function useLibraryApp() {
     handleRenameTagEverywhere,
     handleDeleteTagEverywhere,
     handleMergeTags,
+    handleUpdateTheme,
     handleUpdateLibraryBooksPerRow,
     handleUpdateShortcut,
     handleResetShortcut,

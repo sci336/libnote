@@ -1,9 +1,11 @@
 import type { AppSettings } from '../types/domain';
+import { DEFAULT_APP_THEME_ID, normalizeAppThemeId } from './appThemes';
 import { DEFAULT_SHORTCUTS, normalizeShortcutSettings } from './shortcuts';
 
 export const RECENT_PAGES_LIMIT = 4;
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
+  theme: DEFAULT_APP_THEME_ID,
   libraryView: {
     booksPerRow: 4
   },
@@ -16,6 +18,7 @@ export function normalizeAppSettings(settings: Partial<AppSettings> | null | und
   const booksPerRow = settings?.libraryView?.booksPerRow;
 
   return {
+    theme: normalizeAppThemeId(settings?.theme),
     libraryView: {
       booksPerRow:
         booksPerRow === 2 || booksPerRow === 3 || booksPerRow === 4 || booksPerRow === 5

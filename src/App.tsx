@@ -155,6 +155,7 @@ export default function App(): JSX.Element {
 
   return (
     <AppLayout
+      theme={app.settings.theme}
       topBar={
         <TopBar
           showBack={app.nav.showBack}
@@ -215,6 +216,7 @@ export default function App(): JSX.Element {
         backupStatus={app.backupStatus}
         tagSummaries={tagSummaries}
         storageStats={storageStats}
+        onUpdateTheme={app.handleUpdateTheme}
         onUpdateLibraryBooksPerRow={app.handleUpdateLibraryBooksPerRow}
         onUpdateShortcut={app.handleUpdateShortcut}
         onResetShortcut={app.handleResetShortcut}
@@ -258,6 +260,7 @@ function renderMainContent(
         onCreateChapter={app.handleCreateChapter}
         onDeleteBook={app.handleDeleteBook}
         onRenameBook={app.handleRenameBook}
+        onUpdateBookCover={app.handleUpdateBookCover}
         onOpenLoosePages={app.handleOpenLoosePages}
         booksPerRow={app.settings.libraryView.booksPerRow}
       />

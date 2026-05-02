@@ -69,6 +69,13 @@ export interface LibraryViewSettings {
   booksPerRow: LibraryBooksPerRow;
 }
 
+export type AppThemeId =
+  | 'classic-library'
+  | 'modern-minimal'
+  | 'warm-study'
+  | 'dark-archive'
+  | 'light-paper';
+
 export type ShortcutAction =
   | 'newLoosePage'
   | 'newChapterPage'
@@ -87,6 +94,7 @@ export interface ShortcutBinding {
 export type ShortcutSettings = Record<ShortcutAction, ShortcutBinding | null>;
 
 export interface AppSettings {
+  theme: AppThemeId;
   libraryView: LibraryViewSettings;
   shortcuts: ShortcutSettings;
   recentPageIds: ID[];
@@ -99,7 +107,7 @@ export type SaveStatus =
   | { state: 'saved'; lastSavedAt: number }
   | { state: 'failed'; error?: string };
 
-export type AppMenuSection = 'help' | 'shortcuts' | 'settings' | 'tagManagement' | 'backup' | 'credits';
+export type AppMenuSection = 'help' | 'shortcuts' | 'settings' | 'themes' | 'tagManagement' | 'backup' | 'credits';
 
 /**
  * ViewState acts as the app's lightweight router.

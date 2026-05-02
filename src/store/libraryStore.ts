@@ -1,6 +1,6 @@
 import { loadLibraryData, saveLibraryData } from '../db/indexedDb';
 import type { Book, Chapter, DeletedFrom, ID, LibraryData, Page, Trashable } from '../types/domain';
-import { normalizeBookCoverId } from '../utils/bookCovers';
+import { isValidBookCoverId, normalizeBookCoverId } from '../utils/bookCovers';
 import { nowIso } from '../utils/date';
 import { createId } from '../utils/ids';
 import { isChapterPage, isLoosePage } from '../utils/pageState';
@@ -96,6 +96,26 @@ export function updateBook(data: LibraryData, bookId: ID, title: string): Librar
     ...data,
     books: data.books.map((book) =>
       book.id === bookId ? { ...book, title: normalizeTitle(title, 'Untitled Book'), updatedAt: timestamp } : book
+    )
+  };
+}
+
+export function updateBookCover(data: LibraryData, bookId: ID, coverId: string): LibraryData {
+  const book = getBook(data, bookId);
+  if (!book || isTrashedRecord(book) || !isValidBookCoverId(coverId)) {
+    return data;
+  }
+
+  if (book.coverId === coverId) {
+    return data;
+  }
+
+  const timestamp = nowIso();
+
+  return {
+    ...data,
+    books: data.books.map((book) =>
+      book.id === bookId ? { ...book, coverId, updatedAt: timestamp } : book
     )
   };
 }
