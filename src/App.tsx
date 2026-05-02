@@ -218,6 +218,7 @@ export default function App(): JSX.Element {
         storageStats={storageStats}
         onUpdateTheme={app.handleUpdateTheme}
         onUpdateLibraryBooksPerRow={app.handleUpdateLibraryBooksPerRow}
+        onUpdateLibraryShelfStyle={app.handleUpdateLibraryShelfStyle}
         onUpdateShortcut={app.handleUpdateShortcut}
         onResetShortcut={app.handleResetShortcut}
         onResetAllShortcuts={app.handleResetAllShortcuts}
@@ -263,6 +264,7 @@ function renderMainContent(
         onUpdateBookCover={app.handleUpdateBookCover}
         onOpenLoosePages={app.handleOpenLoosePages}
         booksPerRow={app.settings.libraryView.booksPerRow}
+        shelfStyle={app.settings.libraryView.shelfStyle}
       />
     );
   }

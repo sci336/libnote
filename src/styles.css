@@ -2339,6 +2339,39 @@ h1 {
   --book-card-drag-handle-size: clamp(0.78rem, 0.74rem + 0.1vw, 0.88rem);
 }
 
+.book-gallery-shell[data-shelf-style='simple-grid'] {
+  --book-gallery-column-gap: clamp(0.85rem, 1.6vw, 1.25rem);
+  --book-gallery-row-gap: clamp(1.25rem, 2.2vw, 1.75rem);
+  --book-card-cover-ratio: 0.72;
+  --book-card-cover-padding: clamp(0.85rem, 1vw, 1rem);
+  --book-card-title-size: 1.08rem;
+}
+
+.book-gallery-shell[data-shelf-style='compact-shelf'] {
+  --book-gallery-column-gap: clamp(0.65rem, 1.2vw, 1rem);
+  --book-gallery-row-gap: clamp(1.25rem, 2.2vw, 1.75rem);
+  --book-card-cover-ratio: 0.73;
+  --book-card-cover-padding: clamp(0.68rem, 0.9vw, 0.82rem);
+  --book-card-title-size: 0.95rem;
+  --book-card-label-size: 0.56rem;
+  --book-card-action-gap: 0.28rem;
+  --book-card-action-height: 1.62rem;
+  --book-card-action-padding-y: 0.22rem;
+  --book-card-action-padding-x: 0.42rem;
+  --book-card-action-font-size: 0.66rem;
+  --book-card-drag-handle-size: 0.72rem;
+}
+
+.book-gallery-shell[data-shelf-style='large-cover'] {
+  --book-gallery-column-gap: clamp(1.15rem, 2.4vw, 2rem);
+  --book-gallery-row-gap: clamp(2.25rem, 4.5vw, 3.25rem);
+  --book-card-cover-ratio: 0.64;
+  --book-card-cover-padding: clamp(1.1rem, 1.45vw, 1.35rem);
+  --book-card-title-size: 1.36rem;
+  --book-card-label-size: 0.68rem;
+  --book-card-action-height: 2rem;
+}
+
 .book-gallery {
   display: grid;
   grid-template-columns: repeat(var(--books-per-row), minmax(0, 1fr));
@@ -2359,9 +2392,154 @@ h1 {
   justify-content: flex-start;
 }
 
+.book-gallery-shell[data-shelf-style='shelf-rows'] .book-card {
+  width: 100%;
+  padding-bottom: 1.15rem;
+}
+
+.book-gallery-shell[data-shelf-style='simple-grid'] .book-gallery > .reorder-card,
+.book-gallery-shell[data-shelf-style='large-cover'] .book-gallery > .reorder-card {
+  justify-content: center;
+}
+
+.book-gallery-shell[data-shelf-style='compact-shelf'] .book-card {
+  width: min(100%, 10.75rem);
+  padding-bottom: 0.72rem;
+}
+
+.book-gallery-shell[data-shelf-style='simple-grid'] .book-card {
+  width: min(100%, 12.25rem);
+  padding: 0.72rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.52);
+  box-shadow: 0 12px 28px rgba(17, 24, 39, 0.055);
+}
+
+.book-gallery-shell[data-shelf-style='large-cover'] .book-card {
+  width: min(100%, 15.75rem);
+}
+
 .book-gallery > .reorder-card::before,
 .book-gallery > .reorder-card::after {
   display: none;
+}
+
+.book-gallery-shell[data-shelf-style='shelf-rows'] .book-card-cover-frame::before,
+.book-gallery-shell[data-shelf-style='shelf-rows'] .book-card-cover-frame::after {
+  display: none;
+}
+
+.book-gallery-shell[data-shelf-style='shelf-rows'] .book-gallery > .reorder-card:nth-child(2n + 1) .book-card-cover-frame::before,
+.book-gallery-shell[data-shelf-style='shelf-rows'] .book-gallery > .reorder-card:nth-child(2n + 1) .book-card-cover-frame::after {
+  display: block;
+}
+
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='3'] .book-gallery > .reorder-card .book-card-cover-frame::before,
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='3'] .book-gallery > .reorder-card .book-card-cover-frame::after,
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='4'] .book-gallery > .reorder-card .book-card-cover-frame::before,
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='4'] .book-gallery > .reorder-card .book-card-cover-frame::after,
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='5'] .book-gallery > .reorder-card .book-card-cover-frame::before,
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='5'] .book-gallery > .reorder-card .book-card-cover-frame::after {
+  display: none;
+}
+
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='3'] .book-gallery > .reorder-card:nth-child(3n + 1) .book-card-cover-frame::before,
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='3'] .book-gallery > .reorder-card:nth-child(3n + 1) .book-card-cover-frame::after,
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='4'] .book-gallery > .reorder-card:nth-child(4n + 1) .book-card-cover-frame::before,
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='4'] .book-gallery > .reorder-card:nth-child(4n + 1) .book-card-cover-frame::after,
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='5'] .book-gallery > .reorder-card:nth-child(5n + 1) .book-card-cover-frame::before,
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='5'] .book-gallery > .reorder-card:nth-child(5n + 1) .book-card-cover-frame::after {
+  display: block;
+}
+
+.book-gallery-shell[data-shelf-style='shelf-rows'] .book-card-cover-frame::before {
+  left: 0;
+  right: auto;
+  bottom: -0.64rem;
+  width: calc(200% + var(--book-gallery-column-gap));
+  height: 0.92rem;
+  border-radius: 0.28rem 0.28rem 0.42rem 0.42rem;
+  background:
+    linear-gradient(180deg, rgba(255, 251, 243, 0.98), rgba(211, 194, 170, 0.94) 54%, rgba(143, 104, 63, 0.36)),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.12));
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.78),
+    inset 0 -3px 0 rgba(98, 69, 39, 0.12),
+    0 13px 20px rgba(77, 56, 30, 0.12);
+}
+
+.book-gallery-shell[data-shelf-style='shelf-rows'] .book-card-cover-frame::after {
+  left: 0;
+  right: auto;
+  bottom: -1.06rem;
+  width: calc(200% + var(--book-gallery-column-gap));
+  height: 0.58rem;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, rgba(68, 47, 24, 0.18), transparent 72%);
+  filter: blur(4px);
+}
+
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='3'] .book-card-cover-frame::before,
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='3'] .book-card-cover-frame::after {
+  width: calc(300% + var(--book-gallery-column-gap) + var(--book-gallery-column-gap));
+}
+
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='4'] .book-card-cover-frame::before,
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='4'] .book-card-cover-frame::after {
+  width: calc(400% + var(--book-gallery-column-gap) + var(--book-gallery-column-gap) + var(--book-gallery-column-gap));
+}
+
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='5'] .book-card-cover-frame::before,
+.book-gallery-shell[data-shelf-style='shelf-rows'][data-books-per-row='5'] .book-card-cover-frame::after {
+  width: calc(500% + var(--book-gallery-column-gap) + var(--book-gallery-column-gap) + var(--book-gallery-column-gap) + var(--book-gallery-column-gap));
+}
+
+.book-gallery-shell[data-shelf-style='simple-grid'] .book-card-cover-frame {
+  filter: none;
+}
+
+.book-gallery-shell[data-shelf-style='simple-grid'] .book-card-cover-frame::before,
+.book-gallery-shell[data-shelf-style='simple-grid'] .book-card-cover-frame::after {
+  display: none;
+}
+
+.book-gallery-shell[data-shelf-style='simple-grid'] .book-card-cover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 10px 18px rgba(17, 24, 39, 0.08);
+}
+
+.book-gallery-shell[data-shelf-style='simple-grid'] .book-card-actions .secondary-button,
+.book-gallery-shell[data-shelf-style='simple-grid'] .book-card-actions .danger-button {
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.book-gallery-shell[data-shelf-style='compact-shelf'] .book-card-title-on-cover {
+  left: calc(var(--book-card-cover-padding) + 0.26rem);
+  right: calc(var(--book-card-cover-padding) * 0.7);
+  padding: 0.32rem 0.4rem 0.34rem;
+}
+
+.book-gallery-shell[data-shelf-style='compact-shelf'] .book-card-cover .book-card-meta {
+  font-size: 0.66rem;
+}
+
+.book-gallery-shell[data-shelf-style='large-cover'] .book-card-cover-meta,
+.book-gallery-shell[data-shelf-style='compact-shelf'] .book-card-cover-meta {
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.28rem 0.38rem;
+  border-radius: 0.55rem;
+  background: rgba(255, 251, 243, 0.66);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.36);
+}
+
+.book-gallery-shell[data-shelf-style='large-cover'] .book-card-cover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.58),
+    inset 0 -16px 28px rgba(71, 50, 27, 0.05),
+    -14px 22px 34px rgba(64, 43, 20, 0.16);
 }
 
 .list-card {

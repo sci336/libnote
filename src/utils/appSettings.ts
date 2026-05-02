@@ -1,13 +1,15 @@
-import type { AppSettings } from '../types/domain';
+import type { AppSettings, LibraryShelfStyle } from '../types/domain';
 import { DEFAULT_APP_THEME_ID, normalizeAppThemeId } from './appThemes';
 import { DEFAULT_SHORTCUTS, normalizeShortcutSettings } from './shortcuts';
 
 export const RECENT_PAGES_LIMIT = 4;
+export const LIBRARY_SHELF_STYLES = ['shelf-rows', 'simple-grid', 'compact-shelf', 'large-cover'] as const;
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   theme: DEFAULT_APP_THEME_ID,
   libraryView: {
-    booksPerRow: 4
+    booksPerRow: 4,
+    shelfStyle: 'shelf-rows'
   },
   shortcuts: DEFAULT_SHORTCUTS,
   recentPageIds: [],
@@ -23,12 +25,19 @@ export function normalizeAppSettings(settings: Partial<AppSettings> | null | und
       booksPerRow:
         booksPerRow === 2 || booksPerRow === 3 || booksPerRow === 4 || booksPerRow === 5
           ? booksPerRow
-          : DEFAULT_APP_SETTINGS.libraryView.booksPerRow
+          : DEFAULT_APP_SETTINGS.libraryView.booksPerRow,
+      shelfStyle: normalizeLibraryShelfStyle(settings?.libraryView?.shelfStyle)
     },
     shortcuts: normalizeShortcutSettings(settings?.shortcuts),
     recentPageIds: normalizeRecentPageIds(settings?.recentPageIds),
     lastBackupExportedAt: normalizeLastBackupExportedAt(settings?.lastBackupExportedAt)
   };
+}
+
+export function normalizeLibraryShelfStyle(shelfStyle: unknown): LibraryShelfStyle {
+  return typeof shelfStyle === 'string' && LIBRARY_SHELF_STYLES.includes(shelfStyle as LibraryShelfStyle)
+    ? (shelfStyle as LibraryShelfStyle)
+    : DEFAULT_APP_SETTINGS.libraryView.shelfStyle;
 }
 
 export function filterRecentPageIdsForLibrary(settings: AppSettings, pageIds: string[]): AppSettings {

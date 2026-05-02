@@ -5,6 +5,7 @@ import type {
   AppSettings,
   AppThemeId,
   LibraryBooksPerRow,
+  LibraryShelfStyle,
   ShortcutAction,
   ShortcutBinding
 } from '../types/domain';
@@ -23,6 +24,12 @@ import { formatLastBackupTime, getBackupReminderState } from '../utils/backupRem
 import { parseSingleTagInput, type TagSummary } from '../utils/tags';
 
 const LIBRARY_ROW_OPTIONS: LibraryBooksPerRow[] = [2, 3, 4, 5];
+const LIBRARY_SHELF_STYLE_OPTIONS: Array<{ value: LibraryShelfStyle; label: string }> = [
+  { value: 'shelf-rows', label: 'Shelf Rows' },
+  { value: 'simple-grid', label: 'Simple Grid' },
+  { value: 'compact-shelf', label: 'Compact Shelf' },
+  { value: 'large-cover', label: 'Large Cover View' }
+];
 
 interface StorageStats {
   bookCount: number;
@@ -41,6 +48,7 @@ interface AppMenuProps {
   storageStats: StorageStats;
   onUpdateTheme: (theme: AppThemeId) => void;
   onUpdateLibraryBooksPerRow: (booksPerRow: LibraryBooksPerRow) => void;
+  onUpdateLibraryShelfStyle: (shelfStyle: LibraryShelfStyle) => void;
   onUpdateShortcut: (action: ShortcutAction, binding: ShortcutBinding | null) => void;
   onResetShortcut: (action: ShortcutAction) => void;
   onResetAllShortcuts: () => void;
@@ -72,6 +80,7 @@ export function AppMenu({
   storageStats,
   onUpdateTheme,
   onUpdateLibraryBooksPerRow,
+  onUpdateLibraryShelfStyle,
   onUpdateShortcut,
   onResetShortcut,
   onResetAllShortcuts,
@@ -145,6 +154,7 @@ export function AppMenu({
               storageStats,
               onUpdateTheme,
               onUpdateLibraryBooksPerRow,
+              onUpdateLibraryShelfStyle,
               onUpdateShortcut,
               onResetShortcut,
               onResetAllShortcuts,
@@ -172,6 +182,7 @@ function renderSection(
     | 'storageStats'
     | 'onUpdateTheme'
     | 'onUpdateLibraryBooksPerRow'
+    | 'onUpdateLibraryShelfStyle'
     | 'onUpdateShortcut'
     | 'onResetShortcut'
     | 'onResetAllShortcuts'
@@ -494,6 +505,7 @@ function SettingsSection({
   settings,
   storageStats,
   onUpdateLibraryBooksPerRow,
+  onUpdateLibraryShelfStyle,
   onUpdateShortcut,
   onResetShortcut,
   onResetAllShortcuts,
@@ -503,6 +515,7 @@ function SettingsSection({
   | 'settings'
   | 'storageStats'
   | 'onUpdateLibraryBooksPerRow'
+  | 'onUpdateLibraryShelfStyle'
   | 'onUpdateShortcut'
   | 'onResetShortcut'
   | 'onResetAllShortcuts'
@@ -525,9 +538,30 @@ function SettingsSection({
             <span className="search-result-badge">Live</span>
           </div>
           <p>
-            Choose how many books fit on each shelf. Fewer books per row makes larger book cards, while more books per
-            row makes the library denser.
+            Choose how the home library displays your books, then tune how many fit across each row.
           </p>
+
+          <div className="settings-control-group">
+            <div className="settings-control-copy">
+              <strong>Shelf style</strong>
+              <span>Changes only the home library book area.</span>
+            </div>
+            <div className="settings-choice-row" role="group" aria-label="Shelf style">
+              {LIBRARY_SHELF_STYLE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  className={`settings-choice-button ${
+                    settings.libraryView.shelfStyle === option.value ? 'is-active' : ''
+                  }`}
+                  aria-pressed={settings.libraryView.shelfStyle === option.value}
+                  onClick={() => onUpdateLibraryShelfStyle(option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="settings-control-group">
             <div className="settings-control-copy">
@@ -542,6 +576,7 @@ function SettingsSection({
                   className={`settings-choice-button ${
                     settings.libraryView.booksPerRow === option ? 'is-active' : ''
                   }`}
+                  aria-pressed={settings.libraryView.booksPerRow === option}
                   onClick={() => onUpdateLibraryBooksPerRow(option)}
                 >
                   {option}

@@ -4,6 +4,7 @@ import type {
   AppSettings,
   AppThemeId,
   LibraryBooksPerRow,
+  LibraryShelfStyle,
   LibraryData,
   Page,
   SaveStatus,
@@ -895,6 +896,16 @@ export function useLibraryApp() {
     }));
   }
 
+  function handleUpdateLibraryShelfStyle(shelfStyle: LibraryShelfStyle): void {
+    setSettings((currentSettings) => ({
+      ...currentSettings,
+      libraryView: {
+        ...currentSettings.libraryView,
+        shelfStyle
+      }
+    }));
+  }
+
   function handleUpdateTheme(theme: AppThemeId): void {
     setSettings((currentSettings) => ({
       ...currentSettings,
@@ -1162,6 +1173,7 @@ export function useLibraryApp() {
     handleMergeTags,
     handleUpdateTheme,
     handleUpdateLibraryBooksPerRow,
+    handleUpdateLibraryShelfStyle,
     handleUpdateShortcut,
     handleResetShortcut,
     handleResetAllShortcuts,

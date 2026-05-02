@@ -64,9 +64,11 @@ export interface TrashItem {
 }
 
 export type LibraryBooksPerRow = 2 | 3 | 4 | 5;
+export type LibraryShelfStyle = 'shelf-rows' | 'simple-grid' | 'compact-shelf' | 'large-cover';
 
 export interface LibraryViewSettings {
   booksPerRow: LibraryBooksPerRow;
+  shelfStyle: LibraryShelfStyle;
 }
 
 export type AppThemeId =

@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties, type KeyboardEvent, type Synth
 import { EmptyState } from '../components/EmptyState';
 import { InlineEditableText } from '../components/InlineEditableText';
 import { ReorderableList } from '../components/ReorderableList';
-import type { Book, LibraryBooksPerRow } from '../types/domain';
+import type { Book, LibraryBooksPerRow, LibraryShelfStyle } from '../types/domain';
 import { BOOK_COVER_TEMPLATES, getBookCoverTemplate } from '../utils/bookCovers';
 import { formatTimestamp } from '../utils/date';
 
@@ -18,6 +18,7 @@ interface RootViewProps {
   onUpdateBookCover: (bookId: string, coverId: string) => void;
   onOpenLoosePages: () => void;
   booksPerRow: LibraryBooksPerRow;
+  shelfStyle: LibraryShelfStyle;
 }
 
 export function RootView({
@@ -31,7 +32,8 @@ export function RootView({
   onRenameBook,
   onUpdateBookCover,
   onOpenLoosePages,
-  booksPerRow
+  booksPerRow,
+  shelfStyle
 }: RootViewProps): JSX.Element {
   const [coverPickerBookId, setCoverPickerBookId] = useState<string | null>(null);
   const coverPickerBook = books.find((book) => book.id === coverPickerBookId);
@@ -99,7 +101,12 @@ export function RootView({
       </div>
 
       {books.length > 0 ? (
-        <div className="book-gallery-shell" style={galleryStyle}>
+        <div
+          className="book-gallery-shell"
+          data-books-per-row={booksPerRow}
+          data-shelf-style={shelfStyle}
+          style={galleryStyle}
+        >
           <ReorderableList
             items={books}
             onReorder={onReorderBooks}
