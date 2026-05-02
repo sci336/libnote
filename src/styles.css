@@ -1003,6 +1003,15 @@ kbd {
   background: rgba(239, 246, 255, 0.9);
 }
 
+.backup-status-card.is-warning {
+  border-color: rgba(180, 83, 9, 0.28);
+  background: rgba(255, 251, 235, 0.92);
+}
+
+.backup-warning-list {
+  margin-top: 0.8rem;
+}
+
 .backup-reminder-card {
   display: flex;
   flex-direction: column;

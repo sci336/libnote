@@ -43,7 +43,7 @@ interface AppMenuProps {
   isOpen: boolean;
   activeSection: AppMenuSection;
   settings: AppSettings;
-  backupStatus: { tone: 'success' | 'error' | 'info'; message: string } | null;
+  backupStatus: { tone: 'success' | 'error' | 'info' | 'warning'; message: string; warnings?: string[] } | null;
   tagSummaries: TagSummary[];
   storageStats: StorageStats;
   onUpdateTheme: (theme: AppThemeId) => void;
@@ -1100,6 +1100,13 @@ function BackupSection({
         <section className={`menu-card backup-status-card is-${backupStatus.tone}`} aria-live="polite">
           <h2>Backup Status</h2>
           <p>{backupStatus.message}</p>
+          {backupStatus.warnings && backupStatus.warnings.length > 0 ? (
+            <ul className="menu-list backup-warning-list">
+              {backupStatus.warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          ) : null}
         </section>
       ) : null}
     </div>

@@ -7,13 +7,19 @@ import { contentToPlainText } from './richText';
 
 const BACKUP_APP_NAME = 'LibNote';
 const LEGACY_BACKUP_APP_NAMES = new Set(['LibNote', 'iNote']);
-const BACKUP_VERSION = 1;
+const BACKUP_VERSION = 2;
+const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2]);
 
 export interface LibraryBackupPayload {
   app: string;
+  appName: string;
   version: number;
+  backupVersion: number;
   exportedAt: string;
   data: LibraryData;
+  books: Book[];
+  chapters: Chapter[];
+  pages: Page[];
   settings?: AppSettings;
 }
 
@@ -22,52 +28,85 @@ export interface ValidatedBackupPayload {
   data: LibraryData;
   settings: AppSettings;
   settingsStatus: 'restored' | 'defaulted';
+  warnings: string[];
 }
 
 export function createBackupPayload(data: LibraryData, settings: AppSettings): LibraryBackupPayload {
   return {
     app: BACKUP_APP_NAME,
+    appName: BACKUP_APP_NAME,
     version: BACKUP_VERSION,
+    backupVersion: BACKUP_VERSION,
     exportedAt: nowIso(),
     data,
+    books: data.books,
+    chapters: data.chapters,
+    pages: data.pages,
     settings
   };
 }
 
 export function validateBackupPayload(input: unknown): ValidatedBackupPayload {
+  const warnings: string[] = [];
+
   if (!isRecord(input)) {
-    throw new Error('Backup file must contain a JSON object.');
+    throw new Error('This does not look like a LibNote backup file.');
   }
 
-  if (typeof input.app !== 'string' || !LEGACY_BACKUP_APP_NAMES.has(input.app)) {
-    throw new Error('This backup file is not recognized as a LibNote library backup.');
+  const appName = typeof input.app === 'string' ? input.app : typeof input.appName === 'string' ? input.appName : null;
+  const hasLibraryArrays = hasArrayLibraryData(input) || (isRecord(input.data) && hasArrayLibraryData(input.data));
+
+  if (!appName || !LEGACY_BACKUP_APP_NAMES.has(appName)) {
+    if (!hasLibraryArrays) {
+      throw new Error('This does not look like a LibNote backup file.');
+    }
+
+    warnings.push('Backup metadata was missing, so this was treated as an older LibNote backup.');
   }
 
-  if (input.version !== BACKUP_VERSION) {
-    throw new Error(`Unsupported backup version: ${String(input.version)}.`);
+  const version = getBackupVersion(input);
+  if (version !== null && !SUPPORTED_BACKUP_VERSIONS.has(version)) {
+    throw new Error('This backup was created by an unsupported version of LibNote.');
   }
 
-  if (typeof input.exportedAt !== 'string' || input.exportedAt.trim().length === 0) {
-    throw new Error('Backup file is missing an exportedAt timestamp.');
+  if (version === null) {
+    warnings.push('Backup version metadata was missing; data was restored using the current importer.');
   }
 
-  const data = parseLibraryData(input.data);
+  const exportedAt =
+    typeof input.exportedAt === 'string' && input.exportedAt.trim().length > 0 ? input.exportedAt : nowIso();
+
+  if (exportedAt !== input.exportedAt) {
+    warnings.push('Backup export timestamp was missing and was repaired.');
+  }
+
+  const data = parseLibraryData(getLibraryDataBlock(input), warnings);
   const settings =
     input.settings === undefined || !isRecord(input.settings)
       ? DEFAULT_APP_SETTINGS
       : filterRecentPageIdsForLibrary(normalizeAppSettings(input.settings), data.pages.map((page) => page.id));
 
+  if (input.settings === undefined || !isRecord(input.settings)) {
+    warnings.push('Backup settings were missing or invalid, so safe defaults were used.');
+  }
+
   return {
     payload: {
       app: BACKUP_APP_NAME,
+      appName: BACKUP_APP_NAME,
       version: BACKUP_VERSION,
-      exportedAt: input.exportedAt,
+      backupVersion: BACKUP_VERSION,
+      exportedAt,
       data,
+      books: data.books,
+      chapters: data.chapters,
+      pages: data.pages,
       settings
     },
     data,
     settings,
-    settingsStatus: input.settings === undefined || !isRecord(input.settings) ? 'defaulted' : 'restored'
+    settingsStatus: input.settings === undefined || !isRecord(input.settings) ? 'defaulted' : 'restored',
+    warnings
   };
 }
 
@@ -83,7 +122,7 @@ export async function readBackupFile(file: File): Promise<unknown> {
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error('The selected file is not valid JSON.');
+    throw new Error('This file is not valid JSON.');
   }
 }
 
@@ -108,8 +147,8 @@ export function sanitizeFileName(value: string, fallback = 'libnote-backup'): st
 }
 
 export function createBackupFileName(exportedAt: string): string {
-  const timestamp = exportedAt.replace(/[:.]/g, '-');
-  return `${sanitizeFileName(`libnote-backup-${timestamp}`)}.json`;
+  const date = Number.isNaN(new Date(exportedAt).getTime()) ? nowIso().slice(0, 10) : exportedAt.slice(0, 10);
+  return `${sanitizeFileName(`libnote-backup-${date}`)}.json`;
 }
 
 export function createPageExportFile(page: Page): { filename: string; content: string } {
@@ -121,114 +160,210 @@ export function createPageExportFile(page: Page): { filename: string; content: s
   };
 }
 
-function parseLibraryData(input: unknown): LibraryData {
+function parseLibraryData(input: unknown, warnings: string[]): LibraryData {
   if (!isRecord(input)) {
-    throw new Error('Backup file is missing the library data block.');
+    throw new Error('This backup is missing required library data.');
   }
 
-  const books = parseBooks(input.books);
-  const chapters = parseChapters(input.chapters);
-  const pages = parsePages(input.pages);
+  if (!Array.isArray(input.books) || !Array.isArray(input.chapters) || !Array.isArray(input.pages)) {
+    throw new Error('This backup is missing required library data.');
+  }
+
+  const timestamp = nowIso();
+  const books = parseBooks(input.books, timestamp, warnings);
+  const chapters = parseChapters(input.chapters, timestamp, warnings);
+  const pages = parsePages(input.pages, timestamp, warnings);
 
   const bookIds = new Set(books.map((book) => book.id));
   const chapterIds = new Set(chapters.map((chapter) => chapter.id));
 
-  for (const chapter of chapters) {
+  const validChapters = chapters.filter((chapter) => {
     if (!bookIds.has(chapter.bookId)) {
-      throw new Error(`Chapter "${chapter.title}" points to a missing book.`);
+      warnings.push(`Chapter "${chapter.title}" was skipped because its book was missing.`);
+      return false;
     }
+
+    return true;
+  });
+
+  const validChapterIds = new Set(validChapters.map((chapter) => chapter.id));
+
+  const validPages = pages.map((page) => {
+    if (page.chapterId !== null && !validChapterIds.has(page.chapterId)) {
+      if (chapterIds.has(page.chapterId) || page.isLoose) {
+        warnings.push(`Page "${page.title}" was restored as a loose page because its chapter was unavailable.`);
+        return { ...page, chapterId: null, isLoose: true };
+      }
+
+      warnings.push(`Page "${page.title}" was skipped because its chapter was missing.`);
+      return null;
+    }
+
+    return page;
+  }).filter((page): page is Page => page !== null);
+
+  if (books.length === 0 && validChapters.length === 0 && validPages.length === 0) {
+    throw new Error('This backup does not contain any restorable books, chapters, or pages.');
   }
 
-  for (const page of pages) {
-    if (page.chapterId !== null && !chapterIds.has(page.chapterId)) {
-      throw new Error(`Page "${page.title}" points to a missing chapter.`);
-    }
-  }
-
-  return normalizeLibraryData({ books, chapters, pages });
+  return normalizeLibraryData({ books, chapters: validChapters, pages: validPages });
 }
 
-function parseBooks(input: unknown): Book[] {
-  if (!Array.isArray(input)) {
-    throw new Error('Backup data.books must be an array.');
-  }
-
+function parseBooks(input: unknown[], fallbackTimestamp: string, warnings: string[]): Book[] {
   const seenIds = new Set<string>();
+  const books: Book[] = [];
 
-  return input.map((item, index) => {
-    const record = ensureRecord(item, `Book ${index + 1}`);
+  input.forEach((item, index) => {
+    const record = ensureRecord(item);
+    if (!record) {
+      warnings.push(`Book ${index + 1} was skipped because it was not a valid object.`);
+      return;
+    }
+
+    const id = requireString(record.id);
+    if (!id || seenIds.has(id)) {
+      warnings.push(`Book ${index + 1} was skipped because its id was missing or duplicated.`);
+      return;
+    }
+
+    const title = optionalTrimmedString(record.title) ?? 'Untitled Book';
+    if (title === 'Untitled Book') {
+      warnings.push(`Book ${index + 1} was missing a title and was restored as "Untitled Book."`);
+    }
+
+    const createdAt = parseTimestamp(record.createdAt, fallbackTimestamp);
+    const updatedAt = parseTimestamp(record.updatedAt, createdAt);
+    if (createdAt !== record.createdAt || updatedAt !== record.updatedAt) {
+      warnings.push(`Book "${title}" was missing timestamps and was repaired.`);
+    }
+
     const book = {
-      id: requireString(record.id, `Book ${index + 1} id`),
-      title: requireString(record.title, `Book ${index + 1} title`),
+      id,
+      title,
       coverId: isValidBookCoverId(record.coverId) ? record.coverId : undefined,
       sortOrder: optionalFiniteNumber(record.sortOrder) ?? index,
-      createdAt: requireString(record.createdAt, `Book ${index + 1} createdAt`),
-      updatedAt: requireString(record.updatedAt, `Book ${index + 1} updatedAt`)
+      createdAt,
+      updatedAt,
+      ...parseTrashable(record)
     };
 
-    assertUniqueId(seenIds, book.id, `book "${book.title}"`);
-    return book;
+    seenIds.add(book.id);
+    books.push(book);
   });
+
+  return books;
 }
 
-function parseChapters(input: unknown): Chapter[] {
-  if (!Array.isArray(input)) {
-    throw new Error('Backup data.chapters must be an array.');
-  }
-
+function parseChapters(input: unknown[], fallbackTimestamp: string, warnings: string[]): Chapter[] {
   const seenIds = new Set<string>();
+  const chapters: Chapter[] = [];
 
-  return input.map((item, index) => {
-    const record = ensureRecord(item, `Chapter ${index + 1}`);
+  input.forEach((item, index) => {
+    const record = ensureRecord(item);
+    if (!record) {
+      warnings.push(`Chapter ${index + 1} was skipped because it was not a valid object.`);
+      return;
+    }
+
+    const id = requireString(record.id);
+    const bookId = requireString(record.bookId);
+    if (!id || !bookId || seenIds.has(id)) {
+      warnings.push(`Chapter ${index + 1} was skipped because a required id was missing or duplicated.`);
+      return;
+    }
+
+    const title = optionalTrimmedString(record.title) ?? 'Untitled Chapter';
+    if (title === 'Untitled Chapter') {
+      warnings.push(`Chapter ${index + 1} was missing a title and was restored as "Untitled Chapter."`);
+    }
+
+    const createdAt = parseTimestamp(record.createdAt, fallbackTimestamp);
+    const updatedAt = parseTimestamp(record.updatedAt, createdAt);
+    if (createdAt !== record.createdAt || updatedAt !== record.updatedAt) {
+      warnings.push(`Chapter "${title}" was missing timestamps and was repaired.`);
+    }
+
     const chapter = {
-      id: requireString(record.id, `Chapter ${index + 1} id`),
-      bookId: requireString(record.bookId, `Chapter ${index + 1} bookId`),
-      title: requireString(record.title, `Chapter ${index + 1} title`),
+      id,
+      bookId,
+      title,
       sortOrder: optionalFiniteNumber(record.sortOrder) ?? index,
-      createdAt: requireString(record.createdAt, `Chapter ${index + 1} createdAt`),
-      updatedAt: requireString(record.updatedAt, `Chapter ${index + 1} updatedAt`)
+      createdAt,
+      updatedAt,
+      ...parseTrashable(record)
     };
 
-    assertUniqueId(seenIds, chapter.id, `chapter "${chapter.title}"`);
-    return chapter;
+    seenIds.add(chapter.id);
+    chapters.push(chapter);
   });
+
+  return chapters;
 }
 
-function parsePages(input: unknown): Page[] {
-  if (!Array.isArray(input)) {
-    throw new Error('Backup data.pages must be an array.');
-  }
-
+function parsePages(input: unknown[], fallbackTimestamp: string, warnings: string[]): Page[] {
   const seenIds = new Set<string>();
+  const pages: Page[] = [];
 
-  return input.map((item, index) => {
-    const record = ensureRecord(item, `Page ${index + 1}`);
-    const chapterId = parseChapterId(record.chapterId, index);
+  input.forEach((item, index) => {
+    const record = ensureRecord(item);
+    if (!record) {
+      warnings.push(`Page ${index + 1} was skipped because it was not a valid object.`);
+      return;
+    }
+
+    const id = requireString(record.id);
+    if (!id || seenIds.has(id)) {
+      warnings.push(`Page ${index + 1} was skipped because its id was missing or duplicated.`);
+      return;
+    }
+
+    const chapterId = parseChapterId(record.chapterId);
+    const content = normalizePageContent(record.content);
+    if (content === '' && typeof record.content !== 'string') {
+      warnings.push(`Page ${index + 1} was missing content and was restored with blank content.`);
+    }
+
+    const title = optionalTrimmedString(record.title) ?? 'Untitled Page';
+    if (title === 'Untitled Page') {
+      warnings.push(`Page ${index + 1} was missing a title and was restored as "Untitled Page."`);
+    }
+
+    const isLoose = typeof record.isLoose === 'boolean' ? record.isLoose || chapterId === null : chapterId === null;
+    const createdAt = parseTimestamp(record.createdAt, fallbackTimestamp);
+    const updatedAt = parseTimestamp(record.updatedAt, createdAt);
+    if (createdAt !== record.createdAt || updatedAt !== record.updatedAt) {
+      warnings.push(`Page "${title}" was missing timestamps and was repaired.`);
+    }
+
     const page = {
-      id: requireString(record.id, `Page ${index + 1} id`),
-      chapterId,
-      title: requireString(record.title, `Page ${index + 1} title`),
-      content: normalizePageContent(record.content),
-      tags: parseTags(record.tags),
+      id,
+      chapterId: isLoose ? null : chapterId,
+      title,
+      content,
+      tags: parseTags(record.tags, `Page ${index + 1}`, warnings),
       textSize: optionalFiniteNumber(record.textSize) ?? DEFAULT_TEXT_SIZE,
-      isLoose: chapterId === null,
+      isLoose,
       sortOrder: optionalFiniteNumber(record.sortOrder) ?? index,
-      createdAt: requireString(record.createdAt, `Page ${index + 1} createdAt`),
-      updatedAt: requireString(record.updatedAt, `Page ${index + 1} updatedAt`)
+      createdAt,
+      updatedAt,
+      ...parseTrashable(record)
     };
 
-    assertUniqueId(seenIds, page.id, `page "${page.title}"`);
-    return page;
+    seenIds.add(page.id);
+    pages.push(page);
   });
+
+  return pages;
 }
 
-function parseTags(input: unknown): string[] {
+function parseTags(input: unknown, label: string, warnings: string[]): string[] {
   if (input === undefined || input === null) {
     return [];
   }
 
   if (!Array.isArray(input)) {
-    throw new Error('Page tags must be an array when present.');
+    warnings.push(`${label} had invalid tags and was restored with no tags.`);
+    return [];
   }
 
   return input
@@ -241,21 +376,34 @@ function normalizePageContent(input: unknown): string {
   return typeof input === 'string' ? input : '';
 }
 
-function parseChapterId(input: unknown, index: number): string | null {
+function parseChapterId(input: unknown): string | null {
   if (input === null || input === undefined) {
     return null;
   }
 
+  return typeof input === 'string' && input.trim().length > 0 ? input : null;
+}
+
+function requireString(input: unknown): string | null {
   if (typeof input !== 'string' || input.trim().length === 0) {
-    throw new Error(`Page ${index + 1} chapterId must be a string or null.`);
+    return null;
   }
 
   return input;
 }
 
-function requireString(input: unknown, label: string): string {
-  if (typeof input !== 'string' || input.trim().length === 0) {
-    throw new Error(`${label} must be a non-empty string.`);
+function optionalTrimmedString(input: unknown): string | undefined {
+  if (typeof input !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = input.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function parseTimestamp(input: unknown, fallback: string): string {
+  if (typeof input !== 'string' || input.trim().length === 0 || Number.isNaN(new Date(input).getTime())) {
+    return fallback;
   }
 
   return input;
@@ -269,20 +417,49 @@ function optionalFiniteNumber(input: unknown): number | undefined {
   return input;
 }
 
-function ensureRecord(input: unknown, label: string): Record<string, unknown> {
-  if (!isRecord(input)) {
-    throw new Error(`${label} must be an object.`);
-  }
-
-  return input;
+function ensureRecord(input: unknown): Record<string, unknown> | null {
+  return isRecord(input) ? input : null;
 }
 
-function assertUniqueId(seenIds: Set<string>, id: string, label: string): void {
-  if (seenIds.has(id)) {
-    throw new Error(`The backup contains a duplicate id for ${label}.`);
+function parseTrashable(record: Record<string, unknown>): Pick<Book, 'deletedAt' | 'deletedFrom'> {
+  const deletedAt = typeof record.deletedAt === 'string' && record.deletedAt.trim().length > 0 ? record.deletedAt : null;
+  const deletedFrom = isRecord(record.deletedFrom) ? record.deletedFrom : null;
+
+  if (!deletedAt && !deletedFrom) {
+    return {};
   }
 
-  seenIds.add(id);
+  return {
+    deletedAt,
+    deletedFrom: deletedFrom
+      ? {
+          bookId: typeof deletedFrom.bookId === 'string' ? deletedFrom.bookId : undefined,
+          chapterId: typeof deletedFrom.chapterId === 'string' ? deletedFrom.chapterId : undefined,
+          wasLoose: typeof deletedFrom.wasLoose === 'boolean' ? deletedFrom.wasLoose : undefined
+        }
+      : null
+  };
+}
+
+function getBackupVersion(input: Record<string, unknown>): number | null {
+  const version = optionalFiniteNumber(input.version) ?? optionalFiniteNumber(input.backupVersion);
+  return version === undefined ? null : version;
+}
+
+function getLibraryDataBlock(input: Record<string, unknown>): unknown {
+  if (isRecord(input.data)) {
+    return input.data;
+  }
+
+  if (hasArrayLibraryData(input)) {
+    return input;
+  }
+
+  return null;
+}
+
+function hasArrayLibraryData(input: Record<string, unknown>): boolean {
+  return Array.isArray(input.books) && Array.isArray(input.chapters) && Array.isArray(input.pages);
 }
 
 function isRecord(input: unknown): input is Record<string, unknown> {

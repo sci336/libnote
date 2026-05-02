@@ -87,8 +87,9 @@ const DESKTOP_WIDTH = 920;
 const PERSISTENCE_DELAY_MS = 300;
 
 interface BackupStatus {
-  tone: 'success' | 'error' | 'info';
+  tone: 'success' | 'error' | 'info' | 'warning';
   message: string;
+  warnings?: string[];
 }
 
 /**
@@ -956,12 +957,13 @@ export function useLibraryApp() {
     saveAppSettings(nextSettings).catch(console.error);
     setBackupStatus({
       tone: 'success',
-      message: 'Backup download started. Check your browser downloads or Downloads folder.'
+      message: 'Backup created successfully. Check your browser downloads or Downloads folder.'
     });
   }
 
   async function handleImportLibrary(file: File | null): Promise<void> {
     if (!file) {
+      setBackupStatus({ tone: 'info', message: 'No file selected.' });
       return;
     }
 
@@ -970,16 +972,12 @@ export function useLibraryApp() {
       const validated = validateBackupPayload(rawPayload);
       const nextData = validated.data;
 
-      if (nextData.books.length === 0 && nextData.chapters.length === 0 && nextData.pages.length === 0) {
-        throw new Error('Import failed. The backup does not contain any books, chapters, or pages to restore.');
-      }
-
       if (
         !window.confirm(
-          'Importing this backup will replace your current library in this browser. Export a backup first if you want to keep a copy of the current library. Continue?'
+          'Restoring this backup will replace your current library in this browser. Export a backup first if you want to keep a copy of the current library. Continue?'
         )
       ) {
-        setBackupStatus({ tone: 'info', message: 'Import canceled. Your current library was not changed.' });
+        setBackupStatus({ tone: 'info', message: 'Restore canceled. Your current library was not changed.' });
         return;
       }
 
@@ -1006,16 +1004,17 @@ export function useLibraryApp() {
       setMovingPageId(null);
       replaceView({ type: 'root' });
       setBackupStatus({
-        tone: 'success',
+        tone: validated.warnings.length > 0 ? 'warning' : 'success',
         message:
-          validated.settingsStatus === 'restored'
-            ? 'Library imported successfully and saved to this browser.'
-            : 'Library imported successfully. Backup settings were missing or invalid, so safe defaults were kept.'
+          validated.warnings.length > 0
+            ? 'Restore completed with warnings.'
+            : 'Restore completed successfully.',
+        warnings: validated.warnings
       });
     } catch (error) {
       setBackupStatus({
         tone: 'error',
-        message: error instanceof Error ? error.message : 'Import failed. Your current library was not changed.'
+        message: `Restore failed: ${error instanceof Error ? error.message : 'invalid backup file.'}`
       });
     }
   }
