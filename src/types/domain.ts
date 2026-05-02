@@ -19,6 +19,7 @@ export interface Trashable {
 export interface Book extends Trashable {
   id: ID;
   title: string;
+  coverId?: string;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;

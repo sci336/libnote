@@ -1,5 +1,6 @@
 import { loadLibraryData, saveLibraryData } from '../db/indexedDb';
 import type { Book, Chapter, DeletedFrom, ID, LibraryData, Page, Trashable } from '../types/domain';
+import { normalizeBookCoverId } from '../utils/bookCovers';
 import { nowIso } from '../utils/date';
 import { createId } from '../utils/ids';
 import { isChapterPage, isLoosePage } from '../utils/pageState';
@@ -65,9 +66,11 @@ export function getLoosePages(data: LibraryData): Page[] {
 
 export function createBook(data: LibraryData): { data: LibraryData; book: Book } {
   const timestamp = nowIso();
+  const id = createId('book');
   const book: Book = {
-    id: createId('book'),
+    id,
     title: 'Untitled Book',
+    coverId: normalizeBookCoverId({ id, createdAt: timestamp }),
     sortOrder: getNextBookSortOrder(data),
     createdAt: timestamp,
     updatedAt: timestamp
@@ -777,7 +780,15 @@ function normalizeTitle(value: string, fallback: string): string {
 export function normalizeLibraryData(data: LibraryData): LibraryData {
   return {
     ...data,
-    books: normalizeBookOrders(data.books.map((book) => normalizeTrashable(book))),
+    books: normalizeBookOrders(
+      data.books.map((book) => {
+        const normalizedBook = normalizeTrashable(book);
+        return {
+          ...normalizedBook,
+          coverId: normalizeBookCoverId(normalizedBook)
+        };
+      })
+    ),
     // Hydration is the one place we repair legacy or malformed snapshots so the
     // rest of the app can assume normalized sort order and tag data.
     chapters: normalizeChapterOrders(data.chapters.map((chapter) => normalizeTrashable(chapter))),

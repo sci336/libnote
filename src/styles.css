@@ -1579,6 +1579,56 @@ h1 {
   transform: rotate(-8deg);
 }
 
+.cover-theme-midnight {
+  background:
+    radial-gradient(circle at 74% 18%, rgba(165, 180, 252, 0.24), transparent 24%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 8px),
+    linear-gradient(155deg, #46546f 0%, #2f3a52 52%, #1f2937 100%);
+}
+
+.cover-theme-midnight .book-card-label,
+.cover-theme-midnight .book-card-title,
+.cover-theme-midnight .book-card-meta,
+.cover-theme-claret .book-card-label,
+.cover-theme-claret .book-card-title,
+.cover-theme-claret .book-card-meta {
+  color: rgba(255, 249, 239, 0.84);
+  text-shadow: 0 1px 2px rgba(31, 41, 55, 0.28);
+}
+
+.cover-theme-midnight::after {
+  right: 1.1rem;
+  bottom: 1.2rem;
+  width: 42%;
+  height: 32%;
+  border-top: 1px solid rgba(255, 249, 239, 0.26);
+  border-bottom: 1px solid rgba(255, 249, 239, 0.16);
+  background:
+    linear-gradient(90deg, transparent 0 22%, rgba(255, 249, 239, 0.2) 22% 24%, transparent 24%),
+    linear-gradient(0deg, transparent 0 48%, rgba(255, 249, 239, 0.16) 48% 50%, transparent 50%);
+  opacity: 0.86;
+}
+
+.cover-theme-claret {
+  background:
+    radial-gradient(circle at 24% 18%, rgba(251, 191, 36, 0.16), transparent 22%),
+    repeating-linear-gradient(-24deg, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 10px),
+    linear-gradient(150deg, #9f4960 0%, #84384d 52%, #5d2636 100%);
+}
+
+.cover-theme-claret::after {
+  left: 1.2rem;
+  right: 1.1rem;
+  bottom: 1.05rem;
+  height: 0.32rem;
+  border-radius: 999px;
+  background: rgba(255, 220, 151, 0.45);
+  box-shadow:
+    0 -0.72rem 0 rgba(255, 220, 151, 0.22),
+    0 -1.44rem 0 rgba(255, 249, 239, 0.16),
+    0 0.72rem 0 rgba(255, 249, 239, 0.14);
+}
+
 .tag-editor {
   position: relative;
   margin-top: 0.85rem;

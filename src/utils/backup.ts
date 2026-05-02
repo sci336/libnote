@@ -1,6 +1,7 @@
 import { normalizeLibraryData, DEFAULT_TEXT_SIZE } from '../store/libraryStore';
 import type { AppSettings, Book, Chapter, LibraryData, Page } from '../types/domain';
 import { DEFAULT_APP_SETTINGS, filterRecentPageIdsForLibrary, normalizeAppSettings } from './appSettings';
+import { isValidBookCoverId } from './bookCovers';
 import { nowIso } from './date';
 import { contentToPlainText } from './richText';
 
@@ -159,6 +160,7 @@ function parseBooks(input: unknown): Book[] {
     const book = {
       id: requireString(record.id, `Book ${index + 1} id`),
       title: requireString(record.title, `Book ${index + 1} title`),
+      coverId: isValidBookCoverId(record.coverId) ? record.coverId : undefined,
       sortOrder: optionalFiniteNumber(record.sortOrder) ?? index,
       createdAt: requireString(record.createdAt, `Book ${index + 1} createdAt`),
       updatedAt: requireString(record.updatedAt, `Book ${index + 1} updatedAt`)
