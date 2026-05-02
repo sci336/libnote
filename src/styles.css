@@ -1279,6 +1279,15 @@ h1 {
   top: 31%;
   transform: translateY(-50%);
   flex: initial;
+  padding: 0.42rem 0.52rem 0.44rem;
+  border-left: 2px solid rgba(88, 66, 42, 0.2);
+  border-radius: 0.28rem 0.72rem 0.72rem 0.28rem;
+  background:
+    linear-gradient(90deg, rgba(255, 251, 243, 0.84), rgba(255, 251, 243, 0.48)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.52), rgba(239, 228, 211, 0.22));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    0 8px 18px rgba(56, 40, 22, 0.08);
 }
 
 .list-card-row {
@@ -1347,6 +1356,7 @@ h1 {
   color: rgba(44, 34, 24, 0.92);
   font-family: Georgia, "Times New Roman", serif;
   line-height: 1.12;
+  background: rgba(255, 251, 243, 0.9);
 }
 
 .save-status {
@@ -1439,24 +1449,30 @@ h1 {
 
 .cover-theme-ivory {
   background:
-    radial-gradient(circle at 74% 18%, rgba(232, 220, 203, 0.34), transparent 22%),
-    linear-gradient(180deg, #fff9ef 0%, #f6efe4 56%, #e8dccb 100%);
+    linear-gradient(90deg, rgba(84, 50, 31, 0.36) 0 0.95rem, rgba(255, 244, 224, 0.32) 0.95rem 1.06rem, transparent 1.06rem),
+    radial-gradient(circle at 75% 17%, rgba(255, 238, 195, 0.28), transparent 22%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, rgba(69, 43, 27, 0.025) 1px 6px),
+    linear-gradient(155deg, #8a593f 0%, #6f432f 52%, #4c3024 100%);
 }
 
 .cover-theme-ivory::after {
-  top: 0;
-  right: 1.15rem;
-  width: 0.54rem;
-  height: 28%;
-  border-radius: 0 0 0.45rem 0.45rem;
-  background: linear-gradient(180deg, rgba(169, 106, 79, 0.72), rgba(169, 106, 79, 0.28));
-  box-shadow: 0 1px 2px rgba(48, 33, 10, 0.1);
+  right: 1.05rem;
+  bottom: 1rem;
+  width: 44%;
+  height: 0.22rem;
+  border-radius: 999px;
+  background: rgba(249, 223, 176, 0.5);
+  box-shadow:
+    0 -0.72rem 0 rgba(249, 223, 176, 0.24),
+    0 0.72rem 0 rgba(255, 249, 239, 0.2);
 }
 
 .cover-theme-sage {
   background:
-    radial-gradient(ellipse at 82% 30%, rgba(215, 221, 201, 0.46), transparent 24%),
-    linear-gradient(155deg, #d7ddc9 0%, #bfc7ad 46%, #8f9b7a 100%);
+    linear-gradient(90deg, rgba(78, 96, 66, 0.42) 0 0.92rem, rgba(255, 249, 239, 0.22) 0.92rem 1.02rem, transparent 1.02rem),
+    radial-gradient(ellipse at 82% 30%, rgba(226, 234, 210, 0.44), transparent 24%),
+    repeating-linear-gradient(-12deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 8px),
+    linear-gradient(155deg, #d7ddc9 0%, #b8c4a3 48%, #74845e 100%);
 }
 
 .cover-theme-sage::after {
@@ -1475,7 +1491,8 @@ h1 {
 
 .cover-theme-blue-mountain {
   background:
-    linear-gradient(180deg, #d7e3e8 0%, #afc4cf 54%, #6f8794 100%);
+    linear-gradient(90deg, rgba(55, 79, 94, 0.35) 0 0.9rem, rgba(255, 255, 255, 0.22) 0.9rem 1rem, transparent 1rem),
+    linear-gradient(180deg, #dceaf0 0%, #adc7d3 54%, #607e90 100%);
 }
 
 .cover-theme-blue-mountain::after {
@@ -1491,8 +1508,10 @@ h1 {
 
 .cover-theme-terracotta {
   background:
-    radial-gradient(circle at 22% 18%, rgba(234, 185, 157, 0.32), transparent 22%),
-    linear-gradient(155deg, #eab99d 0%, #d89a78 52%, #a96a4f 100%);
+    linear-gradient(90deg, rgba(139, 72, 51, 0.36) 0 0.95rem, rgba(255, 249, 239, 0.18) 0.95rem 1.04rem, transparent 1.04rem),
+    radial-gradient(circle at 22% 18%, rgba(255, 208, 176, 0.32), transparent 22%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 7px),
+    linear-gradient(155deg, #eab99d 0%, #ce8263 52%, #944f3c 100%);
 }
 
 .cover-theme-terracotta::after {
@@ -1510,8 +1529,9 @@ h1 {
 
 .cover-theme-lavender {
   background:
-    radial-gradient(circle at 80% 18%, rgba(225, 220, 232, 0.36), transparent 24%),
-    linear-gradient(155deg, #e1dce8 0%, #c9c1d3 50%, #8d829a 100%);
+    linear-gradient(90deg, rgba(112, 96, 134, 0.34) 0 0.9rem, rgba(255, 255, 255, 0.24) 0.9rem 1rem, transparent 1rem),
+    radial-gradient(circle at 80% 18%, rgba(238, 232, 247, 0.42), transparent 24%),
+    linear-gradient(155deg, #e6e0ee 0%, #c8bdd6 50%, #84769b 100%);
 }
 
 .cover-theme-lavender::after {
@@ -1530,7 +1550,9 @@ h1 {
 
 .cover-theme-sand {
   background:
-    linear-gradient(180deg, #f4e8d6 0%, #e7d3b7 54%, #c7a982 100%);
+    linear-gradient(90deg, rgba(177, 134, 85, 0.32) 0 0.95rem, rgba(255, 255, 255, 0.28) 0.95rem 1.05rem, transparent 1.05rem),
+    repeating-linear-gradient(18deg, rgba(128, 94, 54, 0.035) 0 1px, transparent 1px 10px),
+    linear-gradient(180deg, #f4e8d6 0%, #e0c79d 54%, #b78d58 100%);
 }
 
 .cover-theme-sand::after {
@@ -1546,6 +1568,7 @@ h1 {
 
 .cover-theme-misty-blue {
   background:
+    linear-gradient(90deg, rgba(65, 87, 99, 0.32) 0 0.9rem, rgba(255, 255, 255, 0.24) 0.9rem 1rem, transparent 1rem),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0 1px, rgba(40, 55, 66, 0.028) 1px 3px),
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 4px),
     linear-gradient(145deg, #d1dee2 0%, #a8bac0 48%, #6e828a 100%);
@@ -1564,6 +1587,7 @@ h1 {
 
 .cover-theme-taupe {
   background:
+    linear-gradient(90deg, rgba(123, 102, 82, 0.34) 0 0.92rem, rgba(255, 255, 255, 0.22) 0.92rem 1.02rem, transparent 1.02rem),
     repeating-linear-gradient(-18deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 9px),
     linear-gradient(150deg, #eee4d6 0%, #d5c8b8 50%, #9b8b78 100%);
 }
@@ -1581,17 +1605,20 @@ h1 {
 
 .cover-theme-midnight {
   background:
+    linear-gradient(90deg, rgba(13, 20, 32, 0.4) 0 0.92rem, rgba(255, 255, 255, 0.18) 0.92rem 1.02rem, transparent 1.02rem),
     radial-gradient(circle at 74% 18%, rgba(165, 180, 252, 0.24), transparent 24%),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 8px),
     linear-gradient(155deg, #46546f 0%, #2f3a52 52%, #1f2937 100%);
 }
 
 .cover-theme-midnight .book-card-label,
-.cover-theme-midnight .book-card-title,
 .cover-theme-midnight .book-card-meta,
+.cover-theme-olive .book-card-label,
+.cover-theme-olive .book-card-meta,
 .cover-theme-claret .book-card-label,
-.cover-theme-claret .book-card-title,
-.cover-theme-claret .book-card-meta {
+.cover-theme-claret .book-card-meta,
+.cover-theme-slate .book-card-label,
+.cover-theme-slate .book-card-meta {
   color: rgba(255, 249, 239, 0.84);
   text-shadow: 0 1px 2px rgba(31, 41, 55, 0.28);
 }
@@ -1609,8 +1636,30 @@ h1 {
   opacity: 0.86;
 }
 
+.cover-theme-olive {
+  background:
+    linear-gradient(90deg, rgba(65, 76, 45, 0.42) 0 0.94rem, rgba(255, 249, 239, 0.2) 0.94rem 1.04rem, transparent 1.04rem),
+    radial-gradient(circle at 28% 18%, rgba(233, 222, 168, 0.22), transparent 22%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 12px),
+    linear-gradient(150deg, #8f9865 0%, #6f7948 50%, #485331 100%);
+}
+
+.cover-theme-olive::after {
+  left: 1.2rem;
+  right: 1rem;
+  bottom: 1.08rem;
+  height: 34%;
+  border: 1px solid rgba(250, 239, 203, 0.2);
+  border-left: 0;
+  border-radius: 0 999px 999px 0;
+  background:
+    linear-gradient(90deg, rgba(250, 239, 203, 0.1), transparent 70%),
+    repeating-linear-gradient(0deg, transparent 0 0.52rem, rgba(250, 239, 203, 0.18) 0.52rem 0.56rem);
+}
+
 .cover-theme-claret {
   background:
+    linear-gradient(90deg, rgba(75, 24, 36, 0.42) 0 0.92rem, rgba(255, 249, 239, 0.18) 0.92rem 1.02rem, transparent 1.02rem),
     radial-gradient(circle at 24% 18%, rgba(251, 191, 36, 0.16), transparent 22%),
     repeating-linear-gradient(-24deg, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 10px),
     linear-gradient(150deg, #9f4960 0%, #84384d 52%, #5d2636 100%);
@@ -1627,6 +1676,26 @@ h1 {
     0 -0.72rem 0 rgba(255, 220, 151, 0.22),
     0 -1.44rem 0 rgba(255, 249, 239, 0.16),
     0 0.72rem 0 rgba(255, 249, 239, 0.14);
+}
+
+.cover-theme-slate {
+  background:
+    linear-gradient(90deg, rgba(38, 49, 61, 0.42) 0 0.9rem, rgba(255, 255, 255, 0.16) 0.9rem 1rem, transparent 1rem),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0 0.45rem, transparent 0.45rem),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 9px),
+    linear-gradient(155deg, #72808b 0%, #536270 50%, #344250 100%);
+}
+
+.cover-theme-slate::after {
+  left: 1.3rem;
+  right: 1.1rem;
+  bottom: 1.15rem;
+  height: 30%;
+  border-top: 1px solid rgba(255, 249, 239, 0.28);
+  border-bottom: 1px solid rgba(255, 249, 239, 0.2);
+  background:
+    linear-gradient(90deg, rgba(255, 249, 239, 0.24) 0 22%, transparent 22%),
+    linear-gradient(180deg, transparent 0 44%, rgba(255, 249, 239, 0.16) 44% 47%, transparent 47%);
 }
 
 .tag-editor {

@@ -7,16 +7,18 @@ export interface BookCoverTemplate {
 }
 
 export const BOOK_COVER_TEMPLATES: BookCoverTemplate[] = [
-  { id: 'ivory', label: 'Ivory', className: 'cover-theme-ivory' },
-  { id: 'sage', label: 'Sage', className: 'cover-theme-sage' },
-  { id: 'blue-mountain', label: 'Blue Mountain', className: 'cover-theme-blue-mountain' },
-  { id: 'terracotta', label: 'Terracotta', className: 'cover-theme-terracotta' },
-  { id: 'lavender', label: 'Lavender', className: 'cover-theme-lavender' },
-  { id: 'sand', label: 'Sand', className: 'cover-theme-sand' },
+  { id: 'ivory', label: 'Classic Leather', className: 'cover-theme-ivory' },
+  { id: 'sage', label: 'Forest Study', className: 'cover-theme-sage' },
+  { id: 'blue-mountain', label: 'Blue Archive', className: 'cover-theme-blue-mountain' },
+  { id: 'terracotta', label: 'Terracotta Journal', className: 'cover-theme-terracotta' },
+  { id: 'lavender', label: 'Lavender Notes', className: 'cover-theme-lavender' },
+  { id: 'sand', label: 'Sandstone Paper', className: 'cover-theme-sand' },
   { id: 'misty-blue', label: 'Misty Blue', className: 'cover-theme-misty-blue' },
-  { id: 'taupe', label: 'Taupe', className: 'cover-theme-taupe' },
-  { id: 'midnight', label: 'Midnight', className: 'cover-theme-midnight' },
-  { id: 'claret', label: 'Claret', className: 'cover-theme-claret' }
+  { id: 'taupe', label: 'Warm Taupe', className: 'cover-theme-taupe' },
+  { id: 'midnight', label: 'Midnight Library', className: 'cover-theme-midnight' },
+  { id: 'olive', label: 'Olive Field Notes', className: 'cover-theme-olive' },
+  { id: 'claret', label: 'Burgundy Reference', className: 'cover-theme-claret' },
+  { id: 'slate', label: 'Slate Minimal', className: 'cover-theme-slate' }
 ];
 
 const BOOK_COVER_TEMPLATE_IDS = new Set(BOOK_COVER_TEMPLATES.map((template) => template.id));
