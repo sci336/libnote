@@ -146,8 +146,30 @@ export function validateBackupPayload(input: unknown): ValidatedBackupPayload {
 export function createBackupSummary(validated: ValidatedBackupPayload): BackupSummary {
   const { data, source } = validated;
   const uniqueTags = new Set<string>();
+  let loosePageCount = 0;
+  let trashedItemCount = 0;
+
+  for (const book of data.books) {
+    if (book.deletedAt) {
+      trashedItemCount += 1;
+    }
+  }
+
+  for (const chapter of data.chapters) {
+    if (chapter.deletedAt) {
+      trashedItemCount += 1;
+    }
+  }
 
   for (const page of data.pages) {
+    if (page.isLoose || page.chapterId === null) {
+      loosePageCount += 1;
+    }
+
+    if (page.deletedAt) {
+      trashedItemCount += 1;
+    }
+
     for (const tag of page.tags) {
       uniqueTags.add(tag);
     }
@@ -161,8 +183,8 @@ export function createBackupSummary(validated: ValidatedBackupPayload): BackupSu
     bookCount: data.books.length,
     chapterCount: data.chapters.length,
     pageCount: data.pages.length,
-    loosePageCount: data.pages.filter((page) => page.isLoose || page.chapterId === null).length,
-    trashedItemCount: [...data.books, ...data.chapters, ...data.pages].filter((item) => Boolean(item.deletedAt)).length,
+    loosePageCount,
+    trashedItemCount,
     tagCount: uniqueTags.size
   };
 }

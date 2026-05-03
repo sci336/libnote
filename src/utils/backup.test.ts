@@ -145,6 +145,20 @@ describe('backup', () => {
     expect(createBackupSummary(validated).trashedItemCount).toBe(3);
   });
 
+  it('summarizes a large backup with books, chapters, pages, loose pages, trash, and unique tags', () => {
+    const largeData = buildLargeBackupLibrary();
+    const validated = validateBackupPayload(createBackupPayload(largeData, DEFAULT_APP_SETTINGS));
+
+    expect(createBackupSummary(validated)).toMatchObject({
+      bookCount: 21,
+      chapterCount: 121,
+      pageCount: 1221,
+      loosePageCount: 21,
+      trashedItemCount: 3,
+      tagCount: 5
+    });
+  });
+
   it('repairs recoverable malformed page data during validation', () => {
     const validated = validateBackupPayload({
       app: 'LibNote',
@@ -206,3 +220,96 @@ describe('backup', () => {
     ).toThrow('This backup does not contain any restorable books, chapters, or pages.');
   });
 });
+
+function buildLargeBackupLibrary(): LibraryData {
+  const books: LibraryData['books'] = [];
+  const chapters: LibraryData['chapters'] = [];
+  const pages: LibraryData['pages'] = [];
+
+  for (let bookIndex = 0; bookIndex < 20; bookIndex += 1) {
+    books.push({
+      id: `book-${bookIndex}`,
+      title: `Book ${bookIndex}`,
+      sortOrder: bookIndex,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z'
+    });
+
+    for (let chapterIndex = 0; chapterIndex < 6; chapterIndex += 1) {
+      const chapterId = `chapter-${bookIndex}-${chapterIndex}`;
+      chapters.push({
+        id: chapterId,
+        bookId: `book-${bookIndex}`,
+        title: `Chapter ${bookIndex}.${chapterIndex}`,
+        sortOrder: chapterIndex,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-02T00:00:00.000Z'
+      });
+
+      for (let pageIndex = 0; pageIndex < 10; pageIndex += 1) {
+        pages.push({
+          id: `page-${bookIndex}-${chapterIndex}-${pageIndex}`,
+          chapterId,
+          title: `Page ${bookIndex}.${chapterIndex}.${pageIndex}`,
+          content: 'Backup scale note',
+          tags: pageIndex % 2 === 0 ? ['project', 'research'] : ['archive'],
+          textSize: 16,
+          isLoose: false,
+          sortOrder: pageIndex,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-02T00:00:00.000Z'
+        });
+      }
+    }
+  }
+
+  for (let pageIndex = 0; pageIndex < 20; pageIndex += 1) {
+    pages.push({
+      id: `loose-${pageIndex}`,
+      chapterId: null,
+      title: `Loose ${pageIndex}`,
+      content: 'Loose backup note',
+      tags: ['inbox'],
+      textSize: 16,
+      isLoose: true,
+      sortOrder: pageIndex,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z'
+    });
+  }
+
+  books.push({
+    id: 'trash-book',
+    title: 'Trashed Book',
+    sortOrder: 999,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+    deletedAt: '2026-01-03T00:00:00.000Z'
+  });
+  chapters.push({
+    id: 'trash-chapter',
+    bookId: 'book-0',
+    title: 'Trashed Chapter',
+    sortOrder: 999,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+    deletedAt: '2026-01-03T00:00:00.000Z',
+    deletedFrom: { bookId: 'book-0' }
+  });
+  pages.push({
+    id: 'trash-page',
+    chapterId: null,
+    title: 'Trashed Loose Page',
+    content: 'Deleted backup note',
+    tags: ['deleted'],
+    textSize: 16,
+    isLoose: true,
+    sortOrder: 999,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+    deletedAt: '2026-01-03T00:00:00.000Z',
+    deletedFrom: { wasLoose: true }
+  });
+
+  return { books, chapters, pages };
+}

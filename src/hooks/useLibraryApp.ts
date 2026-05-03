@@ -23,7 +23,6 @@ import {
   deletePageForever,
   deleteTagEverywhere,
   emptyTrash,
-  getBook,
   hydrateLibraryData,
   mergeTags,
   moveBookToTrash,
@@ -46,21 +45,22 @@ import {
   updatePage
 } from '../store/libraryStore';
 import {
-  getActiveBook,
-  getActiveChapter,
-  getActivePage,
-  getAllChapters,
-  getChapterListForView,
-  getDerivedBookForChapter,
-  getDerivedBookForPage,
-  getDerivedChapterForPage,
-  getLoosePagesList,
+  buildLibraryDerivedData,
+  getActiveBookFromDerived,
+  getActiveChapterFromDerived,
+  getActivePageFromDerived,
+  getAllChaptersFromDerived,
+  getChapterListForViewFromDerived,
+  getDerivedBookForChapterFromDerived,
+  getDerivedBookForPageFromDerived,
+  getDerivedChapterForPageFromDerived,
+  getLoosePagesListFromDerived,
   getNavigationMetadata,
-  getPageListForView,
+  getPageListForViewFromDerived,
   getParentView,
   getSidebarBookId,
   getSidebarChapterId,
-  getSortedBooks
+  getSortedBooksFromDerived
 } from '../store/librarySelectors';
 import { useDebouncedEffect } from './useDebouncedEffect';
 import { buildSearchIndex, normalizeSearchQuery, parseSearchInput, searchPages, searchTrashedEntities } from '../utils/search';
@@ -223,33 +223,37 @@ export function useLibraryApp() {
     setMovingPageId(null);
   }, [view]);
 
-  const books = useMemo(() => (data ? getSortedBooks(data) : []), [data]);
-  const loosePages = useMemo(() => (data ? getLoosePagesList(data) : []), [data]);
-  const activeBook = useMemo(() => (data ? getActiveBook(data, view) : undefined), [data, view]);
-  const activeChapter = useMemo(() => (data ? getActiveChapter(data, view) : undefined), [data, view]);
-  const activePage = useMemo(() => (data ? getActivePage(data, view) : undefined), [data, view]);
+  const derivedData = useMemo(() => (data ? buildLibraryDerivedData(data) : null), [data]);
+  const books = useMemo(() => (derivedData ? getSortedBooksFromDerived(derivedData) : []), [derivedData]);
+  const loosePages = useMemo(() => (derivedData ? getLoosePagesListFromDerived(derivedData) : []), [derivedData]);
+  const activeBook = useMemo(() => (derivedData ? getActiveBookFromDerived(derivedData, view) : undefined), [derivedData, view]);
+  const activeChapter = useMemo(
+    () => (derivedData ? getActiveChapterFromDerived(derivedData, view) : undefined),
+    [derivedData, view]
+  );
+  const activePage = useMemo(() => (derivedData ? getActivePageFromDerived(derivedData, view) : undefined), [derivedData, view]);
   const derivedBookForChapter = useMemo(
-    () => (data ? getDerivedBookForChapter(data, activeChapter) : undefined),
-    [activeChapter, data]
+    () => (derivedData ? getDerivedBookForChapterFromDerived(derivedData, activeChapter) : undefined),
+    [activeChapter, derivedData]
   );
   const derivedChapterForPage = useMemo(
-    () => (data ? getDerivedChapterForPage(data, activePage) : undefined),
-    [activePage, data]
+    () => (derivedData ? getDerivedChapterForPageFromDerived(derivedData, activePage) : undefined),
+    [activePage, derivedData]
   );
   const derivedBookForPage = useMemo(
-    () => (data ? getDerivedBookForPage(data, derivedChapterForPage) : undefined),
-    [data, derivedChapterForPage]
+    () => (derivedData ? getDerivedBookForPageFromDerived(derivedData, derivedChapterForPage) : undefined),
+    [derivedData, derivedChapterForPage]
   );
   const chapterList = useMemo(
     () =>
-      data
-        ? getChapterListForView(data, view, activeBook, activeChapter, derivedBookForPage)
+      derivedData
+        ? getChapterListForViewFromDerived(derivedData, view, activeBook, activeChapter, derivedBookForPage)
         : [],
-    [activeBook, activeChapter, data, derivedBookForPage, view]
+    [activeBook, activeChapter, derivedBookForPage, derivedData, view]
   );
   const pageList = useMemo(
-    () => (data ? getPageListForView(data, view, activeChapter, derivedChapterForPage) : []),
-    [activeChapter, data, derivedChapterForPage, view]
+    () => (derivedData ? getPageListForViewFromDerived(derivedData, view, activeChapter, derivedChapterForPage) : []),
+    [activeChapter, derivedChapterForPage, derivedData, view]
   );
   const sidebarBookId = useMemo(
     () => getSidebarBookId(activeBook, derivedBookForChapter, derivedBookForPage),
@@ -288,9 +292,9 @@ export function useLibraryApp() {
     [searchIndex, searchQuery]
   );
   const searchMode = useMemo(() => parseSearchInput(searchQuery), [searchQuery]);
-  const allChapters = useMemo(() => (data ? getAllChapters(data) : []), [data]);
+  const allChapters = useMemo(() => (derivedData ? getAllChaptersFromDerived(derivedData) : []), [derivedData]);
   const initialMoveBookId = books[0]?.id ?? '';
-  const trashItems = useMemo(() => (data ? buildTrashItems(data) : []), [data]);
+  const trashItems = derivedData?.trashItems ?? [];
 
   useEffect(() => {
     if (!activePage) {
@@ -1051,7 +1055,7 @@ export function useLibraryApp() {
       return;
     }
 
-    const page = getActivePage(data, { type: 'page', pageId });
+    const page = derivedData?.pageById.get(pageId);
     if (!page) {
       setBackupStatus({ tone: 'error', message: 'Could not export that page because it is no longer available.' });
       return;
@@ -1126,6 +1130,7 @@ export function useLibraryApp() {
     backupStatus,
     saveStatus,
     recentPageIds: settings.recentPageIds,
+    derivedData,
     books,
     loosePages,
     chapterList,
@@ -1243,64 +1248,4 @@ async function hydrateAppSettings(): Promise<AppSettings> {
 
 function areStringArraysEqual(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function buildTrashItems(data: LibraryData): TrashItem[] {
-  const bookById = new Map(data.books.map((book) => [book.id, book] as const));
-  const chapterById = new Map(data.chapters.map((chapter) => [chapter.id, chapter] as const));
-  const items: TrashItem[] = [];
-
-  for (const book of data.books) {
-    if (!book.deletedAt) {
-      continue;
-    }
-
-    items.push({
-      id: book.id,
-      type: 'book',
-      title: book.title,
-      deletedAt: book.deletedAt,
-      originalLocation: 'Library'
-    });
-  }
-
-  for (const chapter of data.chapters) {
-    if (!chapter.deletedAt) {
-      continue;
-    }
-
-    items.push({
-      id: chapter.id,
-      type: 'chapter',
-      title: chapter.title,
-      deletedAt: chapter.deletedAt,
-      originalLocation: bookById.get(chapter.deletedFrom?.bookId ?? chapter.bookId)?.title ?? 'Book'
-    });
-  }
-
-  for (const page of data.pages) {
-    if (!page.deletedAt) {
-      continue;
-    }
-
-    const sourceChapterId = page.deletedFrom?.chapterId ?? page.chapterId ?? undefined;
-    const sourceChapter = sourceChapterId ? chapterById.get(sourceChapterId) : undefined;
-    const sourceBookId = page.deletedFrom?.bookId ?? (sourceChapter ? sourceChapter.bookId : undefined);
-    const sourceBook = sourceBookId ? bookById.get(sourceBookId) : undefined;
-    const wasLoose = page.deletedFrom?.wasLoose ?? page.isLoose;
-
-    items.push({
-      id: page.id,
-      type: wasLoose ? 'loosePage' : 'page',
-      title: page.title,
-      deletedAt: page.deletedAt,
-      originalLocation: wasLoose
-        ? 'Loose Pages'
-        : sourceChapter
-          ? `${sourceBook?.title ?? 'Book'} / ${sourceChapter.title}`
-          : sourceBook?.title ?? 'Original chapter unavailable'
-    });
-  }
-
-  return items.sort((left, right) => right.deletedAt.localeCompare(left.deletedAt));
 }

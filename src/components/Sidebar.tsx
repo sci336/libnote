@@ -97,9 +97,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
 
   const isTrashActive = currentView.type === 'trash';
 
-  const visibleChapters = activeBookId
-    ? chapters.filter((chapter) => chapter.bookId === activeBookId)
-    : [];
+  const visibleChapters = activeBookId ? chapters : [];
   const [isLoosePagesExpanded, setIsLoosePagesExpanded] = useState(false);
   const visibleLoosePages = isLoosePagesExpanded ? loosePages : loosePages.slice(0, 3);
   const [collapsedSidebarSections, setCollapsedSidebarSections] = useState<CollapsedSidebarSections>(() =>

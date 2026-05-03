@@ -72,6 +72,7 @@ interface SearchIndexedPageRecord {
   content: string;
   normalizedTitle: string;
   normalizedContent: string;
+  normalizedTags: Set<string>;
   path: string;
   parentBookId?: ID;
   parentBookTitle?: string;
@@ -164,16 +165,44 @@ export function tokenizeSearchText(input: string): string[] {
  * do not pay for search-specific normalization on every render.
  */
 export function buildSearchIndex(data: LibraryData): SearchIndex {
-  const liveBooks = data.books.filter((book) => !book.deletedAt);
-  const liveChapters = data.chapters.filter((chapter) => !chapter.deletedAt);
-  const livePages = data.pages.filter((page) => !page.deletedAt);
-  const trashBooks = data.books.filter((book) => book.deletedAt);
-  const trashChapters = data.chapters.filter((chapter) => chapter.deletedAt);
-  const trashPages = data.pages.filter((page) => page.deletedAt);
-  const chapterMap = new Map(liveChapters.map((chapter) => [chapter.id, chapter] as const));
-  const bookMap = new Map(liveBooks.map((book) => [book.id, book] as const));
-  const allChapterMap = new Map(data.chapters.map((chapter) => [chapter.id, chapter] as const));
-  const allBookMap = new Map(data.books.map((book) => [book.id, book] as const));
+  const liveBooks: Book[] = [];
+  const liveChapters: Chapter[] = [];
+  const livePages: Page[] = [];
+  const trashBooks: Book[] = [];
+  const trashChapters: Chapter[] = [];
+  const trashPages: Page[] = [];
+  const bookMap = new Map<ID, Book>();
+  const chapterMap = new Map<ID, Chapter>();
+  const allBookMap = new Map<ID, Book>();
+  const allChapterMap = new Map<ID, Chapter>();
+
+  for (const book of data.books) {
+    allBookMap.set(book.id, book);
+    if (book.deletedAt) {
+      trashBooks.push(book);
+    } else {
+      liveBooks.push(book);
+      bookMap.set(book.id, book);
+    }
+  }
+
+  for (const chapter of data.chapters) {
+    allChapterMap.set(chapter.id, chapter);
+    if (chapter.deletedAt) {
+      trashChapters.push(chapter);
+    } else {
+      liveChapters.push(chapter);
+      chapterMap.set(chapter.id, chapter);
+    }
+  }
+
+  for (const page of data.pages) {
+    if (page.deletedAt) {
+      trashPages.push(page);
+    } else {
+      livePages.push(page);
+    }
+  }
 
   return {
     books: liveBooks.map(indexBook),
@@ -384,9 +413,8 @@ export function getHighlightedParts(text: string, query: string): Array<{ text: 
   return splitByRanges(flattened, ranges);
 }
 
-function pageHasAllTags(record: Pick<SearchIndexedPageRecord, 'page'>, tags: string[]): boolean {
-  const pageTags = normalizeTagList(record.page.tags);
-  return tags.every((tag) => pageTags.includes(tag));
+function pageHasAllTags(record: Pick<SearchIndexedPageRecord, 'normalizedTags'>, tags: string[]): boolean {
+  return tags.every((tag) => record.normalizedTags.has(tag));
 }
 
 export function getSearchResultBadgeLabel(result: SearchResult): string {
@@ -534,6 +562,7 @@ function indexPage(
     content,
     normalizedTitle: normalizeSearchText(title),
     normalizedContent: normalizeSearchText(content),
+    normalizedTags: new Set(normalizeTagList(page.tags)),
     path: loosePage ? 'Loose Pages' : `${book?.title ?? 'Book'} / ${chapter?.title ?? 'Chapter'}`,
     parentBookId: book?.id,
     parentBookTitle: book?.title,

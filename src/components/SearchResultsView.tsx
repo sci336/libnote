@@ -127,12 +127,29 @@ function buildFilterOptions(
   results: SearchResult[],
   trashResults: SearchResult[]
 ): Array<{ value: SearchFilter; label: string }> {
+  const counts = results.reduce(
+    (nextCounts, result) => {
+      if (result.type === 'book') {
+        nextCounts.books += 1;
+      } else if (result.type === 'chapter') {
+        nextCounts.chapters += 1;
+      } else if (isLoosePageResult(result)) {
+        nextCounts.loosePages += 1;
+      } else if (isBookPageResult(result)) {
+        nextCounts.pages += 1;
+      }
+
+      return nextCounts;
+    },
+    { pages: 0, books: 0, chapters: 0, loosePages: 0 }
+  );
+
   const options: Array<{ value: SearchFilter; label: string }> = [
     { value: 'all', label: 'All' },
-    { value: 'pages', label: `Pages (${results.filter(isBookPageResult).length})` },
-    { value: 'books', label: `Books (${results.filter((result) => result.type === 'book').length})` },
-    { value: 'chapters', label: `Chapters (${results.filter((result) => result.type === 'chapter').length})` },
-    { value: 'loosePages', label: `Loose Pages (${results.filter(isLoosePageResult).length})` }
+    { value: 'pages', label: `Pages (${counts.pages})` },
+    { value: 'books', label: `Books (${counts.books})` },
+    { value: 'chapters', label: `Chapters (${counts.chapters})` },
+    { value: 'loosePages', label: `Loose Pages (${counts.loosePages})` }
   ];
 
   options.push({ value: 'trash', label: `Trash (${trashResults.length})` });

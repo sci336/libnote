@@ -8,39 +8,40 @@ import { TagResultsView } from './components/TagResultsView';
 import { TopBar } from './components/TopBar';
 import { useLibraryApp } from './hooks/useLibraryApp';
 import { AppLayout } from './layouts/AppLayout';
-import { getChapterCountForBook, getPageCountForChapter } from './store/librarySelectors';
+import { getChapterCountForBookFromDerived, getPageCountForChapterFromDerived } from './store/librarySelectors';
 import type { Book, Chapter, Page } from './types/domain';
 import { isLoosePage } from './utils/pageState';
 import {
   buildBacklinkIndex,
   buildPageTitleLookup,
-  getWikiLinkDestinationLabel,
   parseContentIntoSegments
 } from './utils/pageLinks';
 import type { SearchResult } from './utils/search';
-import { getAllTags, getTagResults, getTagSummaries } from './utils/tags';
+import { getTagResults } from './utils/tags';
 import { BookView } from './views/BookView';
 import { ChapterView } from './views/ChapterView';
 import { LoosePagesView } from './views/LoosePagesView';
 import { RootView } from './views/RootView';
 import { TrashView } from './views/TrashView';
 
+const EMPTY_BOOK_MAP = new Map<string, Book>();
+const EMPTY_CHAPTER_MAP = new Map<string, Chapter>();
+const EMPTY_PAGE_MAP = new Map<string, Page>();
+
 export default function App(): JSX.Element {
   const app = useLibraryApp();
   const data = app.data;
-  const liveBooks = useMemo(() => (data?.books ?? []).filter((book) => !book.deletedAt), [data]);
-  const liveChapters = useMemo(() => (data?.chapters ?? []).filter((chapter) => !chapter.deletedAt), [data]);
-  const allPages = useMemo(() => (data?.pages ?? []).filter((page) => !page.deletedAt), [data]);
-  const pageById = useMemo(() => new Map(allPages.map((page) => [page.id, page])), [allPages]);
-  const chapterById = useMemo(
-    () => new Map(liveChapters.map((chapter) => [chapter.id, chapter])),
-    [liveChapters]
-  );
-  const bookById = useMemo(() => new Map(liveBooks.map((book) => [book.id, book])), [liveBooks]);
+  const derivedData = app.derivedData;
+  const liveBooks = derivedData?.liveBooks ?? [];
+  const liveChapters = derivedData?.liveChapters ?? [];
+  const allPages = derivedData?.livePages ?? [];
+  const pageById = derivedData?.livePageById ?? EMPTY_PAGE_MAP;
+  const chapterById = derivedData?.liveChapterById ?? EMPTY_CHAPTER_MAP;
+  const bookById = derivedData?.liveBookById ?? EMPTY_BOOK_MAP;
   const pageTitleLookup = useMemo(() => buildPageTitleLookup(allPages), [allPages]);
   const wikiLinkDestinationLabels = useMemo(
-    () => new Map(allPages.map((page) => [page.id, getWikiLinkDestinationLabel(page, liveChapters, liveBooks)])),
-    [allPages, liveBooks, liveChapters]
+    () => new Map(allPages.map((page) => [page.id, getWikiLinkDestinationLabelFromMaps(page, chapterById, bookById)])),
+    [allPages, bookById, chapterById]
   );
   const backlinkIndex = useMemo(() => buildBacklinkIndex(allPages), [allPages]);
   // Page-link parsing is derived in the shell so the editor stays focused on UI
@@ -70,17 +71,17 @@ export default function App(): JSX.Element {
     () => (app.view.type === 'tag' ? getTagResults(allPages, liveChapters, liveBooks, app.view.tags) : []),
     [allPages, app.view, liveBooks, liveChapters]
   );
-  const availableTags = useMemo(() => getAllTags(allPages), [allPages]);
-  const tagSummaries = useMemo(() => getTagSummaries(allPages), [allPages]);
+  const availableTags = derivedData?.allTags ?? [];
+  const tagSummaries = derivedData?.tagSummaries ?? [];
   const storageStats = useMemo(
     () => ({
       bookCount: liveBooks.length,
       chapterCount: liveChapters.length,
       pageCount: allPages.length,
-      loosePageCount: allPages.filter((page) => isLoosePage(page)).length,
-      trashedItemCount: app.trashItems.length
+      loosePageCount: derivedData?.loosePageCount ?? 0,
+      trashedItemCount: derivedData?.trashedItemCount ?? 0
     }),
-    [allPages, app.trashItems.length, liveBooks.length, liveChapters.length]
+    [allPages.length, derivedData?.loosePageCount, derivedData?.trashedItemCount, liveBooks.length, liveChapters.length]
   );
   const recentPages = useMemo<RecentSidebarPage[]>(
     () =>
@@ -267,7 +268,9 @@ function renderMainContent(
     return (
       <RootView
         books={app.books}
-        getChapterCountForBook={(bookId) => getChapterCountForBook(data, bookId)}
+        getChapterCountForBook={(bookId) =>
+          app.derivedData ? getChapterCountForBookFromDerived(app.derivedData, bookId) : 0
+        }
         onCreateBook={app.handleCreateBook}
         onOpenBook={app.handleOpenBook}
         onReorderBooks={app.handleReorderBooks}
@@ -332,7 +335,9 @@ function renderMainContent(
         chapters={app.chapterList}
         books={app.books}
         movingChapterId={app.movingChapterId}
-        getPageCountForChapter={(chapterId) => getPageCountForChapter(data, chapterId)}
+        getPageCountForChapter={(chapterId) =>
+          app.derivedData ? getPageCountForChapterFromDerived(app.derivedData, chapterId) : 0
+        }
         onRenameBook={app.handleRenameBook}
         onCreateChapter={app.handleCreateChapter}
         onDeleteBook={app.handleDeleteBook}
@@ -460,4 +465,24 @@ function getPagePathLabel(
 
   const book = bookById.get(chapter.bookId);
   return book ? `${book.title} / ${chapter.title}` : chapter.title;
+}
+
+function getWikiLinkDestinationLabelFromMaps(
+  page: Page,
+  chapterById: Map<string, Chapter>,
+  bookById: Map<string, Book>
+): string {
+  if (isLoosePage(page)) {
+    return `Loose Pages / ${page.title}`;
+  }
+
+  const chapter = page.chapterId ? chapterById.get(page.chapterId) : undefined;
+  if (!chapter) {
+    return `Loose Pages / ${page.title}`;
+  }
+
+  const book = bookById.get(chapter.bookId);
+  return book
+    ? `${book.title} / ${chapter.title} / ${page.title}`
+    : `${chapter.title} / ${page.title}`;
 }
