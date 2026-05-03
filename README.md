@@ -51,7 +51,7 @@ LibNote has no backend, account system, cloud sync, collaboration, or server-sid
 - Search also has a Trash filter that searches trashed books, chapters, pages, and loose pages.
 - Search result cards show type badges, paths/context, and page snippets when content exists.
 - Result filters include All, Pages, Books, Chapters, Loose Pages, and Trash.
-- Text matches are ranked by exact title matches, partial title matches, exact content matches, and partial content matches.
+- Text matches are ranked with title matches first, then content phrase/token matches, with stable type/title ordering for ties.
 
 ### Slash Tags
 
@@ -167,6 +167,23 @@ Inline title editing uses `Enter` to save and `Esc` to cancel. Tag and autocompl
 
 Offline support means the app shell can load from cache after it has been cached, and your library data remains in local browser storage. It does not mean cloud sync or remote backup.
 
+## Large Library Performance
+
+LibNote now builds reusable derived in-memory library data from the stored book, chapter, and page arrays. This lets the UI read prepared lists, maps, groups, counts, and summaries instead of repeatedly filtering and sorting the full library during rendering.
+
+Derived library data currently includes:
+
+- Live and trashed books, chapters, and pages.
+- Lookup maps for books, chapters, and pages, including live-only maps.
+- Chapters grouped by book.
+- Pages grouped by chapter.
+- Loose pages sorted for quick access.
+- Tag summaries and the full live tag list.
+- Chapter counts per book, page counts per chapter, loose-page counts, and trash counts.
+- Trash items with original-location labels.
+
+Search also builds lightweight normalized/indexed records for books, chapters, pages, and trash only when search is active or a query has been typed. Those records store flattened titles/content, normalized tags, parent context, and loose-page/trash metadata so larger libraries stay responsive while searching.
+
 ## How the Library Organization Works
 
 LibNote's main hierarchy is:
@@ -203,10 +220,13 @@ Text search can match:
 
 - Book titles.
 - Chapter titles.
-- Page titles.
+- Chapter page titles.
+- Loose Page titles.
 - Plain text extracted from page content.
 
-The All filter shows live library results. The Trash filter shows matching trashed items.
+The All filter shows live library results. The Trash filter searches matching trashed books, chapters, pages, and loose pages separately.
+
+Text results are ranked at a high level by exact title matches, title phrase matches, title token matches, exact content phrase matches, and partial content token matches. Ties are ordered consistently by result type, title, and ID. Page results include content snippets when there is content to show, and matching title/snippet text is highlighted in the result card.
 
 ### Slash Tags
 
@@ -239,6 +259,8 @@ zeus /mythology /school
 ```
 
 For mixed search, the text portion must match the page title or page content, and the page must include every slash tag.
+
+Mixed text-plus-tag search returns matching live pages, including Loose Pages. The Trash filter can also show matching trashed pages with the same text-plus-tag behavior.
 
 ### Wikilinks
 
@@ -277,6 +299,7 @@ libnote-backup-YYYY-MM-DD.json
 
 The backup includes:
 
+- Backup metadata: app name, backup version, and export timestamp.
 - Books, including cover IDs, sort order, timestamps, and trash metadata.
 - Chapters, including parent book IDs, sort order, timestamps, and trash metadata.
 - Pages and Loose Pages, including content, tags, text size, sort order, timestamps, and trash metadata.
@@ -286,15 +309,17 @@ Individual pages can also be exported as plain `.txt` files. Page text export in
 
 ### Restore
 
-Restore imports a JSON backup, validates it, shows a preview, and asks for confirmation before changing the current library.
+Restore imports a selected JSON backup file, validates it, shows a Restore Preview, and asks for confirmation before changing the current library.
 
 Restore behavior:
 
 - Restore replaces the current browser library and settings. It does not merge libraries.
 - Invalid JSON is rejected.
 - Unsupported backup versions are rejected.
+- The preview shows backup type, app metadata, backup date, version, and counts for books, chapters, pages, loose pages, trashed items, and unique tags.
 - Missing or invalid metadata can be repaired with warnings.
 - Missing titles, timestamps, invalid tags, invalid settings, missing parent chapters, and similar recoverable issues are repaired or skipped with warnings where possible.
+- Validation and repair warnings are shown in the preview and again after restore if applicable.
 - Backups from legacy `iNote` metadata are recognized by the importer.
 - If backup settings are missing or invalid, safe default settings are used.
 
@@ -319,7 +344,7 @@ npm run dev
 Run tests:
 
 ```bash
-npm run test
+npm test
 ```
 
 Run TypeScript checks:
@@ -430,7 +455,7 @@ The current test suite covers core utility and store behavior:
 Tests run with:
 
 ```bash
-npm run test
+npm test
 ```
 
 ## Current Limitations and Notes
@@ -444,7 +469,3 @@ npm run test
 - The editor is a lightweight custom rich text editor, not a full document editor framework.
 - Offline behavior depends on the production service worker cache and local browser storage.
 - Ambiguous wiki links require the user to choose between duplicate page-title matches.
-
-## Future Ideas
-
-The current codebase does not include a formal roadmap. Natural future improvements could include configurable recent-page limits, stronger mobile polish, richer import/export options, deeper editor features, and optional sync. These are ideas, not implemented features.
