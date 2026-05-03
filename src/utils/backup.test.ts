@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LibraryData } from '../types/domain';
 import { DEFAULT_APP_SETTINGS } from './appSettings';
-import { createBackupPayload, validateBackupPayload } from './backup';
+import { createBackupPayload, createBackupSummary, validateBackupPayload } from './backup';
 
 const data: LibraryData = {
   books: [
@@ -76,8 +76,73 @@ describe('backup', () => {
     });
 
     expect(validated.data.pages[0].id).toBe('page-1');
+    expect(createBackupSummary(validated)).toMatchObject({
+      appName: 'iNote',
+      backupType: 'Legacy iNote library backup',
+      backupVersion: 1,
+      exportedAt: '2026-01-03T00:00:00.000Z',
+      bookCount: 1,
+      chapterCount: 1,
+      pageCount: 1,
+      loosePageCount: 0,
+      trashedItemCount: 0,
+      tagCount: 1
+    });
     expect(validated.settingsStatus).toBe('defaulted');
     expect(validated.warnings).toContain('Backup settings were missing or invalid, so safe defaults were used.');
+  });
+
+  it('summarizes normal backups with loose pages and unique tags', () => {
+    const validated = validateBackupPayload(
+      createBackupPayload(
+        {
+          ...data,
+          pages: [
+            data.pages[0],
+            {
+              id: 'page-loose',
+              chapterId: null,
+              title: 'Loose Page',
+              content: 'Loose content',
+              tags: ['history', 'ideas'],
+              textSize: 16,
+              isLoose: true,
+              sortOrder: 1,
+              createdAt: '2026-01-01T00:00:00.000Z',
+              updatedAt: '2026-01-02T00:00:00.000Z'
+            }
+          ]
+        },
+        DEFAULT_APP_SETTINGS
+      )
+    );
+
+    expect(createBackupSummary(validated)).toMatchObject({
+      appName: 'LibNote',
+      backupType: 'LibNote library backup',
+      backupVersion: 2,
+      bookCount: 1,
+      chapterCount: 1,
+      pageCount: 2,
+      loosePageCount: 1,
+      trashedItemCount: 0,
+      tagCount: 2
+    });
+  });
+
+  it('summarizes trashed books, chapters, and pages', () => {
+    const validated = validateBackupPayload(
+      createBackupPayload(
+        {
+          books: [{ ...data.books[0], deletedAt: '2026-01-04T00:00:00.000Z' }],
+          chapters: [{ ...data.chapters[0], deletedAt: '2026-01-04T00:00:00.000Z' }],
+          pages: [{ ...data.pages[0], deletedAt: '2026-01-04T00:00:00.000Z' }]
+        },
+        DEFAULT_APP_SETTINGS
+      )
+    );
+
+    expect(createBackupSummary(validated).trashedItemCount).toBe(3);
   });
 
   it('repairs recoverable malformed page data during validation', () => {

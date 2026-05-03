@@ -236,7 +236,9 @@ export default function App(): JSX.Element {
         onDeleteTagEverywhere={app.handleDeleteTagEverywhere}
         onMergeTags={app.handleMergeTags}
         onExportLibrary={app.handleExportLibrary}
-        onImportLibrary={app.handleImportLibrary}
+        onPreviewBackupImport={app.handlePreviewBackupImport}
+        onRestoreBackupImport={app.handleRestoreBackupImport}
+        onCancelBackupImport={app.handleCancelBackupImport}
         onClose={app.closeAppMenu}
         onSelectSection={app.navigateAppMenu}
       />

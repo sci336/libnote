@@ -1,14 +1,22 @@
 import type { Book, Chapter, Page } from '../types/domain';
 import { formatFullTimestamp } from '../utils/date';
 import { isLoosePage } from '../utils/pageState';
-import { getConnectionLinksFromSegments, type ContentSegment } from '../utils/pageLinks';
+import {
+  getAmbiguousLinksFromSegments,
+  getConnectionLinksFromSegments,
+  type ContentSegment,
+  type PageConnectionLink
+} from '../utils/pageLinks';
 import { getPageWritingStats } from '../utils/pageStats';
+
+const MAX_VISIBLE_AMBIGUOUS_DESTINATIONS = 3;
 
 interface PageMetadataPanelProps {
   page: Page;
   parentBook?: Book;
   parentChapter?: Chapter;
   contentSegments: ContentSegment[];
+  wikiLinkDestinationLabels: Map<string, string>;
   backlinks: Array<{ pageId: string; title: string; path: string }>;
   onOpenPage: (pageId: string) => void;
   onCreatePageFromLink: (title: string) => void;
@@ -20,6 +28,7 @@ export function PageMetadataPanel({
   parentBook,
   parentChapter,
   contentSegments,
+  wikiLinkDestinationLabels,
   backlinks,
   onOpenPage,
   onCreatePageFromLink,
@@ -30,6 +39,7 @@ export function PageMetadataPanel({
   const outgoingLinks = getConnectionLinksFromSegments(contentSegments);
   const validOutgoingLinks = outgoingLinks.filter((link) => link.resolutionStatus === 'resolved');
   const brokenOutgoingLinks = outgoingLinks.filter((link) => link.resolutionStatus === 'missing');
+  const ambiguousOutgoingLinks = getAmbiguousLinksFromSegments(contentSegments);
 
   return (
     <aside id="page-info-panel" className="page-metadata-panel" aria-label="Page Info">
@@ -125,6 +135,21 @@ export function PageMetadataPanel({
               )}
             </div>
 
+            {ambiguousOutgoingLinks.length > 0 ? (
+              <div className="metadata-connection-group">
+                <h4>Ambiguous Links</h4>
+                <div className="metadata-ambiguous-list">
+                  {ambiguousOutgoingLinks.map((link) => (
+                    <AmbiguousLinkRow
+                      key={link.key}
+                      link={link}
+                      destinationLabels={wikiLinkDestinationLabels}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             <div className="metadata-connection-group">
               <h4>Backlinks</h4>
               {backlinks.length > 0 ? (
@@ -170,6 +195,39 @@ export function PageMetadataPanel({
           </section>
       </div>
     </aside>
+  );
+}
+
+function AmbiguousLinkRow({
+  link,
+  destinationLabels
+}: {
+  link: PageConnectionLink;
+  destinationLabels: Map<string, string>;
+}): JSX.Element {
+  const visibleDestinationLabels = link.matchingPageIds
+    .slice(0, MAX_VISIBLE_AMBIGUOUS_DESTINATIONS)
+    .map((pageId) => destinationLabels.get(pageId))
+    .filter((label): label is string => Boolean(label));
+  const hiddenDestinationCount = Math.max(0, link.matchingPageIds.length - visibleDestinationLabels.length);
+
+  return (
+    <div className="metadata-ambiguous-link-row">
+      <div className="metadata-ambiguous-link-header">
+        <span className="metadata-ambiguous-link-title">{link.label}</span>
+        <span className="metadata-ambiguous-link-count">
+          {formatCount(link.matchingPageIds.length)} possible matches
+        </span>
+      </div>
+      {visibleDestinationLabels.length > 0 ? (
+        <ul className="metadata-ambiguous-path-list">
+          {visibleDestinationLabels.map((label) => (
+            <li key={label}>{label}</li>
+          ))}
+          {hiddenDestinationCount > 0 ? <li>+{formatCount(hiddenDestinationCount)} more</li> : null}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 

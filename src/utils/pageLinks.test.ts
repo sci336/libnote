@@ -4,6 +4,7 @@ import {
   buildBacklinkIndex,
   buildPageTitleLookup,
   extractBracketLinks,
+  getAmbiguousLinks,
   getBacklinks,
   getBracketLinkMatches,
   getBrokenLinks,
@@ -17,7 +18,8 @@ const pages: Page[] = [
   createPage('page-athena', 'Athena', 'Back to [[zeus notes]].'),
   createPage('page-duplicate-a', 'Duplicate', ''),
   createPage('page-duplicate-b', 'Duplicate', ''),
-  createPage('page-source', 'Source', 'Points at [[duplicate]].')
+  createPage('page-source', 'Source', 'Points at [[duplicate]].'),
+  createPage('page-mixed-source', 'Mixed Source', 'See [[Athena]], [[Missing Page]], [[Duplicate]], and [[ duplicate ]].')
 ];
 const books: Book[] = [createBook('book-1', 'Greek Myths')];
 const chapters: Chapter[] = [createChapter('chapter-1', 'Olympians', 'book-1')];
@@ -113,6 +115,22 @@ describe('pageLinks', () => {
 
     expect(links).toEqual([]);
     expect(getBrokenLinks(pages[4], pages)).toEqual([]);
+  });
+
+  it('reports ambiguous links only in the ambiguous metadata collection', () => {
+    const mixedSource = pages[5];
+
+    expect(getOutgoingLinks(mixedSource, pages).map((link) => link.label)).toEqual(['Athena']);
+    expect(getBrokenLinks(mixedSource, pages).map((link) => link.label)).toEqual(['Missing Page']);
+    expect(getAmbiguousLinks(mixedSource, pages)).toEqual([
+      {
+        key: 'ambiguous:duplicate:page-duplicate-a|page-duplicate-b',
+        label: 'Duplicate',
+        targetPageId: null,
+        matchingPageIds: ['page-duplicate-a', 'page-duplicate-b'],
+        resolutionStatus: 'ambiguous'
+      }
+    ]);
   });
 
   it('generates destination labels for loose pages', () => {

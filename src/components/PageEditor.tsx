@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ClipboardEvent as ReactClipboardEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent
+} from 'react';
 import { InlineEditableText } from './InlineEditableText';
 import {
   EditorToolbar,
@@ -18,7 +26,12 @@ import {
   detectActiveWikiLinkTrigger,
   getAllPageTitleSuggestions
 } from '../utils/pageLinks';
-import { contentToEditableHtml, normalizeEditorHtml } from '../utils/richText';
+import {
+  contentToEditableHtml,
+  normalizeEditorHtml,
+  sanitizePastedHtml,
+  sanitizePastedPlainText
+} from '../utils/richText';
 import { detectActiveSlashTagTrigger, getAllTagSuggestions, parseSingleTagInput } from '../utils/tags';
 
 interface PageEditorProps {
@@ -538,6 +551,30 @@ export function PageEditor({
     }
   }
 
+  function handleEditorPaste(event: ReactClipboardEvent<HTMLDivElement>): void {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    const clipboard = event.clipboardData;
+    const html = clipboard.getData('text/html');
+    const text = clipboard.getData('text/plain');
+    const sanitizedHtml = html.trim().length > 0 ? sanitizePastedHtml(html) : sanitizePastedPlainText(text);
+
+    event.preventDefault();
+
+    if (sanitizedHtml.length === 0) {
+      return;
+    }
+
+    insertHtmlAtCurrentSelection(editor, sanitizedHtml);
+    normalizeFontSizeMarkup(editor);
+    syncEditorContent();
+    saveSelection();
+    updateEditorAutocomplete();
+  }
+
   function handleEditorClick(event: ReactMouseEvent<HTMLDivElement>): void {
     const target = event.target instanceof HTMLElement ? event.target : null;
     const taskItem = target?.closest('li[data-task-item="true"]');
@@ -864,6 +901,7 @@ export function PageEditor({
                     updateEditorAutocomplete();
                   }}
                   onKeyDown={handleEditorKeyDown}
+                  onPaste={handleEditorPaste}
                   onKeyUp={(event) => {
                     saveSelection();
                     if (['ArrowDown', 'ArrowUp', 'Enter', 'Tab', 'Escape'].includes(event.key)) {
@@ -910,6 +948,7 @@ export function PageEditor({
             parentBook={parentBook}
             parentChapter={parentChapter}
             contentSegments={contentSegments}
+            wikiLinkDestinationLabels={wikiLinkDestinationLabels}
             backlinks={backlinks}
             onOpenPage={onOpenPage}
             onCreatePageFromLink={onCreatePageFromLink}
@@ -951,6 +990,40 @@ function placeCaretAtEnd(element: HTMLElement): void {
   range.collapse(false);
   selection.removeAllRanges();
   selection.addRange(range);
+}
+
+function insertHtmlAtCurrentSelection(editor: HTMLElement, html: string): void {
+  let selection = window.getSelection();
+
+  if (!selection || selection.rangeCount === 0 || !editor.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+    editor.focus();
+    placeCaretAtEnd(editor);
+    selection = window.getSelection();
+  }
+
+  if (!selection || selection.rangeCount === 0) {
+    return;
+  }
+
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
+
+  const template = document.createElement('template');
+  template.innerHTML = html;
+  const fragment = template.content;
+  const lastInsertedNode = fragment.lastChild;
+
+  range.insertNode(fragment);
+
+  if (!lastInsertedNode) {
+    return;
+  }
+
+  const nextRange = document.createRange();
+  nextRange.setStartAfter(lastInsertedNode);
+  nextRange.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(nextRange);
 }
 
 function getCaretTextOffset(editor: HTMLElement | null): number | null {

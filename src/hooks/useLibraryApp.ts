@@ -76,11 +76,14 @@ import { DEFAULT_APP_SETTINGS, filterRecentPageIdsForLibrary, normalizeAppSettin
 import {
   createBackupFileName,
   createBackupPayload,
+  createBackupSummary,
   createPageExportFile,
   downloadJsonFile,
   downloadPlainTextFile,
   readBackupFile,
-  validateBackupPayload
+  validateBackupPayload,
+  type BackupImportPreview,
+  type ValidatedBackupPayload
 } from '../utils/backup';
 
 const DESKTOP_WIDTH = 920;
@@ -961,26 +964,44 @@ export function useLibraryApp() {
     });
   }
 
-  async function handleImportLibrary(file: File | null): Promise<void> {
+  async function handlePreviewBackupImport(file: File | null): Promise<BackupImportPreview | null> {
     if (!file) {
       setBackupStatus({ tone: 'info', message: 'No file selected.' });
-      return;
+      return null;
     }
 
     try {
       const rawPayload = await readBackupFile(file);
       const validated = validateBackupPayload(rawPayload);
+      const preview = {
+        fileName: file.name,
+        summary: createBackupSummary(validated),
+        validated,
+        warnings: validated.warnings
+      };
+
+      setBackupStatus({
+        tone: validated.warnings.length > 0 ? 'warning' : 'info',
+        message:
+          validated.warnings.length > 0
+            ? 'Backup parsed with warnings. Review the preview before restoring.'
+            : 'Backup parsed successfully. Review the preview before restoring.',
+        warnings: validated.warnings
+      });
+
+      return preview;
+    } catch (error) {
+      setBackupStatus({
+        tone: 'error',
+        message: `Backup import failed: ${error instanceof Error ? error.message : 'invalid backup file.'}`
+      });
+      return null;
+    }
+  }
+
+  async function handleRestoreBackupImport(validated: ValidatedBackupPayload): Promise<boolean> {
+    try {
       const nextData = validated.data;
-
-      if (
-        !window.confirm(
-          'Restoring this backup will replace your current library in this browser. Export a backup first if you want to keep a copy of the current library. Continue?'
-        )
-      ) {
-        setBackupStatus({ tone: 'info', message: 'Restore canceled. Your current library was not changed.' });
-        return;
-      }
-
       const nextSettings =
         validated.settingsStatus === 'restored'
           ? validated.settings
@@ -1011,12 +1032,18 @@ export function useLibraryApp() {
             : 'Restore completed successfully.',
         warnings: validated.warnings
       });
+      return true;
     } catch (error) {
       setBackupStatus({
         tone: 'error',
         message: `Restore failed: ${error instanceof Error ? error.message : 'invalid backup file.'}`
       });
+      return false;
     }
+  }
+
+  function handleCancelBackupImport(): void {
+    setBackupStatus({ tone: 'info', message: 'Restore canceled. Your current library was not changed.' });
   }
 
   function handleExportPage(pageId: string): void {
@@ -1177,7 +1204,9 @@ export function useLibraryApp() {
     handleResetShortcut,
     handleResetAllShortcuts,
     handleExportLibrary,
-    handleImportLibrary,
+    handlePreviewBackupImport,
+    handleRestoreBackupImport,
+    handleCancelBackupImport,
     handleExportPage
   };
 }

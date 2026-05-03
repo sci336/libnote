@@ -29,6 +29,33 @@ export interface ValidatedBackupPayload {
   settings: AppSettings;
   settingsStatus: 'restored' | 'defaulted';
   warnings: string[];
+  source: BackupSourceMetadata;
+}
+
+export interface BackupSourceMetadata {
+  appName: string | null;
+  backupVersion: number | null;
+  exportedAt: string | null;
+}
+
+export interface BackupSummary {
+  appName: string | null;
+  backupType: string;
+  exportedAt: string | null;
+  backupVersion: number | null;
+  bookCount: number;
+  chapterCount: number;
+  pageCount: number;
+  loosePageCount: number;
+  trashedItemCount: number;
+  tagCount: number;
+}
+
+export interface BackupImportPreview {
+  fileName: string;
+  summary: BackupSummary;
+  validated: ValidatedBackupPayload;
+  warnings: string[];
 }
 
 export function createBackupPayload(data: LibraryData, settings: AppSettings): LibraryBackupPayload {
@@ -73,8 +100,9 @@ export function validateBackupPayload(input: unknown): ValidatedBackupPayload {
     warnings.push('Backup version metadata was missing; data was restored using the current importer.');
   }
 
-  const exportedAt =
-    typeof input.exportedAt === 'string' && input.exportedAt.trim().length > 0 ? input.exportedAt : nowIso();
+  const sourceExportedAt =
+    typeof input.exportedAt === 'string' && input.exportedAt.trim().length > 0 ? input.exportedAt : null;
+  const exportedAt = sourceExportedAt ?? nowIso();
 
   if (exportedAt !== input.exportedAt) {
     warnings.push('Backup export timestamp was missing and was repaired.');
@@ -106,7 +134,36 @@ export function validateBackupPayload(input: unknown): ValidatedBackupPayload {
     data,
     settings,
     settingsStatus: input.settings === undefined || !isRecord(input.settings) ? 'defaulted' : 'restored',
-    warnings
+    warnings,
+    source: {
+      appName,
+      backupVersion: version,
+      exportedAt: sourceExportedAt
+    }
+  };
+}
+
+export function createBackupSummary(validated: ValidatedBackupPayload): BackupSummary {
+  const { data, source } = validated;
+  const uniqueTags = new Set<string>();
+
+  for (const page of data.pages) {
+    for (const tag of page.tags) {
+      uniqueTags.add(tag);
+    }
+  }
+
+  return {
+    appName: source.appName,
+    backupType: getBackupTypeLabel(source.appName),
+    exportedAt: source.exportedAt,
+    backupVersion: source.backupVersion,
+    bookCount: data.books.length,
+    chapterCount: data.chapters.length,
+    pageCount: data.pages.length,
+    loosePageCount: data.pages.filter((page) => page.isLoose || page.chapterId === null).length,
+    trashedItemCount: [...data.books, ...data.chapters, ...data.pages].filter((item) => Boolean(item.deletedAt)).length,
+    tagCount: uniqueTags.size
   };
 }
 
@@ -460,6 +517,18 @@ function getLibraryDataBlock(input: Record<string, unknown>): unknown {
 
 function hasArrayLibraryData(input: Record<string, unknown>): boolean {
   return Array.isArray(input.books) && Array.isArray(input.chapters) && Array.isArray(input.pages);
+}
+
+function getBackupTypeLabel(appName: string | null): string {
+  if (appName === 'iNote') {
+    return 'Legacy iNote library backup';
+  }
+
+  if (appName === 'LibNote') {
+    return 'LibNote library backup';
+  }
+
+  return 'Library backup';
 }
 
 function isRecord(input: unknown): input is Record<string, unknown> {

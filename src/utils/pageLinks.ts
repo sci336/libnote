@@ -277,6 +277,16 @@ export function getBrokenLinks(currentPage: Page, allPages: Page[]): PageConnect
     .filter((link) => link.resolutionStatus === 'missing');
 }
 
+export function getAmbiguousLinks(currentPage: Page, allPages: Page[]): PageConnectionLink[] {
+  const titleLookup = buildPageTitleLookup(allPages);
+  return getAmbiguousLinksFromSegments(parseContentIntoSegments(currentPage.content, titleLookup));
+}
+
+export function getAmbiguousLinksFromSegments(contentSegments: ContentSegment[]): PageConnectionLink[] {
+  return getConnectionLinksFromSegments(contentSegments)
+    .filter((link) => link.resolutionStatus === 'ambiguous');
+}
+
 export function getBacklinks(currentPage: Page, allPages: Page[]): Page[] {
   const backlinkIndex = buildBacklinkIndex(allPages);
   const pageById = new Map(allPages.map((page) => [page.id, page]));

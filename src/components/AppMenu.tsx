@@ -21,6 +21,7 @@ import {
 import { APP_THEMES } from '../utils/appThemes';
 import { RECENT_PAGES_LIMIT } from '../utils/appSettings';
 import { formatLastBackupTime, getBackupReminderState } from '../utils/backupReminder';
+import type { BackupImportPreview } from '../utils/backup';
 import { parseSingleTagInput, type TagSummary } from '../utils/tags';
 
 const LIBRARY_ROW_OPTIONS: LibraryBooksPerRow[] = [2, 3, 4, 5];
@@ -56,7 +57,9 @@ interface AppMenuProps {
   onDeleteTagEverywhere: (tag: string) => void;
   onMergeTags: (sourceTag: string, targetTag: string) => void;
   onExportLibrary: () => void;
-  onImportLibrary: (file: File | null) => void | Promise<void>;
+  onPreviewBackupImport: (file: File | null) => Promise<BackupImportPreview | null>;
+  onRestoreBackupImport: (validated: BackupImportPreview['validated']) => Promise<boolean>;
+  onCancelBackupImport: () => void;
   onClose: () => void;
   onSelectSection: (section: AppMenuSection) => void;
 }
@@ -88,7 +91,9 @@ export function AppMenu({
   onDeleteTagEverywhere,
   onMergeTags,
   onExportLibrary,
-  onImportLibrary,
+  onPreviewBackupImport,
+  onRestoreBackupImport,
+  onCancelBackupImport,
   onClose,
   onSelectSection
 }: AppMenuProps): JSX.Element | null {
@@ -162,7 +167,9 @@ export function AppMenu({
               onDeleteTagEverywhere,
               onMergeTags,
               onExportLibrary,
-              onImportLibrary,
+              onPreviewBackupImport,
+              onRestoreBackupImport,
+              onCancelBackupImport,
               onSelectSection
             })}
           </div>
@@ -190,7 +197,9 @@ function renderSection(
     | 'onDeleteTagEverywhere'
     | 'onMergeTags'
     | 'onExportLibrary'
-    | 'onImportLibrary'
+    | 'onPreviewBackupImport'
+    | 'onRestoreBackupImport'
+    | 'onCancelBackupImport'
     | 'onSelectSection'
   >
 ): JSX.Element {
@@ -999,13 +1008,40 @@ function formatPageCount(pageCount: number): string {
   return pageCount === 1 ? '1 page' : `${pageCount} pages`;
 }
 
+function formatBackupCount(value: number, singular: string, plural = `${singular}s`): string {
+  return value === 1 ? `1 ${singular}` : `${value} ${plural}`;
+}
+
+function formatBackupDate(value: string | null): string {
+  if (!value) {
+    return 'Not included';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(date);
+}
+
 function BackupSection({
   settings,
   backupStatus,
   onExportLibrary,
-  onImportLibrary
-}: Pick<AppMenuProps, 'settings' | 'backupStatus' | 'onExportLibrary' | 'onImportLibrary'>): JSX.Element {
+  onPreviewBackupImport,
+  onRestoreBackupImport,
+  onCancelBackupImport
+}: Pick<
+  AppMenuProps,
+  'settings' | 'backupStatus' | 'onExportLibrary' | 'onPreviewBackupImport' | 'onRestoreBackupImport' | 'onCancelBackupImport'
+>): JSX.Element {
   const [isImporting, setIsImporting] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [importPreview, setImportPreview] = useState<BackupImportPreview | null>(null);
   const reminderState = getBackupReminderState(settings.lastBackupExportedAt);
   const reminderTone = reminderState.type === 'current' ? 'success' : reminderState.type === 'stale' ? 'warning' : 'info';
   const reminderMessage =
@@ -1024,11 +1060,34 @@ function BackupSection({
     setIsImporting(true);
 
     try {
-      await onImportLibrary(file);
+      const preview = await onPreviewBackupImport(file);
+      setImportPreview(preview);
     } finally {
       setIsImporting(false);
       event.target.value = '';
     }
+  }
+
+  async function restorePreview(): Promise<void> {
+    if (!importPreview) {
+      return;
+    }
+
+    setIsRestoring(true);
+
+    try {
+      const restored = await onRestoreBackupImport(importPreview.validated);
+      if (restored) {
+        setImportPreview(null);
+      }
+    } finally {
+      setIsRestoring(false);
+    }
+  }
+
+  function cancelPreview(): void {
+    setImportPreview(null);
+    onCancelBackupImport();
   }
 
   return (
@@ -1095,6 +1154,72 @@ function BackupSection({
           </label>
         </article>
       </section>
+
+      {importPreview ? (
+        <section className="menu-card backup-preview-card" aria-live="polite">
+          <div className="settings-placeholder-head">
+            <h2>Restore Preview</h2>
+            <span className="search-result-badge">{importPreview.summary.backupType}</span>
+          </div>
+          <p>
+            Review <strong>{importPreview.fileName}</strong> before restoring. Restoring will replace the current
+            library in this browser. Export a current backup first if you have not already.
+          </p>
+          <dl className="backup-preview-grid">
+            <div>
+              <dt>App</dt>
+              <dd>{importPreview.summary.appName ?? 'Not included'}</dd>
+            </div>
+            <div>
+              <dt>Backup date</dt>
+              <dd>{formatBackupDate(importPreview.summary.exportedAt)}</dd>
+            </div>
+            <div>
+              <dt>Version</dt>
+              <dd>{importPreview.summary.backupVersion ?? 'Not included'}</dd>
+            </div>
+            <div>
+              <dt>Books</dt>
+              <dd>{formatBackupCount(importPreview.summary.bookCount, 'book')}</dd>
+            </div>
+            <div>
+              <dt>Chapters</dt>
+              <dd>{formatBackupCount(importPreview.summary.chapterCount, 'chapter')}</dd>
+            </div>
+            <div>
+              <dt>Pages</dt>
+              <dd>{formatBackupCount(importPreview.summary.pageCount, 'page')}</dd>
+            </div>
+            <div>
+              <dt>Loose pages</dt>
+              <dd>{formatBackupCount(importPreview.summary.loosePageCount, 'loose page')}</dd>
+            </div>
+            <div>
+              <dt>Trash</dt>
+              <dd>{formatBackupCount(importPreview.summary.trashedItemCount, 'trashed item')}</dd>
+            </div>
+            <div>
+              <dt>Tags</dt>
+              <dd>{formatBackupCount(importPreview.summary.tagCount, 'tag')}</dd>
+            </div>
+          </dl>
+          {importPreview.warnings.length > 0 ? (
+            <ul className="menu-list backup-warning-list">
+              {importPreview.warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="backup-actions">
+            <button type="button" className="danger-button" onClick={() => void restorePreview()} disabled={isRestoring}>
+              {isRestoring ? 'Restoring…' : 'Restore Backup'}
+            </button>
+            <button type="button" className="secondary-button" onClick={cancelPreview} disabled={isRestoring}>
+              Cancel
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {backupStatus ? (
         <section className={`menu-card backup-status-card is-${backupStatus.tone}`} aria-live="polite">
