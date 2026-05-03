@@ -1,4 +1,4 @@
-import { createElement, useMemo, type CSSProperties, type ReactNode } from 'react';
+import { createElement, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   parseContentIntoSegments,
   type ContentSegment,
@@ -10,6 +10,7 @@ interface WikiLinkPreviewProps {
   content: string;
   contentSegments: ContentSegment[];
   titleLookup: PageTitleLookup;
+  destinationLabels: Map<string, string>;
   textSize: number;
   onOpenPage: (pageId: string) => void;
   onCreatePageFromLink: (title: string) => void;
@@ -47,16 +48,34 @@ export function WikiLinkPreview({
   content,
   contentSegments,
   titleLookup,
+  destinationLabels,
   textSize,
   onOpenPage,
   onCreatePageFromLink
 }: WikiLinkPreviewProps): JSX.Element {
+  const [activePickerKey, setActivePickerKey] = useState<string | null>(null);
   const previewNodes = useMemo(
     () =>
       looksLikeHtmlContent(content)
-        ? renderSafeRichContent(content, titleLookup, onOpenPage, onCreatePageFromLink)
-        : renderSegments(contentSegments, onOpenPage, onCreatePageFromLink, 'plain'),
-    [content, contentSegments, onCreatePageFromLink, onOpenPage, titleLookup]
+        ? renderSafeRichContent(
+            content,
+            titleLookup,
+            destinationLabels,
+            activePickerKey,
+            setActivePickerKey,
+            onOpenPage,
+            onCreatePageFromLink
+          )
+        : renderSegments(
+            contentSegments,
+            destinationLabels,
+            activePickerKey,
+            setActivePickerKey,
+            onOpenPage,
+            onCreatePageFromLink,
+            'plain'
+          ),
+    [activePickerKey, content, contentSegments, destinationLabels, onCreatePageFromLink, onOpenPage, titleLookup]
   );
   const hasPreviewContent = contentSegments.some((segment) => {
     if (segment.type === 'text') {
@@ -84,12 +103,24 @@ export function WikiLinkPreview({
 function renderSafeRichContent(
   content: string,
   titleLookup: PageTitleLookup,
+  destinationLabels: Map<string, string>,
+  activePickerKey: string | null,
+  setActivePickerKey: (key: string | null) => void,
   onOpenPage: (pageId: string) => void,
   onCreatePageFromLink: (title: string) => void
 ): ReactNode[] {
   const doc = new DOMParser().parseFromString(content, 'text/html');
   return Array.from(doc.body.childNodes).flatMap((node, index) =>
-    renderSafeNode(node, `rich-${index}`, titleLookup, onOpenPage, onCreatePageFromLink)
+    renderSafeNode(
+      node,
+      `rich-${index}`,
+      titleLookup,
+      destinationLabels,
+      activePickerKey,
+      setActivePickerKey,
+      onOpenPage,
+      onCreatePageFromLink
+    )
   );
 }
 
@@ -97,12 +128,18 @@ function renderSafeNode(
   node: ChildNode,
   key: string,
   titleLookup: PageTitleLookup,
+  destinationLabels: Map<string, string>,
+  activePickerKey: string | null,
+  setActivePickerKey: (key: string | null) => void,
   onOpenPage: (pageId: string) => void,
   onCreatePageFromLink: (title: string) => void
 ): ReactNode[] {
   if (node.nodeType === Node.TEXT_NODE) {
     return renderSegments(
       parseContentIntoSegments(node.textContent ?? '', titleLookup),
+      destinationLabels,
+      activePickerKey,
+      setActivePickerKey,
       onOpenPage,
       onCreatePageFromLink,
       key
@@ -114,7 +151,16 @@ function renderSafeNode(
   }
 
   const children = Array.from(node.childNodes).flatMap((child, index) =>
-    renderSafeNode(child, `${key}-${index}`, titleLookup, onOpenPage, onCreatePageFromLink)
+    renderSafeNode(
+      child,
+      `${key}-${index}`,
+      titleLookup,
+      destinationLabels,
+      activePickerKey,
+      setActivePickerKey,
+      onOpenPage,
+      onCreatePageFromLink
+    )
   );
 
   if (!ALLOWED_ELEMENT_TAGS.has(node.tagName)) {
@@ -136,6 +182,9 @@ function renderSafeNode(
 
 function renderSegments(
   segments: ContentSegment[],
+  destinationLabels: Map<string, string>,
+  activePickerKey: string | null,
+  setActivePickerKey: (key: string | null) => void,
   onOpenPage: (pageId: string) => void,
   onCreatePageFromLink: (title: string) => void,
   keyPrefix: string
@@ -146,27 +195,74 @@ function renderSegments(
     }
 
     const label = segment.displayText || segment.raw;
-    const isResolved = Boolean(segment.targetPageId);
+    const pickerKey = `${keyPrefix}-link-${index}-${segment.raw}`;
+    const isResolved = segment.resolutionStatus === 'resolved';
+    const isAmbiguous = segment.resolutionStatus === 'ambiguous';
 
     return (
-      <button
-        key={`${keyPrefix}-link-${index}-${segment.raw}`}
-        type="button"
-        className={`inline-page-link${isResolved ? '' : ' unresolved'}`}
-        title={isResolved ? `Open ${label}` : `Create page "${label}"`}
-        onClick={() => {
-          if (segment.targetPageId) {
-            onOpenPage(segment.targetPageId);
-            return;
-          }
+      <span key={pickerKey} className="inline-page-link-shell">
+        <button
+          type="button"
+          className={`inline-page-link${isResolved ? '' : ' unresolved'}${isAmbiguous ? ' ambiguous' : ''}`}
+          title={getLinkTitle(label, segment)}
+          aria-expanded={isAmbiguous ? activePickerKey === pickerKey : undefined}
+          onClick={() => {
+            if (segment.targetPageId) {
+              onOpenPage(segment.targetPageId);
+              return;
+            }
 
-          onCreatePageFromLink(label);
-        }}
-      >
-        {label}
-      </button>
+            if (isAmbiguous) {
+              setActivePickerKey(activePickerKey === pickerKey ? null : pickerKey);
+              return;
+            }
+
+            onCreatePageFromLink(label);
+          }}
+        >
+          {label}
+        </button>
+        {isAmbiguous && activePickerKey === pickerKey ? (
+          <span className="wiki-link-destination-picker" role="menu" aria-label={`Choose destination for ${label}`}>
+            <span className="wiki-link-destination-picker-title">Choose destination</span>
+            {segment.matchingPageIds.map((pageId) => (
+              <button
+                key={pageId}
+                type="button"
+                className="wiki-link-destination-option"
+                role="menuitem"
+                onClick={() => {
+                  setActivePickerKey(null);
+                  onOpenPage(pageId);
+                }}
+              >
+                {destinationLabels.get(pageId) ?? label}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="wiki-link-destination-close"
+              onClick={() => setActivePickerKey(null)}
+            >
+              Cancel
+            </button>
+          </span>
+        ) : null}
+      </span>
     );
   });
+}
+
+function getLinkTitle(label: string, segment: Extract<ContentSegment, { type: 'link' }>): string {
+  if (segment.resolutionStatus === 'resolved') {
+    return `Open ${label}`;
+  }
+
+  if (segment.resolutionStatus === 'ambiguous') {
+    return `Choose destination for "${label}"`;
+  }
+
+  return `Create page "${label}"`;
 }
 
 function createElementForTag(

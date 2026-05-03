@@ -11,7 +11,12 @@ import { AppLayout } from './layouts/AppLayout';
 import { getChapterCountForBook, getPageCountForChapter } from './store/librarySelectors';
 import type { Book, Chapter, Page } from './types/domain';
 import { isLoosePage } from './utils/pageState';
-import { buildBacklinkIndex, buildPageTitleLookup, parseContentIntoSegments } from './utils/pageLinks';
+import {
+  buildBacklinkIndex,
+  buildPageTitleLookup,
+  getWikiLinkDestinationLabel,
+  parseContentIntoSegments
+} from './utils/pageLinks';
 import type { SearchResult } from './utils/search';
 import { getAllTags, getTagResults, getTagSummaries } from './utils/tags';
 import { BookView } from './views/BookView';
@@ -33,6 +38,10 @@ export default function App(): JSX.Element {
   );
   const bookById = useMemo(() => new Map(liveBooks.map((book) => [book.id, book])), [liveBooks]);
   const pageTitleLookup = useMemo(() => buildPageTitleLookup(allPages), [allPages]);
+  const wikiLinkDestinationLabels = useMemo(
+    () => new Map(allPages.map((page) => [page.id, getWikiLinkDestinationLabel(page, liveChapters, liveBooks)])),
+    [allPages, liveBooks, liveChapters]
+  );
   const backlinkIndex = useMemo(() => buildBacklinkIndex(allPages), [allPages]);
   // Page-link parsing is derived in the shell so the editor stays focused on UI
   // concerns while still receiving resolved links and backlinks as ready-to-render data.
@@ -205,6 +214,7 @@ export default function App(): JSX.Element {
         activePageSegments,
         pageTitleLookup,
         activePageBacklinks,
+        wikiLinkDestinationLabels,
         tagResults,
         availableTags,
         pages: allPages
@@ -243,6 +253,7 @@ function renderMainContent(
     activePageSegments: ReturnType<typeof parseContentIntoSegments>;
     pageTitleLookup: ReturnType<typeof buildPageTitleLookup>;
     activePageBacklinks: Array<{ pageId: string; title: string; path: string }>;
+    wikiLinkDestinationLabels: Map<string, string>;
     tagResults: ReturnType<typeof getTagResults>;
     availableTags: string[];
     pages: Page[];
@@ -398,6 +409,7 @@ function renderMainContent(
         initialMoveBookId={app.initialMoveBookId}
         contentSegments={pageLinkState.activePageSegments}
         pageTitleLookup={pageLinkState.pageTitleLookup}
+        wikiLinkDestinationLabels={pageLinkState.wikiLinkDestinationLabels}
         backlinks={pageLinkState.activePageBacklinks}
         saveStatus={app.saveStatus}
         shouldAutoFocus={app.shouldAutoFocusEditor}

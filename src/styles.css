@@ -3209,9 +3209,70 @@ mark {
   text-underline-offset: 0.18rem;
 }
 
+.inline-page-link-shell {
+  position: relative;
+  display: inline;
+}
+
 .inline-page-link.unresolved {
   color: #8f3a2a;
   text-decoration-style: dashed;
+}
+
+.inline-page-link.ambiguous {
+  color: #7c3aed;
+  text-decoration-style: dotted;
+}
+
+.wiki-link-destination-picker {
+  position: absolute;
+  z-index: 30;
+  top: 1.45em;
+  left: 0;
+  min-width: min(21rem, calc(100vw - 2rem));
+  max-width: min(26rem, calc(100vw - 2rem));
+  padding: 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--panel-bg);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  white-space: normal;
+}
+
+.wiki-link-destination-picker-title {
+  padding: 0.15rem 0.35rem 0.25rem;
+  color: #6b7280;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.wiki-link-destination-option,
+.wiki-link-destination-close {
+  width: 100%;
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0.45rem 0.5rem;
+  background: transparent;
+  color: #1f2937;
+  text-align: left;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.wiki-link-destination-option:hover,
+.wiki-link-destination-option:focus-visible,
+.wiki-link-destination-close:hover,
+.wiki-link-destination-close:focus-visible {
+  background: rgba(29, 78, 216, 0.08);
+}
+
+.wiki-link-destination-close {
+  color: #6b7280;
 }
 
 .block-input {

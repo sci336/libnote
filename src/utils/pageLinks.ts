@@ -1,4 +1,4 @@
-import type { Page } from '../types/domain';
+import type { Book, Chapter, Page } from '../types/domain';
 import { contentToPlainText } from './richText';
 
 export type ContentSegment =
@@ -11,10 +11,13 @@ export type ContentSegment =
       raw: string;
       displayText: string;
       targetPageId: string | null;
+      matchingPageIds: string[];
       normalizedTargetTitle: string;
+      resolutionStatus: WikiLinkResolutionStatus;
     };
 
-export type PageTitleLookup = Map<string, Page>;
+export type WikiLinkResolutionStatus = 'resolved' | 'missing' | 'ambiguous';
+export type PageTitleLookup = Map<string, Page[]>;
 export type BacklinkIndex = Record<string, string[]>;
 export type WikiPreviewChunk = ContentSegment;
 
@@ -22,6 +25,8 @@ export interface PageConnectionLink {
   key: string;
   label: string;
   targetPageId: string | null;
+  matchingPageIds: string[];
+  resolutionStatus: WikiLinkResolutionStatus;
 }
 
 export interface WikiLinkTriggerMatch {
@@ -69,11 +74,8 @@ export function buildPageTitleLookup(allPages: Page[]): PageTitleLookup {
       continue;
     }
 
-    if (!lookup.has(normalizedTitle)) {
-      // Duplicate titles currently resolve to the first matching page. Keeping
-      // that rule centralized here avoids each renderer inventing its own tie-breaker.
-      lookup.set(normalizedTitle, page);
-    }
+    const matchingPages = lookup.get(normalizedTitle) ?? [];
+    lookup.set(normalizedTitle, [...matchingPages, page]);
   }
 
   return lookup;
@@ -181,7 +183,28 @@ export function replaceTextRangeWithSuggestion(
 
 export function resolveBracketLink(linkText: string, allPages: Page[]): Page | null {
   const lookup = buildPageTitleLookup(allPages);
-  return resolveBracketLinkFromLookup(linkText, lookup);
+  return resolveUniqueBracketLinkFromLookup(linkText, lookup);
+}
+
+export function getBracketLinkMatches(linkText: string, allPages: Page[]): Page[] {
+  const lookup = buildPageTitleLookup(allPages);
+  return getBracketLinkMatchesFromLookup(linkText, lookup);
+}
+
+export function getWikiLinkDestinationLabel(page: Page, allChapters: Chapter[], allBooks: Book[]): string {
+  if (page.isLoose || !page.chapterId) {
+    return `Loose Pages / ${page.title}`;
+  }
+
+  const chapter = allChapters.find((candidate) => candidate.id === page.chapterId);
+  if (!chapter) {
+    return `Loose Pages / ${page.title}`;
+  }
+
+  const book = allBooks.find((candidate) => candidate.id === chapter.bookId);
+  return book
+    ? `${book.title} / ${chapter.title} / ${page.title}`
+    : `${chapter.title} / ${page.title}`;
 }
 
 export function parseContentIntoSegments(
@@ -206,13 +229,16 @@ export function parseContentIntoSegments(
       });
     }
 
-    const targetPage = resolveBracketLinkFromLookup(displayText, titleLookup);
+    const matchingPages = getBracketLinkMatchesFromLookup(displayText, titleLookup);
+    const targetPage = matchingPages.length === 1 ? matchingPages[0] : null;
     segments.push({
       type: 'link',
       raw,
       displayText: targetPage?.title ?? displayText,
       targetPageId: targetPage?.id ?? null,
-      normalizedTargetTitle
+      matchingPageIds: matchingPages.map((page) => page.id),
+      normalizedTargetTitle,
+      resolutionStatus: getResolutionStatus(matchingPages.length)
     });
 
     cursor = matchIndex + raw.length;
@@ -242,13 +268,13 @@ export const parseContentWithWikiLinks = parseContentIntoSegments;
 export function getOutgoingLinks(currentPage: Page, allPages: Page[]): PageConnectionLink[] {
   const titleLookup = buildPageTitleLookup(allPages);
   return getConnectionLinksFromSegments(parseContentIntoSegments(currentPage.content, titleLookup))
-    .filter((link) => link.targetPageId);
+    .filter((link) => link.resolutionStatus === 'resolved');
 }
 
 export function getBrokenLinks(currentPage: Page, allPages: Page[]): PageConnectionLink[] {
   const titleLookup = buildPageTitleLookup(allPages);
   return getConnectionLinksFromSegments(parseContentIntoSegments(currentPage.content, titleLookup))
-    .filter((link) => !link.targetPageId);
+    .filter((link) => link.resolutionStatus === 'missing');
 }
 
 export function getBacklinks(currentPage: Page, allPages: Page[]): Page[] {
@@ -269,7 +295,7 @@ export function getConnectionLinksFromSegments(contentSegments: ContentSegment[]
       continue;
     }
 
-    const key = segment.targetPageId ?? `missing:${segment.normalizedTargetTitle}`;
+    const key = getConnectionLinkKey(segment);
     if (seen.has(key)) {
       continue;
     }
@@ -278,7 +304,9 @@ export function getConnectionLinksFromSegments(contentSegments: ContentSegment[]
     links.push({
       key,
       label: segment.displayText,
-      targetPageId: segment.targetPageId
+      targetPageId: segment.targetPageId,
+      matchingPageIds: segment.matchingPageIds,
+      resolutionStatus: segment.resolutionStatus
     });
   }
 
@@ -298,7 +326,7 @@ export function buildBacklinkIndex(allPages: Page[]): BacklinkIndex {
     const linkedTargetIds = new Set<string>();
 
     for (const linkText of extractBracketLinks(sourcePage.content)) {
-      const targetPage = resolveBracketLinkFromLookup(linkText, titleLookup);
+      const targetPage = resolveUniqueBracketLinkFromLookup(linkText, titleLookup);
       if (targetPage && targetPage.id !== sourcePage.id) {
         linkedTargetIds.add(targetPage.id);
       }
@@ -313,16 +341,44 @@ export function buildBacklinkIndex(allPages: Page[]): BacklinkIndex {
   return backlinkIndex;
 }
 
-function resolveBracketLinkFromLookup(
+function resolveUniqueBracketLinkFromLookup(
   linkText: string,
   titleLookup: PageTitleLookup
 ): Page | null {
+  const matches = getBracketLinkMatchesFromLookup(linkText, titleLookup);
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function getBracketLinkMatchesFromLookup(
+  linkText: string,
+  titleLookup: PageTitleLookup
+): Page[] {
   const normalizedTitle = normalizePageTitle(linkText);
   if (!normalizedTitle) {
-    return null;
+    return [];
   }
 
-  return titleLookup.get(normalizedTitle) ?? null;
+  return titleLookup.get(normalizedTitle) ?? [];
+}
+
+function getResolutionStatus(matchCount: number): WikiLinkResolutionStatus {
+  if (matchCount === 0) {
+    return 'missing';
+  }
+
+  return matchCount === 1 ? 'resolved' : 'ambiguous';
+}
+
+function getConnectionLinkKey(segment: Extract<ContentSegment, { type: 'link' }>): string {
+  if (segment.targetPageId) {
+    return segment.targetPageId;
+  }
+
+  if (segment.resolutionStatus === 'ambiguous') {
+    return `ambiguous:${segment.normalizedTargetTitle}:${segment.matchingPageIds.join('|')}`;
+  }
+
+  return `missing:${segment.normalizedTargetTitle}`;
 }
 
 function toSafeString(value: unknown): string {

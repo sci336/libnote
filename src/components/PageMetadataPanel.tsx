@@ -28,8 +28,8 @@ export function PageMetadataPanel({
   const pageIsLoose = isLoosePage(page);
   const stats = getPageWritingStats(page.content);
   const outgoingLinks = getConnectionLinksFromSegments(contentSegments);
-  const validOutgoingLinks = outgoingLinks.filter((link) => link.targetPageId);
-  const brokenOutgoingLinks = outgoingLinks.filter((link) => !link.targetPageId);
+  const validOutgoingLinks = outgoingLinks.filter((link) => link.resolutionStatus === 'resolved');
+  const brokenOutgoingLinks = outgoingLinks.filter((link) => link.resolutionStatus === 'missing');
 
   return (
     <aside id="page-info-panel" className="page-metadata-panel" aria-label="Page Info">

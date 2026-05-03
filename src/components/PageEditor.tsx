@@ -31,6 +31,7 @@ interface PageEditorProps {
   initialMoveBookId: string;
   contentSegments: ContentSegment[];
   pageTitleLookup: PageTitleLookup;
+  wikiLinkDestinationLabels: Map<string, string>;
   backlinks: Array<{ pageId: string; title: string; path: string }>;
   saveStatus: SaveStatus;
   shouldAutoFocus?: boolean;
@@ -67,6 +68,7 @@ export function PageEditor({
   initialMoveBookId,
   contentSegments,
   pageTitleLookup,
+  wikiLinkDestinationLabels,
   backlinks,
   saveStatus,
   shouldAutoFocus = false,
@@ -894,6 +896,7 @@ export function PageEditor({
               content={page.content}
               contentSegments={contentSegments}
               titleLookup={pageTitleLookup}
+              destinationLabels={wikiLinkDestinationLabels}
               textSize={page.textSize}
               onOpenPage={onOpenPage}
               onCreatePageFromLink={onCreatePageFromLink}
