@@ -121,7 +121,7 @@ export function ChapterView({
       ) : (
         <div className="empty-state">
           <h2>No pages yet</h2>
-          <p>Add a plain text page and it will auto-save as you write.</p>
+          <p>Add a page and it will auto-save as you write.</p>
           <button type="button" className="primary-button" onClick={() => onCreatePage(chapter.id)}>
             Create Page
           </button>

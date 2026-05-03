@@ -1,6 +1,6 @@
 {
-  "name": "Note Library",
-  "short_name": "Notes",
+  "name": "LibNote",
+  "short_name": "LibNote",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f3efe7",

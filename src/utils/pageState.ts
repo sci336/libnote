@@ -21,7 +21,7 @@ export function isChapterPage(page: Page): boolean {
 export function getPagePreview(page: Page): string {
   const trimmed = page.content.trim();
   if (!trimmed) {
-    return 'Plain text note';
+    return 'Empty page';
   }
 
   return `${trimmed.slice(0, 90)}${trimmed.length > 90 ? '...' : ''}`;
