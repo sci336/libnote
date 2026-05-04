@@ -183,9 +183,6 @@ export function LexicalPageEditor({
             {pageIsLoose ? ' - Loose Page' : ''}
           </p>
           <SaveStatusIndicator status={saveStatus} onRetry={onRetrySave} />
-          <div className="lexical-prototype-note" role="status">
-            Lexical prototype enabled. Current notes still save as compatible HTML.
-          </div>
           <div className="tag-editor" aria-label="Page tags">
             <div className="tag-list">
               {page.tags.map((tag) => (

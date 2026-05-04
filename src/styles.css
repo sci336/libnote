@@ -2994,18 +2994,6 @@ mark {
   user-select: none;
 }
 
-.lexical-prototype-note {
-  width: fit-content;
-  margin: 0.55rem 0 0;
-  padding: 0.35rem 0.55rem;
-  border: 1px solid rgba(29, 78, 216, 0.18);
-  border-radius: 0.65rem;
-  background: rgba(239, 246, 255, 0.78);
-  color: #1d4ed8;
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
 .editor-rich-text > :first-child {
   margin-top: 0;
 }
