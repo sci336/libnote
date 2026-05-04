@@ -264,8 +264,8 @@ function serializeNodes(nodes: ChildNode[]): string[] {
 
   for (const node of nodes) {
     if (node.nodeType === Node.TEXT_NODE) {
-      const text = normalizeWhitespace(node.textContent ?? '');
-      if (text.length > 0) {
+      const text = normalizeInlineWhitespace(node.textContent ?? '');
+      if (text.trim().length > 0 || (lines.length > 0 && lines[lines.length - 1].length > 0)) {
         appendInline(lines, text);
       }
       continue;
@@ -288,8 +288,10 @@ function serializeNodes(nodes: ChildNode[]): string[] {
     const childLines = serializeNodes(Array.from(node.childNodes));
     const combined = childLines.join('\n').trimEnd();
 
-    if (combined.length > 0) {
+    if (combined.length > 0 && BLOCK_TAGS.has(node.tagName)) {
       lines.push(combined);
+    } else if (combined.length > 0) {
+      appendInline(lines, combined);
     } else if (BLOCK_TAGS.has(node.tagName)) {
       lines.push('');
     }
@@ -366,4 +368,8 @@ function escapeHtml(value: string): string {
 
 function normalizeWhitespace(value: string): string {
   return value.replace(/\u00a0/g, ' ').replace(/[ \t\f\v]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim();
+}
+
+function normalizeInlineWhitespace(value: string): string {
+  return value.replace(/\u00a0/g, ' ').replace(/[ \t\f\v]+/g, ' ').replace(/\s*\n\s*/g, '\n');
 }

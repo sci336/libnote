@@ -57,4 +57,10 @@ describe('richText paste sanitization', () => {
     expect(html).toBe('<p>Read more in /history</p>');
     expect(contentToPlainText(html)).toBe('Read more in /history');
   });
+
+  it('extracts inline formatted HTML as continuous visible text', () => {
+    expect(contentToPlainText('<p>Hello <strong>bold</strong> <em>italic</em> <u>under</u></p>')).toBe(
+      'Hello bold italic under'
+    );
+  });
 });

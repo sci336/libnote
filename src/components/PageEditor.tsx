@@ -34,7 +34,7 @@ import {
 } from '../utils/richText';
 import { detectActiveSlashTagTrigger, getAllTagSuggestions, parseSingleTagInput } from '../utils/tags';
 
-interface PageEditorProps {
+export interface PageEditorProps {
   page: Page;
   books: Book[];
   chapters: Chapter[];
