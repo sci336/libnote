@@ -328,7 +328,7 @@ Export a current backup before restoring another file if you want to keep the cu
 
 ## Setup and Development
 
-This project uses npm, React, TypeScript, Vite, and Vitest.
+This project uses npm, React, TypeScript, Vite, Lexical, Vitest, and Playwright.
 
 Install dependencies:
 
@@ -346,6 +346,12 @@ Run tests:
 
 ```bash
 npm test
+```
+
+Run the focused browser editor checks:
+
+```bash
+npm run test:e2e
 ```
 
 Run TypeScript checks:
@@ -374,6 +380,7 @@ Exact npm scripts:
 | --- | --- | --- |
 | `dev` | `vite` | Start the Vite development server. |
 | `test` | `vitest run` | Run the Vitest test suite once. |
+| `test:e2e` | `playwright test` | Run focused browser checks for the default editor. |
 | `typecheck` | `tsc -b --pretty false` | Run TypeScript project-reference checks. |
 | `build` | `tsc -b && vite build` | Typecheck and create a production build in `dist/`. |
 | `preview` | `vite preview` | Serve the production build locally after building. |
@@ -383,12 +390,14 @@ Exact npm scripts:
 - React 18.
 - TypeScript.
 - Vite.
+- Lexical for the default rich text editor.
 - IndexedDB for local persistence.
 - Web App Manifest.
 - Production service worker for the PWA/offline shell.
 - Vitest with jsdom for tests.
+- Playwright for browser-level Lexical editor checks.
 
-The app intentionally has very few runtime dependencies. The current `dependencies` list contains React and React DOM only.
+The app intentionally keeps runtime dependencies focused. The current runtime dependencies are React, React DOM, and the Lexical packages used by the default editor.
 
 ## Project Structure
 
@@ -402,7 +411,9 @@ src/
     AppMenu.tsx          Library Guide, settings, themes, tag management, backup/restore, credits
     Sidebar.tsx          Collapsible library navigation and recent pages
     TopBar.tsx           App menu, breadcrumbs, navigation, and search
-    PageEditor.tsx       Rich text editor, tags, move/export/delete actions, Page Info toggle
+    LexicalPageEditor.tsx
+                          Default Lexical editor, tags, move/export/delete actions, Page Info toggle
+    PageEditor.tsx       Legacy contentEditable editor fallback behind the editor flag
     PageMetadataPanel.tsx
                           Writing stats, tags, outgoing links, backlinks, broken and ambiguous links
     SearchResultsView.tsx
@@ -433,6 +444,7 @@ src/
     search.ts            Search indexing, ranking, snippets, result labels
     tags.ts              Slash-tag parsing, normalization, suggestions, tag result helpers
     pageLinks.ts         Wikilink parsing, resolution, backlinks, ambiguity handling
+    lexicalRichText.ts   Lexical HTML import/export and paste compatibility helpers
     richText.ts          Rich text sanitizing and plain-text conversion
     shortcuts.ts         Shortcut defaults, formatting, validation, matching
     appSettings.ts       Default and normalized persisted settings
@@ -450,6 +462,11 @@ public/
 
 docs/
   search-manual-qa.md    Manual QA notes for text, tag, mixed, and loose-page search
+  lexical-manual-qa-checklist.md
+                          Manual QA checklist for Lexical editor coverage
+
+e2e/
+  lexical-editor.spec.ts Browser coverage for key default Lexical editor flows
 ```
 
 ## Tests
@@ -462,6 +479,7 @@ The current test suite covers core utility and store behavior:
 - Page links and backlinks.
 - Search behavior.
 - Rich text conversion/sanitization.
+- Lexical rich-text import/export compatibility.
 - Tag parsing and filtering.
 
 Tests run with:
@@ -477,7 +495,13 @@ npm run typecheck
 npm run build
 ```
 
-There is no dedicated browser end-to-end test suite in the current repo. `docs/search-manual-qa.md` contains manual QA notes for text, tag, mixed, and Loose Page search.
+There is also a focused Playwright browser test for key default Lexical editor behavior:
+
+```bash
+npm run test:e2e
+```
+
+`docs/search-manual-qa.md` contains manual QA notes for text, tag, mixed, and Loose Page search. `docs/lexical-manual-qa-checklist.md` contains broader manual QA coverage for Lexical, including fallback-editor checks and browser/device scenarios that are not fully automated.
 
 ## Current Limitations and Notes
 
@@ -487,9 +511,9 @@ There is no dedicated browser end-to-end test suite in the current repo. `docs/s
 - Restore replaces the current library; it does not merge two libraries.
 - Navigation does not use URL routes, so books, chapters, and pages do not have shareable deep links.
 - Recent Pages is fixed at 4 pages and is not currently configurable.
-- The page editor uses Lexical and saves compatible rich HTML for search, export, backlinks, backup, and restore.
+- The page editor uses Lexical by default and saves compatible rich HTML for search, export, backlinks, backup, and restore. The older contentEditable editor remains as a code fallback behind `USE_LEXICAL_EDITOR = false`.
 - Large libraries use derived data and lazy search indexing, but there is no list virtualization or documented stress-test target for very large browser libraries.
 - Offline behavior depends on the production service worker cache and local browser storage.
 - The PWA shell is production-only; development mode unregisters service workers and clears matching app caches.
-- The automated tests are unit/jsdom focused. Browser rendering, accessibility, and PWA behavior still need manual verification.
+- Automated coverage is mostly unit/jsdom plus focused Playwright checks for the default Lexical editor. Broader browser rendering, accessibility, mobile/touch editor behavior, and PWA behavior still need manual verification.
 - Ambiguous wiki links require the user to choose between duplicate page-title matches.

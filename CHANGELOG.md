@@ -4,9 +4,27 @@ This document summarizes LibNote's progression from the Git history. It is writt
 
 ## Current Snapshot
 
-LibNote is now a local-first browser note app organized around a personal library metaphor: Books contain Chapters, Chapters contain Pages, and Loose Pages hold quick notes before they are filed. The app includes local IndexedDB persistence, rich text editing, slash tags, wiki links, backlinks, search filters, trash/restore, backup/export, themes, book covers, shelf layouts, keyboard shortcuts, and PWA shell support.
+LibNote is now a coherent local-first browser note app organized around a personal library metaphor: Books contain Chapters, Chapters contain Pages, and Loose Pages hold quick notes before they are filed. The app includes IndexedDB persistence, a library bookshelf/home experience, book covers, themes/settings, Lexical rich text editing as the default editor path, slash tags, wiki links, backlinks, search filters, trash/restore, backup/export/import with restore preview, app-menu guide areas, recent pages, keyboard shortcuts, and PWA shell support.
 
 ## Timeline
+
+### Unreleased: Current Local-First Library App
+
+The current codebase reflects LibNote as a usable local-first library note app rather than a prototype:
+
+- Library data and app settings persist locally in IndexedDB, with debounced autosave, `pagehide` flush behavior, save status, and retry handling for failed saves.
+- The library model supports Books, Chapters, Pages, and Loose Pages, including rename, reorder, move, trash, restore, permanent delete, and empty-trash flows.
+- The Books home view is a bookshelf/library experience with configurable shelf layouts, books-per-row settings, persisted book covers, and a cover picker.
+- The App Menu opens a Library Guide with Help, Shortcuts, Settings, Themes, Tag Management, Backup & Restore, and Credits sections.
+- Themes/settings include app theme selection, library layout controls, customizable global shortcuts, local storage counts, and backup reminder status.
+- Lexical is the default rich text editor path. It supports text size presets, headings, bold, italic, underline, highlight, bullet lists, numbered lists, checkbox/task lists, undo/redo, sanitized paste handling, edit/preview modes, page info, and plain-text page export from rich content.
+- Slash tags are stored as page metadata, normalized, suggested in relevant inputs, searchable with `/tag` syntax, and manageable across pages through rename, delete, and merge tools.
+- Tag search supports tag-only, multi-tag AND filtering, and mixed text-plus-tag page searches.
+- Wikilinks use `[[Page Title]]` syntax with editor autocomplete, preview rendering, missing-link page creation, backlink derivation, broken-link reporting, and ambiguous-link handling for duplicate page titles.
+- Search covers live book titles, chapter titles, page titles, page content, loose pages, and a separate Trash filter, with result types, context labels, snippets, and ranking.
+- Backup & Restore exports full-library JSON backups, validates imported files, repairs or skips recoverable issues with warnings, shows a restore preview, and replaces the current local library only after confirmation.
+- Production builds include a PWA manifest and service worker shell caching; development mode unregisters app service workers and clears matching caches.
+- Automated coverage includes Vitest unit/jsdom tests across store, selectors, backup, search, tags, page links, rich-text helpers, save status, and trash behavior, plus Playwright coverage for key default Lexical editor flows.
 
 ### April 8, 2026: First App Foundation
 
