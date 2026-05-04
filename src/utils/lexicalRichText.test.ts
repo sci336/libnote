@@ -183,6 +183,58 @@ describe('lexical rich text prototype compatibility', () => {
   it('uses plain text clipboard data when HTML is unavailable', () => {
     expect(sanitizeClipboardToHtml('', 'Line one\nLine <two>')).toBe('Line one<br>Line &lt;two&gt;');
   });
+
+  it('preserves text size styling scoped to individual spans', async () => {
+    const html = await roundTripHtml(
+      '<p>Normal <span style="font-size: 1.5rem">large text</span> and normal again</p>'
+    );
+
+    expect(html).toContain('font-size: 1.5rem');
+    expect(html).toContain('Normal');
+    expect(html).toContain('normal again');
+    expect(contentToPlainText(html)).toBe('Normal large text and normal again');
+  });
+
+  it('round-trips underlined text through serialization', async () => {
+    const html = await roundTripHtml('<p>Some <u>underlined</u> text</p>');
+
+    expect(html).toContain('<u>underlined</u>');
+    expect(contentToPlainText(html)).toBe('Some underlined text');
+  });
+
+  it('round-trips checklist items with checked state', async () => {
+    const html = await roundTripHtml(
+      '<ul data-list-type="task"><li data-task-item="true" data-checked="true">Done item</li><li data-task-item="true" data-checked="false">Pending item</li></ul>'
+    );
+
+    expect(html).toContain('data-list-type="task"');
+    expect(html).toContain('data-checked="true"');
+    expect(html).toContain('data-checked="false"');
+    expect(html).toContain('Done item');
+    expect(html).toContain('Pending item');
+  });
+
+  it('preserves mixed formatting: underlined large text in a checklist item', async () => {
+    const html = await roundTripHtml(
+      '<ul data-list-type="task"><li data-task-item="true" data-checked="false"><u><span style="font-size: 1.25rem">Important task</span></u></li></ul>'
+    );
+
+    expect(html).toContain('<u>');
+    expect(html).toContain('font-size: 1.25rem');
+    expect(html).toContain('data-list-type="task"');
+    expect(contentToPlainText(html)).toContain('Important task');
+  });
+
+  it('does not apply text size globally when only part of content has sizing', async () => {
+    const html = await roundTripHtml(
+      '<p>Normal text</p><p><span style="font-size: 2rem">Huge text</span></p><p>Also normal</p>'
+    );
+
+    const paragraphs = html.split('</p>').filter((p) => p.includes('<p>'));
+    expect(paragraphs[0]).not.toContain('font-size');
+    expect(paragraphs[1]).toContain('font-size: 2rem');
+    expect(paragraphs[2]).not.toContain('font-size');
+  });
 });
 
 function roundTripHtml(content: string): Promise<string> {

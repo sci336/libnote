@@ -34,6 +34,18 @@ export function createLibNoteLexicalEditor(): LexicalEditor {
   return createHeadlessEditor({
     namespace: 'LibNoteLexicalPrototype',
     nodes: LIBNOTE_LEXICAL_NODES,
+    theme: {
+      text: {
+        underline: 'lexical-text-underline',
+        strikethrough: 'lexical-text-strikethrough'
+      },
+      list: {
+        checklist: 'lexical-checklist',
+        listitem: 'lexical-listitem',
+        listitemChecked: 'lexical-listitem-checked',
+        listitemUnchecked: 'lexical-listitem-unchecked'
+      }
+    },
     onError(error) {
       throw error;
     }
@@ -102,7 +114,7 @@ function createSupportedNodesFromDom(source: HTMLElement): LexicalNode[] {
 
     if (child.tagName === 'P' || child.tagName === 'DIV') {
       const paragraph = $createParagraphNode();
-      appendInlineDomChildren(paragraph, child, []);
+      appendInlineDomChildren(paragraph, child, [], '');
       if (!paragraph.isEmpty()) {
         nodes.push(paragraph);
       }
@@ -111,7 +123,7 @@ function createSupportedNodesFromDom(source: HTMLElement): LexicalNode[] {
 
     if (/^H[1-6]$/.test(child.tagName)) {
       const heading = $createHeadingNode(child.tagName.toLowerCase() as HeadingTagType);
-      appendInlineDomChildren(heading, child, []);
+      appendInlineDomChildren(heading, child, [], '');
       if (!heading.isEmpty()) {
         nodes.push(heading);
       }
@@ -143,7 +155,7 @@ function createListNodeFromDom(source: HTMLElement): ListNode | null {
     }
 
     const item = $createListItemNode(listType === 'check' ? itemNode.dataset.checked === 'true' : undefined);
-    appendInlineDomChildren(item, itemNode, []);
+    appendInlineDomChildren(item, itemNode, [], '');
 
     itemNode.childNodes.forEach((child) => {
       if (child instanceof HTMLElement && (child.tagName === 'UL' || child.tagName === 'OL')) {
@@ -168,7 +180,7 @@ function getDomListType(source: HTMLElement): ListType {
   return source.dataset.listType === 'task' ? 'check' : 'bullet';
 }
 
-function appendInlineDomChildren(target: ElementNode, source: HTMLElement, formats: TextFormatType[]): void {
+function appendInlineDomChildren(target: ElementNode, source: HTMLElement, formats: TextFormatType[], style: string): void {
   source.childNodes.forEach((child) => {
     if (child.nodeType === Node.TEXT_NODE) {
       const text = child.textContent ?? '';
@@ -178,6 +190,9 @@ function appendInlineDomChildren(target: ElementNode, source: HTMLElement, forma
 
       const textNode = $createTextNode(text);
       formats.forEach((format) => textNode.toggleFormat(format));
+      if (style) {
+        textNode.setStyle(style);
+      }
       target.append(textNode);
       return;
     }
@@ -209,8 +224,25 @@ function appendInlineDomChildren(target: ElementNode, source: HTMLElement, forma
       nextFormats.push('highlight');
     }
 
-    appendInlineDomChildren(target, child, nextFormats);
+    let nextStyle = style;
+    if (child.tagName === 'SPAN' && child.style.cssText) {
+      const inlineStyle = extractPreservedStyle(child);
+      if (inlineStyle) {
+        nextStyle = nextStyle ? `${nextStyle}; ${inlineStyle}` : inlineStyle;
+      }
+    }
+
+    appendInlineDomChildren(target, child, nextFormats, nextStyle);
   });
+}
+
+function extractPreservedStyle(element: HTMLElement): string {
+  const parts: string[] = [];
+  const fontSize = element.style.fontSize;
+  if (fontSize) {
+    parts.push(`font-size: ${fontSize}`);
+  }
+  return parts.join('; ');
 }
 
 export function insertSanitizedHtmlIntoLexicalEditor(editor: LexicalEditor, html: string): void {
@@ -260,6 +292,10 @@ function serializeLexicalNode(node: LexicalNode): string {
     }
     if (node.hasFormat('bold')) {
       text = `<strong>${text}</strong>`;
+    }
+    const style = node.getStyle();
+    if (style) {
+      text = `<span style="${escapeHtml(style)}">${text}</span>`;
     }
     return text;
   }

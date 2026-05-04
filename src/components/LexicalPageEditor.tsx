@@ -18,7 +18,7 @@ import {
   type ListNode
 } from '@lexical/list';
 import { $createHeadingNode, $isHeadingNode } from '@lexical/rich-text';
-import { $setBlocksType } from '@lexical/selection';
+import { $patchStyleText, $getSelectionStyleValueForProperty, $setBlocksType } from '@lexical/selection';
 import {
   $getSelection,
   $getRoot,
@@ -138,6 +138,18 @@ export function LexicalPageEditor({
     () => ({
       namespace: `LibNoteLexicalPrototype-${page.id}`,
       nodes: LIBNOTE_LEXICAL_NODES,
+      theme: {
+        text: {
+          underline: 'lexical-text-underline',
+          strikethrough: 'lexical-text-strikethrough'
+        },
+        list: {
+          checklist: 'lexical-checklist',
+          listitem: 'lexical-listitem',
+          listitemChecked: 'lexical-listitem-checked',
+          listitemUnchecked: 'lexical-listitem-unchecked'
+        }
+      },
       editorState(editor: LexicalEditor) {
         loadHtmlIntoLexicalEditor(editor, page.content);
       },
@@ -332,7 +344,6 @@ export function LexicalPageEditor({
                       className="editor-rich-text lexical-rich-text"
                       aria-label="Page content"
                       spellCheck
-                      style={{ fontSize: `${page.textSize}px` }}
                     />
                   }
                   placeholder={<div className="lexical-placeholder">Start typing...</div>}
@@ -392,6 +403,7 @@ function LexicalToolbar({
 }): JSX.Element {
   const [editor] = useLexicalComposerContext();
   const [activeFormats, setActiveFormats] = useState<Partial<Record<EditorFormatAction, boolean>>>({});
+  const [selectionTextSize, setSelectionTextSize] = useState<TextSizePresetId>(activeTextSize);
 
   useEffect(() => {
     function updateToolbarState(): void {
@@ -416,6 +428,9 @@ function LexicalToolbar({
           numberedList: listNode?.getListType() === 'number',
           checkbox: listNode?.getListType() === 'check'
         });
+
+        const fontSize = $getSelectionStyleValueForProperty(selection, 'font-size', '');
+        setSelectionTextSize(getPresetForFontSize(fontSize).id);
       });
     }
 
@@ -451,7 +466,12 @@ function LexicalToolbar({
       case 'italic':
       case 'underline':
       case 'highlight':
-        editor.dispatchCommand(FORMAT_TEXT_COMMAND, action);
+        editor.update(() => {
+          const selection = $getSelection();
+          if ($isRangeSelection(selection)) {
+            selection.formatText(action);
+          }
+        });
         break;
       case 'heading':
         editor.update(() => {
@@ -475,12 +495,23 @@ function LexicalToolbar({
     }
   }
 
+  function applyTextSize(size: TextSizePresetId): void {
+    const preset = getPreset(size);
+    editor.update(() => {
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) {
+        $patchStyleText(selection, { 'font-size': preset.id === 'normal' ? null : preset.fontSize });
+      }
+    });
+    onChangeTextSize(preset.legacyPx);
+  }
+
   return (
     <EditorToolbar
       onFormat={applyFormat}
-      activeTextSize={activeTextSize}
+      activeTextSize={selectionTextSize}
       onBeforeTextSizeChange={() => undefined}
-      onTextSizeChange={(size) => onChangeTextSize(getPreset(size).legacyPx)}
+      onTextSizeChange={applyTextSize}
       activeFormats={activeFormats}
     />
   );
@@ -905,6 +936,13 @@ function replaceLexicalTextRange(textNodeKey: string, start: number, end: number
 
 function getPreset(size: TextSizePresetId): (typeof TEXT_SIZE_PRESETS)[number] {
   return TEXT_SIZE_PRESETS.find((preset) => preset.id === size) ?? TEXT_SIZE_PRESETS[1];
+}
+
+function getPresetForFontSize(fontSize: string): (typeof TEXT_SIZE_PRESETS)[number] {
+  if (!fontSize) {
+    return TEXT_SIZE_PRESETS[1];
+  }
+  return TEXT_SIZE_PRESETS.find((preset) => preset.fontSize === fontSize) ?? TEXT_SIZE_PRESETS[1];
 }
 
 function getPresetForLegacyPx(size: number): (typeof TEXT_SIZE_PRESETS)[number] {
