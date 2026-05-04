@@ -9,8 +9,14 @@ describe('richText paste sanitization', () => {
   });
 
   it('preserves safe inline formatting', () => {
-    expect(sanitizePastedHtml('<p><b>Bold</b> <i>Italic</i> <u>Underline</u></p>')).toBe(
-      '<p><strong>Bold</strong> <em>Italic</em> <u>Underline</u></p>'
+    expect(sanitizePastedHtml('<p><b>Bold</b> <i>Italic</i> <u>Underline</u> <mark>Marked</mark></p>')).toBe(
+      '<p><strong>Bold</strong> <em>Italic</em> <u>Underline</u> <mark>Marked</mark></p>'
+    );
+  });
+
+  it('normalizes pasted highlight styles to mark elements', () => {
+    expect(sanitizePastedHtml('<p><span style="background-color: yellow; color: red;">Highlighted</span></p>')).toBe(
+      '<p><mark>Highlighted</mark></p>'
     );
   });
 
@@ -18,6 +24,17 @@ describe('richText paste sanitization', () => {
     expect(sanitizePastedHtml('<ul><li>One</li><li><b>Two</b></li></ul><ol><li>First</li></ol>')).toBe(
       '<ul><li>One</li><li><strong>Two</strong></li></ul><ol><li>First</li></ol>'
     );
+  });
+
+  it('preserves app task-list attributes through the safe paste subset', () => {
+    const html = sanitizePastedHtml(
+      '<ul data-list-type="task"><li data-task-item="true" data-checked="true">Done</li><li>Todo</li></ul>'
+    );
+
+    expect(html).toBe(
+      '<ul data-list-type="task"><li data-task-item="true" data-checked="true">Done</li><li data-task-item="true" data-checked="false">Todo</li></ul>'
+    );
+    expect(contentToPlainText(html)).toBe('- [x] Done\n- [ ] Todo');
   });
 
   it('preserves practical heading levels', () => {

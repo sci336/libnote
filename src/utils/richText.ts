@@ -71,12 +71,13 @@ const PASTE_BLOCK_TAGS = new Set([
   'SECTION'
 ]);
 
-const PASTE_INLINE_FORMAT_TAGS: Record<string, 'strong' | 'em' | 'u'> = {
+const PASTE_INLINE_FORMAT_TAGS: Record<string, 'strong' | 'em' | 'u' | 'mark'> = {
   B: 'strong',
   STRONG: 'strong',
   I: 'em',
   EM: 'em',
-  U: 'u'
+  U: 'u',
+  MARK: 'mark'
 };
 
 export function looksLikeHtmlContent(content: string): boolean {
@@ -201,6 +202,10 @@ function sanitizePastedNode(node: Node): Node | null {
     return createSanitizedElement(inlineFormatTag, node);
   }
 
+  if (node.tagName === 'SPAN' && hasHighlightStyle(node)) {
+    return createSanitizedElement('mark', node);
+  }
+
   if (PASTE_BLOCK_TAGS.has(node.tagName)) {
     if (!hasSanitizedBlockChildren(node)) {
       return createSanitizedElement('p', node);
@@ -224,14 +229,29 @@ function createSanitizedElement(tagName: string, source: HTMLElement): HTMLEleme
 
 function createSanitizedList(source: HTMLElement): HTMLElement {
   const list = document.createElement(source.tagName.toLowerCase());
+  const isTaskList = source.tagName === 'UL' && source.dataset.listType === 'task';
+
+  if (isTaskList) {
+    list.dataset.listType = 'task';
+  }
 
   source.childNodes.forEach((child) => {
     if (child instanceof HTMLElement && child.tagName === 'LI') {
-      list.appendChild(createSanitizedElement('li', child));
+      const item = createSanitizedElement('li', child);
+      if (isTaskList) {
+        item.dataset.taskItem = 'true';
+        item.dataset.checked = child.dataset.checked === 'true' ? 'true' : 'false';
+      }
+      list.appendChild(item);
     }
   });
 
   return list;
+}
+
+function hasHighlightStyle(source: HTMLElement): boolean {
+  const backgroundColor = source.style.backgroundColor.trim();
+  return backgroundColor.length > 0 && backgroundColor !== 'transparent' && backgroundColor !== 'rgba(0, 0, 0, 0)';
 }
 
 function hasSanitizedBlockChildren(source: HTMLElement): boolean {

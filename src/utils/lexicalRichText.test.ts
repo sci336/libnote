@@ -19,23 +19,72 @@ import { parseTagQuery } from './tags';
 import type { LibraryData } from '../types/domain';
 
 describe('lexical rich text prototype compatibility', () => {
-  it('loads existing HTML and exports compatible HTML and plain text', async () => {
-    const html = await roundTripHtml('<p>Hello <strong>bold</strong> <em>italic</em> <u>under</u></p>');
+  it('serializes bold text to compatible HTML', async () => {
+    const html = await roundTripHtml('<p>Hello <strong>bold</strong></p>');
 
     expect(html).toContain('<strong');
-    expect(html).toContain('<em');
-    expect(html).toContain('<u>');
-    expect(contentToPlainText(html)).toBe('Hello bold italic under');
+    expect(contentToPlainText(html)).toBe('Hello bold');
   });
 
-  it('preserves bullet and numbered list serialization for search and txt export', async () => {
-    const html = await roundTripHtml('<ul><li>Bullet one</li><li>Bullet two</li></ul><ol><li>First</li><li>Second</li></ol>');
+  it('serializes italic text to compatible HTML', async () => {
+    const html = await roundTripHtml('<p>Hello <em>italic</em></p>');
+
+    expect(html).toContain('<em');
+    expect(contentToPlainText(html)).toBe('Hello italic');
+  });
+
+  it('serializes underline text to compatible HTML', async () => {
+    const html = await roundTripHtml('<p>Hello <u>under</u></p>');
+
+    expect(html).toContain('<u>');
+    expect(contentToPlainText(html)).toBe('Hello under');
+  });
+
+  it('serializes highlighted text to safe readable HTML', async () => {
+    const html = await roundTripHtml('<p>Hello <mark>marked</mark></p>');
+
+    expect(html).toContain('<mark>');
+    expect(contentToPlainText(html)).toBe('Hello marked');
+  });
+
+  it('loads legacy background highlight markup and normalizes it to mark', async () => {
+    const html = await roundTripHtml('<p>Hello <span style="background-color: rgb(255, 243, 163);">marked</span></p>');
+
+    expect(html).toContain('<mark>');
+    expect(contentToPlainText(html)).toBe('Hello marked');
+  });
+
+  it('serializes headings to compatible HTML', async () => {
+    const html = await roundTripHtml('<h2>Chapter Notes</h2>');
+
+    expect(html).toBe('<h2>Chapter Notes</h2>');
+    expect(contentToPlainText(html)).toBe('Chapter Notes');
+  });
+
+  it('serializes bullet lists for search and txt export', async () => {
+    const html = await roundTripHtml('<ul><li>Bullet one</li><li>Bullet two</li></ul>');
     const plainText = contentToPlainText(html);
 
     expect(html).toContain('<ul>');
-    expect(html).toContain('<ol>');
     expect(plainText).toContain('- Bullet one');
+  });
+
+  it('serializes numbered lists for search and txt export', async () => {
+    const html = await roundTripHtml('<ol><li>First</li><li>Second</li></ol>');
+    const plainText = contentToPlainText(html);
+
+    expect(html).toContain('<ol>');
     expect(plainText).toContain('1. First');
+  });
+
+  it('serializes task lists in the current editor-compatible HTML shape', async () => {
+    const html = await roundTripHtml(
+      '<ul data-list-type="task"><li data-task-item="true" data-checked="true">Done</li><li data-task-item="true" data-checked="false">Todo</li></ul>'
+    );
+
+    expect(html).toContain('<ul data-list-type="task">');
+    expect(html).toContain('data-checked="true"');
+    expect(contentToPlainText(html)).toBe('- [x] Done\n- [ ] Todo');
   });
 
   it('keeps wikilinks and slash tags detectable after Lexical serialization', async () => {
@@ -44,6 +93,13 @@ describe('lexical rich text prototype compatibility', () => {
     expect(extractBracketLinks(html)).toEqual(['Athena Notes']);
     expect(parseTagQuery('/mythology')).toEqual(['mythology']);
     expect(contentToPlainText(html)).toContain('/mythology');
+  });
+
+  it('extracts plain text readably after autocomplete-style wikilinks and slash tags', async () => {
+    const html = await roundTripHtml('<p>Review [[History Notes]] with /history.</p>');
+
+    expect(contentToPlainText(html)).toBe('Review [[History Notes]] with /history.');
+    expect(extractBracketLinks(html)).toEqual(['History Notes']);
   });
 
   it('keeps search, backup, restore, and txt export compatible with Lexical HTML', async () => {

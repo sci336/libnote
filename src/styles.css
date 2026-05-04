@@ -2834,6 +2834,24 @@ mark {
   border-radius: 0.8rem;
 }
 
+.lexical-autocomplete-dropdown {
+  top: 3rem;
+  max-height: min(18rem, calc(100% - 4rem));
+  overflow-y: auto;
+}
+
+.lexical-autocomplete-dropdown .tag-suggestion-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.editor-autocomplete-context {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
 .editor-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -2889,6 +2907,12 @@ mark {
   background: var(--input-bg);
   border-color: rgba(31, 41, 55, 0.18);
   transform: translateY(-1px);
+}
+
+.editor-toolbar-button.is-active {
+  background: var(--accent-soft);
+  border-color: rgba(31, 41, 55, 0.24);
+  color: var(--text-primary);
 }
 
 .editor-toolbar-button:focus-visible {

@@ -35,6 +35,13 @@ export interface WikiLinkTriggerMatch {
   end: number;
 }
 
+export interface PageTitleAutocompleteSuggestion {
+  pageId: string;
+  title: string;
+  pathLabel: string;
+  isDuplicateTitle: boolean;
+}
+
 const BRACKET_LINK_PATTERN = /\[\[([\s\S]*?)\]\]/g;
 const WHITESPACE_PATTERN = /\s+/g;
 
@@ -139,6 +146,83 @@ export function getAllPageTitleSuggestions(
     });
 
   return ranked.slice(0, limit).map((entry) => entry.title);
+}
+
+export function getPageTitleAutocompleteSuggestions(
+  pages: Page[],
+  chapters: Chapter[],
+  books: Book[],
+  query: string,
+  currentPageId?: string,
+  options?: { limit?: number }
+): PageTitleAutocompleteSuggestion[] {
+  const normalizedQuery = normalizeSuggestionQuery(query);
+  const limit = options?.limit ?? 6;
+  const titleCounts = new Map<string, number>();
+
+  for (const page of pages) {
+    if (page.deletedAt || page.id === currentPageId) {
+      continue;
+    }
+
+    const normalizedTitle = normalizePageTitle(page.title);
+    if (!normalizedTitle) {
+      continue;
+    }
+
+    titleCounts.set(normalizedTitle, (titleCounts.get(normalizedTitle) ?? 0) + 1);
+  }
+
+  const ranked = pages
+    .filter((page) => !page.deletedAt && page.id !== currentPageId)
+    .map((page) => {
+      const title = page.title.trim();
+      const normalizedTitle = normalizeSuggestionQuery(title);
+
+      if (!normalizedTitle) {
+        return null;
+      }
+
+      const score = getSuggestionScore(normalizedTitle, normalizedQuery);
+      if (score === null) {
+        return null;
+      }
+
+      return {
+        pageId: page.id,
+        title,
+        pathLabel: getWikiLinkDestinationLabel(page, chapters, books),
+        isDuplicateTitle: (titleCounts.get(normalizePageTitle(title)) ?? 0) > 1,
+        score: score.score,
+        index: score.index
+      };
+    })
+    .filter(
+      (
+        entry
+      ): entry is PageTitleAutocompleteSuggestion & {
+        score: number;
+        index: number;
+      } => entry !== null
+    )
+    .sort((left, right) => {
+      if (left.score !== right.score) {
+        return left.score - right.score;
+      }
+
+      if (left.index !== right.index) {
+        return left.index - right.index;
+      }
+
+      const titleComparison = left.title.localeCompare(right.title);
+      if (titleComparison !== 0) {
+        return titleComparison;
+      }
+
+      return left.pathLabel.localeCompare(right.pathLabel);
+    });
+
+  return ranked.slice(0, limit).map(({ score, index, ...suggestion }) => suggestion);
 }
 
 export function detectActiveWikiLinkTrigger(text: string, cursorPosition: number): WikiLinkTriggerMatch | null {
@@ -409,4 +493,28 @@ function flattenText(value: unknown): string {
 
 function normalizeSuggestionQuery(value: string): string {
   return flattenText(value).toLowerCase();
+}
+
+function getSuggestionScore(
+  normalizedValue: string,
+  normalizedQuery: string
+): { score: number; index: number } | null {
+  if (!normalizedQuery) {
+    return { score: 3, index: 0 };
+  }
+
+  if (normalizedValue === normalizedQuery) {
+    return { score: 0, index: 0 };
+  }
+
+  if (normalizedValue.startsWith(normalizedQuery)) {
+    return { score: 1, index: 0 };
+  }
+
+  const containsIndex = normalizedValue.indexOf(normalizedQuery);
+  if (containsIndex !== -1) {
+    return { score: 2, index: containsIndex };
+  }
+
+  return null;
 }

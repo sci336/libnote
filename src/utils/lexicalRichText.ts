@@ -1,6 +1,14 @@
 import { $generateNodesFromDOM } from '@lexical/html';
 import { createHeadlessEditor } from '@lexical/headless';
-import { $createListItemNode, $createListNode, $isListItemNode, $isListNode, ListItemNode, ListNode } from '@lexical/list';
+import {
+  $createListItemNode,
+  $createListNode,
+  $isListItemNode,
+  $isListNode,
+  ListItemNode,
+  ListNode,
+  type ListType
+} from '@lexical/list';
 import { $createHeadingNode, $isHeadingNode, HeadingNode, QuoteNode, type HeadingTagType } from '@lexical/rich-text';
 import {
   $createLineBreakNode,
@@ -43,7 +51,9 @@ export function loadHtmlIntoLexicalEditor(editor: LexicalEditor, content: string
 
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
-  if (appendSupportedDomChildren(root, doc.body)) {
+  const supportedNodes = createSupportedNodesFromDom(doc.body);
+  if (supportedNodes.length > 0) {
+    root.append(...supportedNodes);
     return;
   }
 
@@ -70,8 +80,8 @@ export function loadHtmlIntoLexicalEditor(editor: LexicalEditor, content: string
   $insertNodes(nodes);
 }
 
-function appendSupportedDomChildren(root: ElementNode, source: HTMLElement): boolean {
-  let appended = false;
+function createSupportedNodesFromDom(source: HTMLElement): LexicalNode[] {
+  const nodes: LexicalNode[] = [];
 
   source.childNodes.forEach((child) => {
     if (child.nodeType === Node.TEXT_NODE) {
@@ -82,8 +92,7 @@ function appendSupportedDomChildren(root: ElementNode, source: HTMLElement): boo
 
       const paragraph = $createParagraphNode();
       paragraph.append($createTextNode(text));
-      root.append(paragraph);
-      appended = true;
+      nodes.push(paragraph);
       return;
     }
 
@@ -95,8 +104,7 @@ function appendSupportedDomChildren(root: ElementNode, source: HTMLElement): boo
       const paragraph = $createParagraphNode();
       appendInlineDomChildren(paragraph, child, []);
       if (!paragraph.isEmpty()) {
-        root.append(paragraph);
-        appended = true;
+        nodes.push(paragraph);
       }
       return;
     }
@@ -105,32 +113,32 @@ function appendSupportedDomChildren(root: ElementNode, source: HTMLElement): boo
       const heading = $createHeadingNode(child.tagName.toLowerCase() as HeadingTagType);
       appendInlineDomChildren(heading, child, []);
       if (!heading.isEmpty()) {
-        root.append(heading);
-        appended = true;
+        nodes.push(heading);
       }
       return;
     }
 
     if (child.tagName === 'UL' || child.tagName === 'OL') {
-      const list = $createListNode(child.tagName === 'OL' ? 'number' : 'bullet');
+      const listType: ListType =
+        child.tagName === 'OL' ? 'number' : child.dataset.listType === 'task' ? 'check' : 'bullet';
+      const list = $createListNode(listType);
       child.childNodes.forEach((itemNode) => {
         if (!(itemNode instanceof HTMLElement) || itemNode.tagName !== 'LI') {
           return;
         }
 
-        const item = $createListItemNode();
+        const item = $createListItemNode(listType === 'check' ? itemNode.dataset.checked === 'true' : undefined);
         appendInlineDomChildren(item, itemNode, []);
         list.append(item);
       });
 
       if (!list.isEmpty()) {
-        root.append(list);
-        appended = true;
+        nodes.push(list);
       }
     }
   });
 
-  return appended;
+  return nodes;
 }
 
 function appendInlineDomChildren(target: ElementNode, source: HTMLElement, formats: TextFormatType[]): void {
@@ -166,6 +174,9 @@ function appendInlineDomChildren(target: ElementNode, source: HTMLElement, forma
     if (child.tagName === 'U') {
       nextFormats.push('underline');
     }
+    if (child.tagName === 'MARK' || hasHighlightStyle(child)) {
+      nextFormats.push('highlight');
+    }
 
     appendInlineDomChildren(target, child, nextFormats);
   });
@@ -174,10 +185,16 @@ function appendInlineDomChildren(target: ElementNode, source: HTMLElement, forma
 export function insertSanitizedHtmlIntoLexicalEditor(editor: LexicalEditor, html: string): void {
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
-  const nodes = $generateNodesFromDOM(editor, doc.body);
+  const nodes = createSupportedNodesFromDom(doc.body);
 
   if (nodes.length > 0) {
     $insertNodes(nodes);
+    return;
+  }
+
+  const generatedNodes = $generateNodesFromDOM(editor, doc.body);
+  if (generatedNodes.length > 0) {
+    $insertNodes(generatedNodes);
   }
 }
 
@@ -204,6 +221,9 @@ function serializeLexicalNode(node: LexicalNode): string {
     if (node.hasFormat('underline')) {
       text = `<u>${text}</u>`;
     }
+    if (node.hasFormat('highlight')) {
+      text = `<mark>${text}</mark>`;
+    }
     if (node.hasFormat('italic')) {
       text = `<em>${text}</em>`;
     }
@@ -226,11 +246,22 @@ function serializeLexicalNode(node: LexicalNode): string {
   }
 
   if ($isListNode(node)) {
+    if (node.getListType() === 'check') {
+      return `<ul data-list-type="task">${serializeElementChildren(node)}</ul>`;
+    }
+
     const tag = node.getListType() === 'number' ? 'ol' : 'ul';
     return `<${tag}>${serializeElementChildren(node)}</${tag}>`;
   }
 
   if ($isListItemNode(node)) {
+    const checked = node.getChecked();
+    if (typeof checked === 'boolean') {
+      return `<li data-task-item="true" data-checked="${checked ? 'true' : 'false'}">${serializeElementChildren(
+        node
+      )}</li>`;
+    }
+
     return `<li>${serializeElementChildren(node)}</li>`;
   }
 
@@ -239,6 +270,11 @@ function serializeLexicalNode(node: LexicalNode): string {
   }
 
   return '';
+}
+
+function hasHighlightStyle(source: HTMLElement): boolean {
+  const backgroundColor = source.style.backgroundColor.trim();
+  return backgroundColor.length > 0 && backgroundColor !== 'transparent' && backgroundColor !== 'rgba(0, 0, 0, 0)';
 }
 
 function serializeElementChildren(node: ElementNode): string {

@@ -1,24 +1,47 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AutoFocusPlugin } from '@lexical/react/LexicalAutoFocusPlugin';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
+import { CheckListPlugin } from '@lexical/react/LexicalCheckListPlugin';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
-import { INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND } from '@lexical/list';
-import { $createHeadingNode } from '@lexical/rich-text';
+import {
+  $isListItemNode,
+  $isListNode,
+  INSERT_CHECK_LIST_COMMAND,
+  INSERT_ORDERED_LIST_COMMAND,
+  INSERT_UNORDERED_LIST_COMMAND,
+  type ListNode
+} from '@lexical/list';
+import { $createHeadingNode, $isHeadingNode } from '@lexical/rich-text';
 import { $setBlocksType } from '@lexical/selection';
 import {
   $getSelection,
+  $getRoot,
+  $createRangeSelection,
+  $isRangeSelection,
+  $isTextNode,
+  $setSelection,
   COMMAND_PRIORITY_HIGH,
   FORMAT_TEXT_COMMAND,
+  KEY_ARROW_DOWN_COMMAND,
+  KEY_ARROW_UP_COMMAND,
+  KEY_ENTER_COMMAND,
+  KEY_ESCAPE_COMMAND,
+  KEY_TAB_COMMAND,
   PASTE_COMMAND,
+  REDO_COMMAND,
+  SELECTION_CHANGE_COMMAND,
+  UNDO_COMMAND,
   type EditorState,
   type LexicalEditor,
-  type PasteCommandType
+  type LexicalNode,
+  type PasteCommandType,
+  type TextNode
 } from 'lexical';
 import { InlineEditableText } from './InlineEditableText';
 import {
@@ -39,13 +62,39 @@ import {
   loadHtmlIntoLexicalEditor,
   sanitizeClipboardToHtml
 } from '../utils/lexicalRichText';
-import { normalizeTagList, parseSingleTagInput } from '../utils/tags';
+import {
+  detectActiveSlashTagTrigger,
+  getAllTagSuggestions,
+  normalizeTagList,
+  parseSingleTagInput
+} from '../utils/tags';
 import { isLoosePage } from '../utils/pageState';
+import {
+  detectActiveWikiLinkTrigger,
+  getPageTitleAutocompleteSuggestions,
+  type PageTitleAutocompleteSuggestion
+} from '../utils/pageLinks';
+
+type LexicalAutocompleteKind = 'link' | 'tag';
+
+type LexicalAutocompleteSuggestion =
+  | (PageTitleAutocompleteSuggestion & { kind: 'link' })
+  | { kind: 'tag'; tag: string };
+
+interface LexicalAutocompleteState {
+  kind: LexicalAutocompleteKind;
+  suggestions: LexicalAutocompleteSuggestion[];
+  activeIndex: number;
+  textNodeKey: string;
+  start: number;
+  end: number;
+}
 
 export function LexicalPageEditor({
   page,
   books,
   chapters,
+  pages,
   parentBook,
   parentChapter,
   initialMoveBookId,
@@ -290,8 +339,15 @@ export function LexicalPageEditor({
                 />
                 <HistoryPlugin />
                 <ListPlugin />
+                <CheckListPlugin />
                 <LexicalChangePlugin onChangeContent={onChangeContent} />
                 <LexicalPasteSanitizerPlugin />
+                <LexicalAutocompletePlugin
+                  pages={pages}
+                  books={books}
+                  chapters={chapters}
+                  currentPageId={page.id}
+                />
                 {shouldAutoFocus ? <AutoFocusPlugin /> : null}
               </div>
             </LexicalComposer>
@@ -334,12 +390,66 @@ function LexicalToolbar({
   onChangeTextSize: (size: number) => void;
 }): JSX.Element {
   const [editor] = useLexicalComposerContext();
+  const [activeFormats, setActiveFormats] = useState<Partial<Record<EditorFormatAction, boolean>>>({});
+
+  useEffect(() => {
+    function updateToolbarState(): void {
+      editor.getEditorState().read(() => {
+        const selection = $getSelection();
+        if (!$isRangeSelection(selection)) {
+          setActiveFormats({});
+          return;
+        }
+
+        const anchorNode = selection.anchor.getNode();
+        const listNode = getNearestListNode(anchorNode);
+        const blockNode = listNode ?? getNearestBlockNode(anchorNode);
+
+        setActiveFormats({
+          bold: selection.hasFormat('bold'),
+          italic: selection.hasFormat('italic'),
+          underline: selection.hasFormat('underline'),
+          highlight: selection.hasFormat('highlight'),
+          heading: $isHeadingNode(blockNode),
+          bulletList: listNode?.getListType() === 'bullet',
+          numberedList: listNode?.getListType() === 'number',
+          checkbox: listNode?.getListType() === 'check'
+        });
+      });
+    }
+
+    updateToolbarState();
+
+    const unregisterSelection = editor.registerCommand(
+      SELECTION_CHANGE_COMMAND,
+      () => {
+        updateToolbarState();
+        return false;
+      },
+      COMMAND_PRIORITY_HIGH
+    );
+    const unregisterUpdate = editor.registerUpdateListener(() => {
+      updateToolbarState();
+    });
+
+    return () => {
+      unregisterSelection();
+      unregisterUpdate();
+    };
+  }, [editor]);
 
   function applyFormat(action: EditorFormatAction): void {
     switch (action) {
+      case 'undo':
+        editor.dispatchCommand(UNDO_COMMAND, undefined);
+        break;
+      case 'redo':
+        editor.dispatchCommand(REDO_COMMAND, undefined);
+        break;
       case 'bold':
       case 'italic':
       case 'underline':
+      case 'highlight':
         editor.dispatchCommand(FORMAT_TEXT_COMMAND, action);
         break;
       case 'heading':
@@ -353,8 +463,8 @@ function LexicalToolbar({
       case 'numberedList':
         editor.dispatchCommand(INSERT_ORDERED_LIST_COMMAND, undefined);
         break;
-      case 'highlight':
       case 'checkbox':
+        editor.dispatchCommand(INSERT_CHECK_LIST_COMMAND, undefined);
         break;
     }
   }
@@ -365,6 +475,7 @@ function LexicalToolbar({
       activeTextSize={activeTextSize}
       onBeforeTextSizeChange={() => undefined}
       onTextSizeChange={(size) => onChangeTextSize(getPreset(size).legacyPx)}
+      activeFormats={activeFormats}
     />
   );
 }
@@ -419,6 +530,301 @@ function LexicalPasteSanitizerPlugin(): null {
   return null;
 }
 
+function LexicalAutocompletePlugin({
+  pages,
+  books,
+  chapters,
+  currentPageId
+}: {
+  pages: PageEditorProps['pages'];
+  books: PageEditorProps['books'];
+  chapters: PageEditorProps['chapters'];
+  currentPageId: string;
+}): JSX.Element | null {
+  const [editor] = useLexicalComposerContext();
+  const [autocomplete, setAutocomplete] = useState<LexicalAutocompleteState | null>(null);
+
+  const updateAutocomplete = useCallback(() => {
+    editor.getEditorState().read(() => {
+      const next = getLexicalAutocompleteState(editor, pages, chapters, books, currentPageId, autocomplete);
+      setAutocomplete(next);
+    });
+  }, [autocomplete, books, chapters, currentPageId, editor, pages]);
+
+  const applySuggestion = useCallback(
+    (suggestion: LexicalAutocompleteSuggestion) => {
+      const current = autocomplete;
+      if (!current) {
+        return;
+      }
+
+      editor.focus();
+      editor.update(() => {
+        const replacement =
+          suggestion.kind === 'link'
+            ? `[[${suggestion.title}]]`
+            : buildSlashTagReplacement(suggestion.tag, current.textNodeKey, current.end);
+        replaceLexicalTextRange(current.textNodeKey, current.start, current.end, replacement);
+      });
+      setAutocomplete(null);
+    },
+    [autocomplete, editor]
+  );
+
+  useEffect(() => {
+    return editor.registerUpdateListener(() => {
+      updateAutocomplete();
+    });
+  }, [editor, updateAutocomplete]);
+
+  useEffect(() => {
+    return editor.registerCommand(
+      SELECTION_CHANGE_COMMAND,
+      () => {
+        updateAutocomplete();
+        return false;
+      },
+      COMMAND_PRIORITY_HIGH
+    );
+  }, [editor, updateAutocomplete]);
+
+  useEffect(() => {
+    return editor.registerCommand(
+      KEY_ARROW_DOWN_COMMAND,
+      (event) => {
+        if (!autocomplete) {
+          return false;
+        }
+
+        event.preventDefault();
+        setAutocomplete((current) =>
+          current ? { ...current, activeIndex: (current.activeIndex + 1) % current.suggestions.length } : current
+        );
+        return true;
+      },
+      COMMAND_PRIORITY_HIGH
+    );
+  }, [autocomplete, editor]);
+
+  useEffect(() => {
+    return editor.registerCommand(
+      KEY_ARROW_UP_COMMAND,
+      (event) => {
+        if (!autocomplete) {
+          return false;
+        }
+
+        event.preventDefault();
+        setAutocomplete((current) =>
+          current
+            ? {
+                ...current,
+                activeIndex: (current.activeIndex - 1 + current.suggestions.length) % current.suggestions.length
+              }
+            : current
+        );
+        return true;
+      },
+      COMMAND_PRIORITY_HIGH
+    );
+  }, [autocomplete, editor]);
+
+  useEffect(() => {
+    function selectActiveSuggestion(event: KeyboardEvent | null): boolean {
+      if (!autocomplete) {
+        return false;
+      }
+
+      const suggestion = autocomplete.suggestions[autocomplete.activeIndex];
+      if (!suggestion) {
+        return false;
+      }
+
+      event?.preventDefault();
+      applySuggestion(suggestion);
+      return true;
+    }
+
+    const unregisterEnter = editor.registerCommand(KEY_ENTER_COMMAND, selectActiveSuggestion, COMMAND_PRIORITY_HIGH);
+    const unregisterTab = editor.registerCommand(KEY_TAB_COMMAND, selectActiveSuggestion, COMMAND_PRIORITY_HIGH);
+    return () => {
+      unregisterEnter();
+      unregisterTab();
+    };
+  }, [applySuggestion, autocomplete, editor]);
+
+  useEffect(() => {
+    return editor.registerCommand(
+      KEY_ESCAPE_COMMAND,
+      (event) => {
+        if (!autocomplete) {
+          return false;
+        }
+
+        event.preventDefault();
+        setAutocomplete(null);
+        return true;
+      },
+      COMMAND_PRIORITY_HIGH
+    );
+  }, [autocomplete, editor]);
+
+  if (!autocomplete || autocomplete.suggestions.length === 0) {
+    return null;
+  }
+
+  return (
+    <LexicalAutocompleteMenu autocomplete={autocomplete} onSelect={applySuggestion} />
+  );
+}
+
+function LexicalAutocompleteMenu({
+  autocomplete,
+  onSelect
+}: {
+  autocomplete: LexicalAutocompleteState;
+  onSelect: (suggestion: LexicalAutocompleteSuggestion) => void;
+}): JSX.Element {
+  return (
+    <div
+      className="tag-suggestions-dropdown editor-autocomplete-dropdown lexical-autocomplete-dropdown"
+      role="listbox"
+      aria-label={autocomplete.kind === 'link' ? 'Page link suggestions' : 'Tag suggestions'}
+    >
+      {autocomplete.suggestions.map((suggestion, index) => (
+        <button
+          key={suggestion.kind === 'link' ? suggestion.pageId : suggestion.tag}
+          type="button"
+          role="option"
+          aria-selected={index === autocomplete.activeIndex}
+          className={`tag-suggestion-item ${index === autocomplete.activeIndex ? 'is-active' : ''}`}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => onSelect(suggestion)}
+        >
+          {suggestion.kind === 'link' ? (
+            <>
+              <span className="tag-suggestion-token">[[{suggestion.title}]]</span>
+              <span className="editor-autocomplete-context">
+                {suggestion.isDuplicateTitle
+                  ? suggestion.pathLabel
+                  : suggestion.pathLabel.replace(` / ${suggestion.title}`, '')}
+              </span>
+            </>
+          ) : (
+            <span className="tag-suggestion-token">/{suggestion.tag}</span>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function getLexicalAutocompleteState(
+  editor: LexicalEditor,
+  pages: PageEditorProps['pages'],
+  chapters: PageEditorProps['chapters'],
+  books: PageEditorProps['books'],
+  currentPageId: string,
+  current: LexicalAutocompleteState | null
+): LexicalAutocompleteState | null {
+  if (!editor.isEditable()) {
+    return null;
+  }
+
+  const selection = $getSelection();
+  if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
+    return null;
+  }
+
+  const anchorNode = selection.anchor.getNode();
+  if (!$isTextNode(anchorNode)) {
+    return null;
+  }
+
+  const cursor = selection.anchor.offset;
+  const text = anchorNode.getTextContent();
+  const wikiTrigger = detectActiveWikiLinkTrigger(text, cursor);
+
+  if (wikiTrigger) {
+    const suggestions = getPageTitleAutocompleteSuggestions(pages, chapters, books, wikiTrigger.query, currentPageId)
+      .map((suggestion) => ({ ...suggestion, kind: 'link' as const }));
+
+    return suggestions.length > 0
+      ? buildNextLexicalAutocomplete(current, 'link', suggestions, anchorNode, wikiTrigger.start, wikiTrigger.end)
+      : null;
+  }
+
+  const tagTrigger = detectActiveSlashTagTrigger(text, cursor);
+  if (tagTrigger) {
+    const suggestions = getAllTagSuggestions(pages, tagTrigger.query)
+      .map((tag) => ({ kind: 'tag' as const, tag }));
+
+    return suggestions.length > 0
+      ? buildNextLexicalAutocomplete(current, 'tag', suggestions, anchorNode, tagTrigger.start, tagTrigger.end)
+      : null;
+  }
+
+  return null;
+}
+
+function buildNextLexicalAutocomplete(
+  current: LexicalAutocompleteState | null,
+  kind: LexicalAutocompleteKind,
+  suggestions: LexicalAutocompleteSuggestion[],
+  textNode: TextNode,
+  start: number,
+  end: number
+): LexicalAutocompleteState {
+  const textNodeKey = textNode.getKey();
+  const keepsActiveSuggestion =
+    current?.kind === kind &&
+    current.textNodeKey === textNodeKey &&
+    current.start === start &&
+    current.end === end &&
+    current.suggestions.map(getLexicalSuggestionKey).join('\n') === suggestions.map(getLexicalSuggestionKey).join('\n');
+
+  return {
+    kind,
+    suggestions,
+    activeIndex: keepsActiveSuggestion ? Math.min(current.activeIndex, suggestions.length - 1) : 0,
+    textNodeKey,
+    start,
+    end
+  };
+}
+
+function getLexicalSuggestionKey(suggestion: LexicalAutocompleteSuggestion): string {
+  return suggestion.kind === 'link' ? suggestion.pageId : suggestion.tag;
+}
+
+function buildSlashTagReplacement(tag: string, textNodeKey: string, end: number): string {
+  const textNode = $getRoot()
+    .getAllTextNodes()
+    .find((candidate) => candidate.getKey() === textNodeKey);
+  const nextCharacter = textNode?.getTextContent()[end] ?? '';
+  return nextCharacter.length > 0 && /\s/.test(nextCharacter) ? `/${tag}` : `/${tag} `;
+}
+
+function replaceLexicalTextRange(textNodeKey: string, start: number, end: number, replacement: string): void {
+  const textNode = $getRoot()
+    .getAllTextNodes()
+    .find((candidate) => candidate.getKey() === textNodeKey);
+
+  if (!textNode) {
+    return;
+  }
+
+  const safeStart = Math.max(0, Math.min(start, textNode.getTextContentSize()));
+  const safeEnd = Math.max(safeStart, Math.min(end, textNode.getTextContentSize()));
+  textNode.spliceText(safeStart, safeEnd - safeStart, replacement, true);
+
+  const nextSelection = $createRangeSelection();
+  const nextOffset = safeStart + replacement.length;
+  nextSelection.anchor.set(textNode.getKey(), nextOffset, 'text');
+  nextSelection.focus.set(textNode.getKey(), nextOffset, 'text');
+  $setSelection(nextSelection);
+}
+
 function getPreset(size: TextSizePresetId): (typeof TEXT_SIZE_PRESETS)[number] {
   return TEXT_SIZE_PRESETS.find((preset) => preset.id === size) ?? TEXT_SIZE_PRESETS[1];
 }
@@ -427,4 +833,49 @@ function getPresetForLegacyPx(size: number): (typeof TEXT_SIZE_PRESETS)[number] 
   return TEXT_SIZE_PRESETS.reduce((closest, preset) => {
     return Math.abs(preset.legacyPx - size) < Math.abs(closest.legacyPx - size) ? preset : closest;
   }, TEXT_SIZE_PRESETS[1]);
+}
+
+function getNearestListNode(node: LexicalNode): ListNode | null {
+  let current: LexicalNode | null = node;
+
+  while (current) {
+    if ($isListNode(current)) {
+      return current;
+    }
+
+    if ($isListItemNode(current)) {
+      return getListNodeFromItem(current);
+    }
+
+    current = current.getParent();
+  }
+
+  return null;
+}
+
+function getListNodeFromItem(node: LexicalNode): ListNode | null {
+  let current: LexicalNode | null = node.getParent();
+
+  while (current) {
+    if ($isListNode(current)) {
+      return current;
+    }
+    current = current.getParent();
+  }
+
+  return null;
+}
+
+function getNearestBlockNode(node: LexicalNode): LexicalNode | null {
+  let current: LexicalNode | null = node;
+
+  while (current) {
+    const parent: LexicalNode | null = current.getParent();
+    if (!parent || parent.getType() === 'root') {
+      return current;
+    }
+    current = parent;
+  }
+
+  return null;
 }

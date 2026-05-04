@@ -7,9 +7,11 @@ import {
   getAmbiguousLinks,
   getBacklinks,
   getBracketLinkMatches,
+  getPageTitleAutocompleteSuggestions,
   getBrokenLinks,
   getOutgoingLinks,
   getWikiLinkDestinationLabel,
+  replaceTextRangeWithSuggestion,
   parseContentIntoSegments
 } from './pageLinks';
 
@@ -142,6 +144,48 @@ describe('pageLinks', () => {
   it('generates destination labels for book chapter pages', () => {
     expect(getWikiLinkDestinationLabel(pages[0], chapters, books)).toBe(
       'Greek Myths / Olympians / Zeus Notes'
+    );
+  });
+
+  it('ranks page autocomplete suggestions by exact, starts-with, then contains matches', () => {
+    const suggestionPages = [
+      createPage('page-contains', 'A History Project', ''),
+      createPage('page-starts', 'History Timeline', ''),
+      createPage('page-exact', 'History', ''),
+      createPage('page-miss', 'Math Notes', '')
+    ];
+
+    expect(
+      getPageTitleAutocompleteSuggestions(suggestionPages, chapters, books, 'history').map(
+        (suggestion) => suggestion.title
+      )
+    ).toEqual(['History', 'History Timeline', 'A History Project']);
+  });
+
+  it('keeps duplicate page title autocomplete entries understandable with path labels', () => {
+    const duplicatePages = [
+      createPage('page-duplicate-a', 'Duplicate', '', { chapterId: 'chapter-1' }),
+      createPage('page-duplicate-b', 'Duplicate', '', { chapterId: null, isLoose: true })
+    ];
+    const suggestions = getPageTitleAutocompleteSuggestions(duplicatePages, chapters, books, 'dup');
+
+    expect(suggestions).toEqual([
+      expect.objectContaining({
+        title: 'Duplicate',
+        pathLabel: 'Greek Myths / Olympians / Duplicate',
+        isDuplicateTitle: true
+      }),
+      expect.objectContaining({
+        title: 'Duplicate',
+        pathLabel: 'Loose Pages / Duplicate',
+        isDuplicateTitle: true
+      })
+    ]);
+  });
+
+  it('formats selected wikilink autocomplete text as normal plain brackets', () => {
+    expect(replaceTextRangeWithSuggestion('See [[his later', 4, 9, '[[History Notes]]')).toBe(
+      'See [[History Notes]] later'
     );
   });
 });
