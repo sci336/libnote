@@ -71,7 +71,7 @@ The end of April added several features that made LibNote feel more durable and 
 - Backup download compatibility was improved.
 - Trash management was introduced for safer deletion.
 - The page editor gained a formatting toolbar.
-- The plain textarea editor was replaced with a rich `contentEditable` editor.
+- The plain textarea editor was replaced with rich text page editing.
 - Rich-text typing state was stabilized.
 - A Page Metadata panel was added.
 - Library guide copy and mobile menu layout were updated.

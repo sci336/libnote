@@ -303,9 +303,9 @@ function HelpSection(): JSX.Element {
 
       <GuideSection title="Writing and formatting">
         <p>
-          Pages use a rich text editor. The toolbar can apply bold, italic, underline, highlight, heading, bullet list,
-          numbered list, and checkbox list formatting. Formatting applies to selected text when text is selected, or to
-          what you type next when the cursor is active.
+          Pages use the Lexical rich text editor. The toolbar can apply bold, italic, underline, highlight, heading,
+          bullet list, numbered list, and checkbox list formatting. Formatting applies to selected text when text is
+          selected, or to what you type next when the cursor is active.
         </p>
         <p>
           The editor also supports common formatting shortcuts for bold, italic, underline, highlight, bullet lists,
@@ -601,8 +601,8 @@ function SettingsSection({
             <span className="search-result-badge">Page tools</span>
           </div>
           <p>
-            Pages use rich text editing with toolbar formatting for bold, italic, underline, highlight, headings,
-            lists, and checkbox lists.
+            Pages use Lexical rich text editing with toolbar formatting for bold, italic, underline, highlight,
+            headings, lists, and checkbox lists.
           </p>
           <ul className="settings-mini-list">
             <li>Text size controls live in each page editor and save with the page content.</li>

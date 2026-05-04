@@ -4,7 +4,7 @@ LibNote is a local-first note app built around a personal library metaphor. Inst
 
 The current app runs entirely in the browser. Notes, app settings, recent pages, and most preferences are saved locally, so LibNote is useful for private writing, research notes, study material, worldbuilding, project notebooks, and other collections that benefit from feeling like a small digital library.
 
-LibNote has no backend, account system, cloud sync, collaboration, or server-side storage in the current codebase. Production builds include PWA/offline shell support, and the library itself is stored locally in IndexedDB.
+LibNote has no backend, account system, cloud sync, collaboration, or server-side storage in the current codebase. Production builds include PWA/offline shell support, and the library itself is stored locally in IndexedDB. The home screen stays centered on the bookshelf/library concept instead of a dashboard-style workspace.
 
 ## Current Features
 
@@ -49,6 +49,7 @@ LibNote has no backend, account system, cloud sync, collaboration, or server-sid
 - Global search from the top bar.
 - Text search covers live book titles, chapter titles, page titles, and page content.
 - Search also has a Trash filter that searches trashed books, chapters, pages, and loose pages.
+- Tag-only and mixed text-plus-tag searches return pages; normal text search can also return books and chapters.
 - Search result cards show type badges, paths/context, and page snippets when content exists.
 - Result filters include All, Pages, Books, Chapters, Loose Pages, and Trash.
 - Text matches are ranked with title matches first, then content phrase/token matches, with stable type/title ordering for ties.
@@ -78,8 +79,8 @@ LibNote has no backend, account system, cloud sync, collaboration, or server-sid
 
 ### Page Editing
 
-- Rich text editing with a custom `contentEditable` editor.
-- Edit and Preview modes.
+- Rich text editing with the Lexical editor.
+- Edit and Preview modes. Pages open in Edit mode by default; Preview mode renders wikilinks and sanitized rich content for reading.
 - Formatting toolbar for text size, bold, italic, underline, highlight, heading, bullet list, numbered list, and checkbox/task list.
 - Text size presets: Small, Normal, Large, Extra Large, and Huge.
 - Editor shortcuts for bold, italic, underline, highlight, bullet lists, and numbered lists.
@@ -169,7 +170,7 @@ Offline support means the app shell can load from cache after it has been cached
 
 ## Large Library Performance
 
-LibNote now builds reusable derived in-memory library data from the stored book, chapter, and page arrays. This lets the UI read prepared lists, maps, groups, counts, and summaries instead of repeatedly filtering and sorting the full library during rendering.
+LibNote builds reusable derived in-memory library data from the stored book, chapter, and page arrays. This lets the UI read prepared lists, maps, groups, counts, and summaries instead of repeatedly filtering and sorting the full library during rendering.
 
 Derived library data currently includes:
 
@@ -270,7 +271,7 @@ Use double brackets to link to another page by title:
 See [[Greek Mythology Notes]] for the source list.
 ```
 
-Resolved links open the matching page in Preview mode. Missing links offer to create a new page. If more than one page has the same normalized title, the link is treated as ambiguous and the app asks which destination to open.
+In Preview mode, resolved links open the matching page. Missing links offer to create a new page. If more than one page has the same normalized title, the link is treated as ambiguous and the app asks which destination to open.
 
 Backlinks are automatic. If Page A links to `[[Page B]]`, Page B's Page Info panel lists Page A under Backlinks.
 
@@ -285,7 +286,7 @@ LibNote stores data locally in the browser using IndexedDB:
 
 The library snapshot contains normalized arrays of books, chapters, and pages. Settings are stored separately and include theme, library view options, shortcut bindings, recent page IDs, and last backup export time.
 
-"Local-first" means your data is saved on the device/browser profile where you use the app. The current app does not send notes to a server and does not sync between devices. If browser storage is cleared, a browser profile is deleted, or a device is lost, local data can be lost unless you have exported a backup.
+"Local-first" means your data is saved on the device/browser profile where you use the app. The current app does not send notes to a server and does not sync between devices. Library and settings writes are debounced by about 300 ms, and the app also attempts a final flush on `pagehide` when the tab closes or backgrounds. If browser storage is cleared, a browser profile is deleted, private/incognito storage is discarded, or a device is lost, local data can be lost unless you have exported a backup.
 
 ## Backup and Restore
 
@@ -367,6 +368,16 @@ npm run preview
 
 There is no lint script in the current `package.json`.
 
+Exact npm scripts:
+
+| Script | Command | Purpose |
+| --- | --- | --- |
+| `dev` | `vite` | Start the Vite development server. |
+| `test` | `vitest run` | Run the Vitest test suite once. |
+| `typecheck` | `tsc -b --pretty false` | Run TypeScript project-reference checks. |
+| `build` | `tsc -b && vite build` | Typecheck and create a production build in `dist/`. |
+| `preview` | `vite preview` | Serve the production build locally after building. |
+
 ## Tech Stack
 
 - React 18.
@@ -446,7 +457,8 @@ docs/
 The current test suite covers core utility and store behavior:
 
 - Backup validation/export helpers.
-- Library store mutations.
+- Library store mutations, trash, restore, reorder, and move flows.
+- Library selectors and derived navigation/sidebar data.
 - Page links and backlinks.
 - Search behavior.
 - Rich text conversion/sanitization.
@@ -458,6 +470,15 @@ Tests run with:
 npm test
 ```
 
+Type checking and production build verification run with:
+
+```bash
+npm run typecheck
+npm run build
+```
+
+There is no dedicated browser end-to-end test suite in the current repo. `docs/search-manual-qa.md` contains manual QA notes for text, tag, mixed, and Loose Page search.
+
 ## Current Limitations and Notes
 
 - Data is local to the browser profile unless exported and imported manually.
@@ -466,6 +487,9 @@ npm test
 - Restore replaces the current library; it does not merge two libraries.
 - Navigation does not use URL routes, so books, chapters, and pages do not have shareable deep links.
 - Recent Pages is fixed at 4 pages and is not currently configurable.
-- The editor is a lightweight custom rich text editor, not a full document editor framework.
+- The page editor uses Lexical and saves compatible rich HTML for search, export, backlinks, backup, and restore.
+- Large libraries use derived data and lazy search indexing, but there is no list virtualization or documented stress-test target for very large browser libraries.
 - Offline behavior depends on the production service worker cache and local browser storage.
+- The PWA shell is production-only; development mode unregisters service workers and clears matching app caches.
+- The automated tests are unit/jsdom focused. Browser rendering, accessibility, and PWA behavior still need manual verification.
 - Ambiguous wiki links require the user to choose between duplicate page-title matches.
