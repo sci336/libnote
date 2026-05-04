@@ -10,10 +10,26 @@ export function SaveStatusIndicator({ status, onRetry }: SaveStatusIndicatorProp
     return null;
   }
 
+  if (status.state === 'unsaved') {
+    return (
+      <div className="save-status save-status-unsaved" role="status" aria-live="polite">
+        Unsaved changes
+      </div>
+    );
+  }
+
   if (status.state === 'saving') {
     return (
       <div className="save-status save-status-saving" role="status" aria-live="polite">
         Saving...
+      </div>
+    );
+  }
+
+  if (status.state === 'retrying') {
+    return (
+      <div className="save-status save-status-retrying" role="status" aria-live="polite">
+        Retrying save...
       </div>
     );
   }
@@ -33,7 +49,12 @@ export function SaveStatusIndicator({ status, onRetry }: SaveStatusIndicatorProp
 
   return (
     <div className="save-status save-status-failed" role="alert">
-      <span>Save failed</span>
+      <div className="save-status-failed-copy">
+        <strong>{status.error.title}</strong>
+        <span>{status.error.message}</span>
+        <span>{status.error.recovery}</span>
+        <span>{status.error.suggestion}</span>
+      </div>
       <button type="button" className="save-status-retry" onClick={onRetry}>
         Retry
       </button>

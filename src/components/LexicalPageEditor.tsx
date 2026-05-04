@@ -52,7 +52,6 @@ import {
   type TextSizePresetId
 } from './EditorToolbar';
 import { PageMetadataPanel } from './PageMetadataPanel';
-import { SaveStatusIndicator } from './SaveStatusIndicator';
 import { WikiLinkPreview } from './WikiLinkPreview';
 import type { PageEditorProps } from './PageEditor';
 import { formatTimestamp } from '../utils/date';
@@ -110,7 +109,6 @@ export function LexicalPageEditor({
   pageTitleLookup,
   wikiLinkDestinationLabels,
   backlinks,
-  saveStatus,
   shouldAutoFocus = false,
   onChangeTitle,
   onChangeContent,
@@ -121,8 +119,7 @@ export function LexicalPageEditor({
   onOpenPage,
   onCreatePageFromLink,
   onOpenTagSearch,
-  onExportPage,
-  onRetrySave
+  onExportPage
 }: PageEditorProps): JSX.Element {
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
   const [showMovePanel, setShowMovePanel] = useState(false);
@@ -182,7 +179,6 @@ export function LexicalPageEditor({
             Updated {formatTimestamp(page.updatedAt)}
             {pageIsLoose ? ' - Loose Page' : ''}
           </p>
-          <SaveStatusIndicator status={saveStatus} onRetry={onRetrySave} />
           <div className="tag-editor" aria-label="Page tags">
             <div className="tag-list">
               {page.tags.map((tag) => (

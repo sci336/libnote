@@ -8,6 +8,11 @@ const SETTINGS_KEY = 'settings';
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
+    if (!('indexedDB' in window) || !window.indexedDB) {
+      reject(new DOMException('IndexedDB is unavailable in this browser context.', 'InvalidStateError'));
+      return;
+    }
+
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onupgradeneeded = () => {

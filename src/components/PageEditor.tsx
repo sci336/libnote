@@ -15,10 +15,9 @@ import {
   type TextSizePresetId
 } from './EditorToolbar';
 import { PageMetadataPanel } from './PageMetadataPanel';
-import { SaveStatusIndicator } from './SaveStatusIndicator';
 import { TagSuggestionsDropdown } from './TagSuggestionsDropdown';
 import { WikiLinkPreview } from './WikiLinkPreview';
-import type { Book, Chapter, Page, SaveStatus } from '../types/domain';
+import type { Book, Chapter, Page } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
 import { isLoosePage } from '../utils/pageState';
 import type { ContentSegment, PageTitleLookup } from '../utils/pageLinks';
@@ -46,7 +45,6 @@ export interface PageEditorProps {
   pageTitleLookup: PageTitleLookup;
   wikiLinkDestinationLabels: Map<string, string>;
   backlinks: Array<{ pageId: string; title: string; path: string }>;
-  saveStatus: SaveStatus;
   shouldAutoFocus?: boolean;
   onChangeTitle: (title: string) => void;
   onChangeContent: (content: string) => void;
@@ -58,7 +56,6 @@ export interface PageEditorProps {
   onCreatePageFromLink: (title: string) => void;
   onOpenTagSearch?: (tag: string) => void;
   onExportPage?: () => void;
-  onRetrySave: () => void;
 }
 
 type EditorAutocompleteKind = 'link' | 'tag';
@@ -83,7 +80,6 @@ export function PageEditor({
   pageTitleLookup,
   wikiLinkDestinationLabels,
   backlinks,
-  saveStatus,
   shouldAutoFocus = false,
   onChangeTitle,
   onChangeContent,
@@ -94,8 +90,7 @@ export function PageEditor({
   onOpenPage,
   onCreatePageFromLink,
   onOpenTagSearch,
-  onExportPage,
-  onRetrySave
+  onExportPage
 }: PageEditorProps): JSX.Element {
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
   const pageIsLoose = isLoosePage(page);
@@ -673,7 +668,6 @@ export function PageEditor({
             Updated {formatTimestamp(page.updatedAt)}
             {pageIsLoose ? ' - Loose Page' : ''}
           </p>
-          <SaveStatusIndicator status={saveStatus} onRetry={onRetrySave} />
           <div className="tag-editor" aria-label="Page tags">
             <div className="tag-list">
               {page.tags.map((tag) => (

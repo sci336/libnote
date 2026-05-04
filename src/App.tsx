@@ -7,6 +7,7 @@ import { SearchResultsView } from './components/SearchResultsView';
 import { Sidebar, type RecentSidebarPage } from './components/Sidebar';
 import { TagResultsView } from './components/TagResultsView';
 import { TopBar } from './components/TopBar';
+import { SaveStatusIndicator } from './components/SaveStatusIndicator';
 import { useLibraryApp } from './hooks/useLibraryApp';
 import { AppLayout } from './layouts/AppLayout';
 import { getChapterCountForBookFromDerived, getPageCountForChapterFromDerived } from './store/librarySelectors';
@@ -211,6 +212,7 @@ export default function App(): JSX.Element {
         />
       }
     >
+      <SaveStatusIndicator status={app.saveStatus} onRetry={app.retryLibrarySave} />
       {renderMainContent(app, data, {
         openPageById,
         openSearchResult,
@@ -421,7 +423,6 @@ function renderMainContent(
         pageTitleLookup={pageLinkState.pageTitleLookup}
         wikiLinkDestinationLabels={pageLinkState.wikiLinkDestinationLabels}
         backlinks={pageLinkState.activePageBacklinks}
-        saveStatus={app.saveStatus}
         shouldAutoFocus={app.shouldAutoFocusEditor}
         onChangeTitle={(title) => app.handleRenamePage(activePage.id, title)}
         onChangeContent={(content) => app.handleUpdatePageContent(activePage.id, content)}
@@ -433,7 +434,6 @@ function renderMainContent(
         onCreatePageFromLink={(title) => app.handleCreatePageFromLink(activePage, title)}
         onExportPage={() => app.handleExportPage(activePage.id)}
         onOpenTagSearch={app.handleOpenTag}
-        onRetrySave={app.retryLibrarySave}
       />
     );
   }

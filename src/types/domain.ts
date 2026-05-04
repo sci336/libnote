@@ -103,11 +103,21 @@ export interface AppSettings {
   lastBackupExportedAt: string | null;
 }
 
+export interface StorageFailureDetails {
+  title: string;
+  message: string;
+  recovery: string;
+  suggestion: string;
+  technicalMessage?: string;
+}
+
 export type SaveStatus =
   | { state: 'idle' }
+  | { state: 'unsaved' }
   | { state: 'saving' }
+  | { state: 'retrying' }
   | { state: 'saved'; lastSavedAt: number }
-  | { state: 'failed'; error?: string };
+  | { state: 'failed'; error: StorageFailureDetails };
 
 export type AppMenuSection = 'help' | 'shortcuts' | 'settings' | 'themes' | 'tagManagement' | 'backup' | 'credits';
 

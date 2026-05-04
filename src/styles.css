@@ -1702,7 +1702,7 @@ h1 {
 .save-status {
   width: fit-content;
   min-height: 1.75rem;
-  margin-top: 0.55rem;
+  margin: 0 0 0.8rem;
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
@@ -1715,8 +1715,16 @@ h1 {
   font-weight: 600;
 }
 
+.save-status-unsaved {
+  color: #7a5422;
+}
+
 .save-status-saving {
   color: #4b5563;
+}
+
+.save-status-retrying {
+  color: #7a5422;
 }
 
 .save-status-saved {
@@ -1724,12 +1732,33 @@ h1 {
 }
 
 .save-status-failed {
+  width: min(100%, 920px);
+  align-items: flex-start;
+  justify-content: space-between;
   border-color: rgba(143, 58, 42, 0.24);
   background: rgba(255, 246, 244, 0.92);
   color: var(--danger);
+  border-radius: 0.85rem;
+  padding: 0.75rem 0.85rem;
+}
+
+.save-status-failed-copy {
+  display: grid;
+  gap: 0.18rem;
+  line-height: 1.35;
+}
+
+.save-status-failed-copy strong {
+  color: var(--danger);
+}
+
+.save-status-failed-copy span {
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .save-status-retry {
+  flex: 0 0 auto;
   border: 1px solid rgba(143, 58, 42, 0.28);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.86);

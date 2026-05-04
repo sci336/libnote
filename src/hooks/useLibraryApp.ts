@@ -31,6 +31,7 @@ import {
   moveChapterToBook,
   moveLoosePageToChapter,
   movePageToChapter,
+  emptyLibraryData,
   persistLibraryData,
   reorderBooks,
   reorderChaptersInBook,
@@ -85,6 +86,7 @@ import {
   type BackupImportPreview,
   type ValidatedBackupPayload
 } from '../utils/backup';
+import { getStorageFailureDetails } from '../utils/storageError';
 
 const DESKTOP_WIDTH = 920;
 const PERSISTENCE_DELAY_MS = 300;
@@ -124,15 +126,49 @@ export function useLibraryApp() {
   const navigationHistoryRef = useRef<ViewState[]>([]);
   const latestDataVersionRef = useRef(0);
   const saveRequestIdRef = useRef(0);
+  const saveStatusRef = useRef<SaveStatus>({ state: 'idle' });
+  const shouldAutosaveDataRef = useRef(false);
 
   useEffect(() => {
-    Promise.all([hydrateLibraryData(), hydrateAppSettings()])
-      .then(([nextData, nextSettings]) => {
-        setData(nextData);
-        setSettings(nextSettings);
-        setSettingsHydrated(true);
-      })
-      .catch(console.error);
+    let canceled = false;
+
+    async function hydrateApp(): Promise<void> {
+      let nextData = emptyLibraryData;
+      let nextSettings = DEFAULT_APP_SETTINGS;
+      let storageFailure: SaveStatus | null = null;
+
+      try {
+        nextData = await hydrateLibraryData();
+      } catch (error) {
+        console.error('Failed to load library data', error);
+        storageFailure = { state: 'failed', error: getStorageFailureDetails(error) };
+      }
+
+      try {
+        nextSettings = await hydrateAppSettings();
+      } catch (error) {
+        console.error('Failed to load app settings', error);
+        storageFailure = { state: 'failed', error: getStorageFailureDetails(error) };
+      }
+
+      if (canceled) {
+        return;
+      }
+
+      setData(nextData);
+      setSettings(nextSettings);
+      setSettingsHydrated(true);
+
+      if (storageFailure) {
+        setSaveStatus(storageFailure);
+      }
+    }
+
+    void hydrateApp();
+
+    return () => {
+      canceled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -147,6 +183,10 @@ export function useLibraryApp() {
   }, [settings]);
 
   useEffect(() => {
+    saveStatusRef.current = saveStatus;
+  }, [saveStatus]);
+
+  useEffect(() => {
     currentViewRef.current = view;
   }, [view]);
 
@@ -157,6 +197,10 @@ export function useLibraryApp() {
   useDebouncedEffect(
     () => {
       if (!data) {
+        return;
+      }
+
+      if (!shouldAutosaveDataRef.current) {
         return;
       }
 
@@ -201,6 +245,22 @@ export function useLibraryApp() {
       window.removeEventListener('pagehide', flush);
     };
   }, [data]);
+
+  useEffect(() => {
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!shouldWarnBeforeLeaving(saveStatusRef.current)) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', warnBeforeUnload);
+    };
+  }, []);
 
   useEffect(() => {
     const syncSidebar = () => {
@@ -329,18 +389,25 @@ export function useLibraryApp() {
   }
 
   function updateData(nextData: LibraryData): void {
+    shouldAutosaveDataRef.current = true;
+    setSaveStatus({ state: 'unsaved' });
     setData(nextData);
   }
 
-  async function persistLibrarySnapshot(snapshot: LibraryData, dataVersion: number): Promise<void> {
+  async function persistLibrarySnapshot(
+    snapshot: LibraryData,
+    dataVersion: number,
+    options?: { isRetry?: boolean }
+  ): Promise<void> {
     const requestId = saveRequestIdRef.current + 1;
     saveRequestIdRef.current = requestId;
-    setSaveStatus({ state: 'saving' });
+    setSaveStatus({ state: options?.isRetry ? 'retrying' : 'saving' });
 
     try {
       await persistLibraryData(snapshot);
 
       if (requestId === saveRequestIdRef.current && dataVersion === latestDataVersionRef.current) {
+        shouldAutosaveDataRef.current = false;
         setSaveStatus({ state: 'saved', lastSavedAt: Date.now() });
       }
     } catch (error) {
@@ -349,7 +416,7 @@ export function useLibraryApp() {
       if (requestId === saveRequestIdRef.current && dataVersion === latestDataVersionRef.current) {
         setSaveStatus({
           state: 'failed',
-          error: error instanceof Error ? error.message : undefined
+          error: getStorageFailureDetails(error)
         });
       }
     }
@@ -361,7 +428,7 @@ export function useLibraryApp() {
       return;
     }
 
-    void persistLibrarySnapshot(latestData, latestDataVersionRef.current);
+    void persistLibrarySnapshot(latestData, latestDataVersionRef.current, { isRetry: true });
   }
 
   function replaceView(nextView: ViewState, options?: { shouldCloseSidebar?: boolean }): void {
@@ -1016,6 +1083,7 @@ export function useLibraryApp() {
 
       latestDataRef.current = nextData;
       latestSettingsRef.current = nextSettings;
+      shouldAutosaveDataRef.current = false;
       setSaveStatus({ state: 'saved', lastSavedAt: Date.now() });
       setData(nextData);
       setSettings(nextSettings);
@@ -1244,6 +1312,15 @@ function areViewsEqual(left: ViewState, right: ViewState): boolean {
 async function hydrateAppSettings(): Promise<AppSettings> {
   const persistedSettings = await loadAppSettings();
   return normalizeAppSettings(persistedSettings);
+}
+
+function shouldWarnBeforeLeaving(saveStatus: SaveStatus): boolean {
+  return (
+    saveStatus.state === 'unsaved' ||
+    saveStatus.state === 'saving' ||
+    saveStatus.state === 'retrying' ||
+    saveStatus.state === 'failed'
+  );
 }
 
 function areStringArraysEqual(left: string[], right: string[]): boolean {
