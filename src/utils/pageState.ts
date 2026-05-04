@@ -1,4 +1,5 @@
 import type { Page } from '../types/domain';
+import { contentToPreviewText } from './richText';
 
 /**
  * Loose pages are modeled redundantly on purpose: older snapshots may rely on
@@ -19,10 +20,5 @@ export function isChapterPage(page: Page): boolean {
  * formatting behavior.
  */
 export function getPagePreview(page: Page): string {
-  const trimmed = page.content.trim();
-  if (!trimmed) {
-    return 'Empty page';
-  }
-
-  return `${trimmed.slice(0, 90)}${trimmed.length > 90 ? '...' : ''}`;
+  return contentToPreviewText(page.content, { maxLength: 90, emptyText: 'Empty page' });
 }

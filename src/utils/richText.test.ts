@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contentToPlainText, sanitizePastedHtml, sanitizePastedPlainText } from './richText';
+import { contentToPlainText, contentToPreviewText, sanitizePastedHtml, sanitizePastedPlainText } from './richText';
 
 describe('richText paste sanitization', () => {
   it('preserves plain text paste with clean line breaks', () => {
@@ -79,5 +79,62 @@ describe('richText paste sanitization', () => {
     expect(contentToPlainText('<p>Hello <strong>bold</strong> <em>italic</em> <u>under</u></p>')).toBe(
       'Hello bold italic under'
     );
+  });
+});
+
+describe('richText preview text', () => {
+  it('converts paragraph HTML to readable preview text', () => {
+    expect(contentToPreviewText('<p>Hello <strong>world</strong>.</p>', { maxLength: 80 })).toBe('Hello world.');
+  });
+
+  it('preserves inline formatted text without exposing formatting tags', () => {
+    expect(
+      contentToPreviewText('<p><strong>Bold</strong> <em>Italic</em> <u>Underline</u> <mark>Marked</mark></p>', {
+        maxLength: 80
+      })
+    ).toBe('Bold Italic Underline Marked');
+  });
+
+  it('keeps heading text in previews', () => {
+    expect(contentToPreviewText('<h1>Chapter Notes</h1><p>Opening paragraph</p>', { maxLength: 80 })).toBe(
+      'Chapter Notes Opening paragraph'
+    );
+  });
+
+  it('keeps unordered list text in previews', () => {
+    expect(contentToPreviewText('<ul><li>First</li><li>Second</li></ul>', { maxLength: 80 })).toBe('- First - Second');
+  });
+
+  it('keeps ordered list text in previews', () => {
+    expect(contentToPreviewText('<ol><li>First</li><li>Second</li></ol>', { maxLength: 80 })).toBe('1. First 2. Second');
+  });
+
+  it('keeps task list state in previews', () => {
+    expect(
+      contentToPreviewText(
+        '<ul data-list-type="task"><li data-task-item="true" data-checked="true">Done</li><li data-task-item="true" data-checked="false">Todo</li></ul>',
+        { maxLength: 80 }
+      )
+    ).toBe('- [x] Done - [ ] Todo');
+  });
+
+  it('preserves existing empty rich text behavior', () => {
+    expect(contentToPreviewText('<p><br></p>', { maxLength: 80, emptyText: 'Empty page' })).toBe('Empty page');
+  });
+
+  it('handles mixed plain text and HTML', () => {
+    expect(contentToPreviewText('Intro <strong>bold</strong> <p>Paragraph</p>', { maxLength: 80 })).toBe(
+      'Intro bold Paragraph'
+    );
+  });
+
+  it('keeps slash tags inside formatted content', () => {
+    expect(contentToPreviewText('<p>Read <strong>/history</strong> and <em>/mythology</em>.</p>', { maxLength: 80 })).toBe(
+      'Read /history and /mythology.'
+    );
+  });
+
+  it('clips long previews after plain-text conversion', () => {
+    expect(contentToPreviewText('<p>Alpha beta gamma delta</p>', { maxLength: 10 })).toBe('Alpha beta...');
   });
 });

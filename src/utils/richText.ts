@@ -153,6 +153,18 @@ export function contentToPlainText(content: string): string {
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+export function contentToPreviewText(
+  content: string,
+  options: { maxLength: number; emptyText?: string } = { maxLength: 160 }
+): string {
+  const flattened = contentToPlainText(content).replace(/\s+/g, ' ').trim();
+  if (!flattened) {
+    return options.emptyText ?? '';
+  }
+
+  return flattened.length > options.maxLength ? `${flattened.slice(0, options.maxLength).trim()}...` : flattened;
+}
+
 function appendSanitizedChildren(target: Node, source: Node): void {
   source.childNodes.forEach((child) => {
     const sanitized = sanitizePastedNode(child);

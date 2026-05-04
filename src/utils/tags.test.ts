@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatTagQuery,
   getAllTagSuggestions,
+  getTagResults,
   isTagOnlyQuery,
   isValidTagToken,
   normalizeTag,
@@ -67,6 +68,27 @@ describe('tags', () => {
 
   it('formats selected tag autocomplete text as a normal slash tag', () => {
     expect(replaceSlashTagToken('Read /his today', 9, 'history')).toBe('Read /history today');
+  });
+
+  it('builds tag result snippets from rich HTML as plain text', () => {
+    const pages = [
+      {
+        ...createPage('page-1', ['history']),
+        title: 'Rich Note',
+        content:
+          '<h2>Heading</h2><p><strong>Bold</strong> <em>italic</em> <u>under</u> <mark>highlight</mark> <a href="https://example.com">link</a> /history</p><ul><li>Bullet</li></ul><ol><li>First</li></ol><ul data-list-type="task"><li data-task-item="true" data-checked="true">Done</li></ul>'
+      }
+    ];
+
+    expect(getTagResults(pages, [], [], ['history'])[0].snippet).toBe(
+      'Heading Bold italic under highlight link /history - Bullet 1. First - [x] Done'
+    );
+  });
+
+  it('preserves empty tag snippets for empty rich HTML', () => {
+    const pages = [{ ...createPage('page-1', ['history']), content: '<p><br></p>' }];
+
+    expect(getTagResults(pages, [], [], ['history'])[0].snippet).toBe('');
   });
 });
 

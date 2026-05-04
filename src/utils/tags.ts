@@ -1,5 +1,6 @@
 import type { Book, Chapter, Page } from '../types/domain';
 import { isLoosePage } from './pageState';
+import { contentToPreviewText } from './richText';
 
 export function normalizeTag(raw: string): string {
   return raw.trim().toLowerCase();
@@ -286,10 +287,5 @@ export function getTagResults(
 function buildTagSnippet(content: string): string {
   // Flatten aggressively so snippets from multi-line notes remain scannable in
   // the compact tag result cards.
-  const flattened = content.replace(/\s+/g, ' ').trim();
-  if (!flattened) {
-    return '';
-  }
-
-  return flattened.length > 140 ? `${flattened.slice(0, 140).trim()}...` : flattened;
+  return contentToPreviewText(content, { maxLength: 140 });
 }

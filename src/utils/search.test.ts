@@ -156,6 +156,35 @@ describe('search', () => {
     ]);
   });
 
+  it('builds search snippets from rich HTML as plain text', () => {
+    const richData: LibraryData = {
+      ...data,
+      pages: [
+        ...data.pages,
+        {
+          id: 'page-rich',
+          chapterId: 'chapter-myths',
+          title: 'Rich Content',
+          content:
+            '<h1>Heading</h1><p><strong>Bold</strong> <em>italic</em> <u>under</u> <mark>highlight</mark> /history</p><ul><li>Bullet</li></ul><ol><li>First</li></ol><ul data-list-type="task"><li data-task-item="true" data-checked="false">Todo</li></ul>',
+          tags: ['history'],
+          textSize: 16,
+          isLoose: false,
+          sortOrder: 3,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-02T00:00:00.000Z'
+        }
+      ]
+    };
+
+    const result = searchPages('highlight', buildSearchIndex(richData)).find((item) => item.id === 'page-rich');
+    const snippet = result && result.type === 'page' ? result.snippet : '';
+
+    expect(snippet).toContain('Heading Bold italic under highlight /history - Bullet 1. First - [ ] Todo');
+    expect(snippet).not.toContain('<');
+    expect(snippet).not.toContain('>');
+  });
+
   it('searches a large generated library while preserving ranking, tags, loose pages, and trash separation', () => {
     const largeData = buildLargeSearchLibrary();
     const largeIndex = buildSearchIndex(largeData);
