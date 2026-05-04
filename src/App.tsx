@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { AppMenu } from './components/AppMenu';
 import { EmptyState } from './components/EmptyState';
 import { PageEditor } from './components/PageEditor';
+import { LexicalPageEditor } from './components/LexicalPageEditor';
 import { SearchResultsView } from './components/SearchResultsView';
 import { Sidebar, type RecentSidebarPage } from './components/Sidebar';
 import { TagResultsView } from './components/TagResultsView';
@@ -23,6 +24,7 @@ import { ChapterView } from './views/ChapterView';
 import { LoosePagesView } from './views/LoosePagesView';
 import { RootView } from './views/RootView';
 import { TrashView } from './views/TrashView';
+import { USE_LEXICAL_EDITOR } from './config/editorFlags';
 
 const EMPTY_BOOK_MAP = new Map<string, Book>();
 const EMPTY_CHAPTER_MAP = new Map<string, Chapter>();
@@ -404,9 +406,10 @@ function renderMainContent(
     }
 
     const activePage = app.activePage;
+    const ActivePageEditor = USE_LEXICAL_EDITOR ? LexicalPageEditor : PageEditor;
 
     return (
-      <PageEditor
+      <ActivePageEditor
         page={activePage}
         books={app.books}
         chapters={app.allChapters}

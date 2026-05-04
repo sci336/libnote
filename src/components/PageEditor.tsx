@@ -34,7 +34,7 @@ import {
 } from '../utils/richText';
 import { detectActiveSlashTagTrigger, getAllTagSuggestions, parseSingleTagInput } from '../utils/tags';
 
-interface PageEditorProps {
+export interface PageEditorProps {
   page: Page;
   books: Book[];
   chapters: Chapter[];
@@ -393,6 +393,12 @@ export function PageEditor({
     document.execCommand('styleWithCSS', false, 'true');
 
     switch (action) {
+      case 'undo':
+        document.execCommand('undo');
+        break;
+      case 'redo':
+        document.execCommand('redo');
+        break;
       case 'bold':
         document.execCommand('bold');
         break;

@@ -1,4 +1,6 @@
 export type EditorFormatAction =
+  | 'undo'
+  | 'redo'
   | 'bold'
   | 'italic'
   | 'underline'
@@ -23,6 +25,7 @@ interface EditorToolbarProps {
   activeTextSize: TextSizePresetId;
   onTextSizeChange: (size: TextSizePresetId) => void;
   onBeforeTextSizeChange: () => void;
+  activeFormats?: Partial<Record<EditorFormatAction, boolean>>;
 }
 
 const TOOLBAR_BUTTONS: Array<{
@@ -31,6 +34,8 @@ const TOOLBAR_BUTTONS: Array<{
   title: string;
   text: string;
 }> = [
+  { action: 'undo', label: 'Undo', title: 'Undo', text: 'Undo' },
+  { action: 'redo', label: 'Redo', title: 'Redo', text: 'Redo' },
   { action: 'bold', label: 'Bold', title: 'Bold (Ctrl/Cmd+B)', text: 'B' },
   { action: 'italic', label: 'Italic', title: 'Italic (Ctrl/Cmd+I)', text: 'I' },
   { action: 'underline', label: 'Underline', title: 'Underline (Ctrl/Cmd+U)', text: 'U' },
@@ -45,7 +50,8 @@ export function EditorToolbar({
   onFormat,
   activeTextSize,
   onTextSizeChange,
-  onBeforeTextSizeChange
+  onBeforeTextSizeChange,
+  activeFormats = {}
 }: EditorToolbarProps): JSX.Element {
   return (
     <div className="editor-toolbar" role="toolbar" aria-label="Text formatting">
@@ -69,8 +75,9 @@ export function EditorToolbar({
         <button
           key={button.action}
           type="button"
-          className="editor-toolbar-button"
+          className={`editor-toolbar-button ${activeFormats[button.action] ? 'is-active' : ''}`}
           aria-label={button.label}
+          aria-pressed={activeFormats[button.action] ? true : undefined}
           title={button.title}
           onMouseDown={(event) => {
             event.preventDefault();
