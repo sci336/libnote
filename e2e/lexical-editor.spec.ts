@@ -1,0 +1,243 @@
+import { expect, type Locator, type Page, test } from '@playwright/test';
+
+test.describe('default Lexical editor', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Books', level: 1 })).toBeVisible();
+  });
+
+  test('creates a loose page, saves plain text, restores it after navigation and reload, and keeps search previews readable', async ({
+    page
+  }) => {
+    const editor = await createLoosePage(page);
+
+    await editor.pressSequentially('Durable plain phrase with /research and [[Example Page]].');
+    await expect(editor).toContainText('Durable plain phrase');
+    await waitForStoredContent(page, /Durable plain phrase/);
+
+    await page.getByRole('button', { name: 'Go to library home' }).click();
+    await page.getByRole('main').getByRole('button', { name: 'Loose Pages' }).click();
+    const previewCard = page.locator('article').filter({ hasText: 'Durable plain phrase' });
+    await expect(previewCard).toBeVisible();
+    await expect(previewCard).not.toContainText('<p>');
+    await expect(previewCard).not.toContainText('<strong');
+
+    await previewCard.getByRole('button', { name: 'Open' }).click();
+    await expect(page.getByLabel('Page content')).toContainText('[[Example Page]]');
+
+    await page.reload();
+    await openFirstLoosePage(page);
+    await expect(page.getByLabel('Page content')).toContainText('Durable plain phrase');
+    await expect(page.getByLabel('Page content')).toContainText('/research');
+
+    await page.getByLabel('Search books, chapters, pages, or slash tags').fill('research');
+    await expect(page.getByRole('button', { name: /Durable plain phrase/ })).toBeVisible();
+  });
+
+  test('persists selected and toggled inline formatting and updates toolbar active states from selection changes', async ({
+    page
+  }) => {
+    const editor = await createLoosePage(page);
+
+    await editor.pressSequentially('Bold selected text. ');
+    await selectEditorText(page, 'Bold selected');
+    await page.getByRole('button', { name: 'Bold' }).click();
+    await expectPressed(page, 'Bold', true);
+
+    await placeCaretAtEnd(page);
+    await expectPressed(page, 'Bold', false);
+
+    await toggleFormatAndType(page, 'Italic', 'Italic text. ');
+    await toggleFormatAndType(page, 'Underline', 'Under text. ');
+    await toggleFormatAndType(page, 'Highlight', 'Marked text. ');
+    await editor.pressSequentially('Plain after mark.');
+
+    await waitForStoredContent(page, /<strong>Bold selected<\/strong>/);
+    await waitForStoredContent(page, /<em>Italic text\. <\/em>/);
+    await waitForStoredContent(page, /<u>Under text\. <\/u>/);
+    await waitForStoredContent(page, /<mark>Marked text\. <\/mark>Plain after mark\./);
+
+    await page.reload();
+    await openFirstLoosePage(page);
+    const reloadedEditor = page.getByLabel('Page content');
+    await expect(reloadedEditor).toContainText('Bold selected text.');
+    await expect(reloadedEditor).toContainText('Plain after mark.');
+
+    await selectEditorText(page, 'Bold selected');
+    await expectPressed(page, 'Bold', true);
+    await selectEditorText(page, 'Italic text');
+    await expectPressed(page, 'Italic', true);
+    await selectEditorText(page, 'Under text');
+    await expectPressed(page, 'Underline', true);
+    await selectEditorText(page, 'Marked text');
+    await expectPressed(page, 'Highlight', true);
+
+    await placeCaretAfterText(page, 'Plain after mark');
+    await expectPressed(page, 'Underline', false);
+    await expectPressed(page, 'Highlight', false);
+  });
+
+  test('persists headings and list Enter behavior with active toolbar state coverage', async ({ page }) => {
+    const editor = await createLoosePage(page);
+
+    await editor.pressSequentially('Editor Reliability Heading');
+    await selectEditorText(page, 'Editor Reliability Heading');
+    await page.getByRole('button', { name: 'Heading' }).click();
+    await expectPressed(page, 'Heading', true);
+    await placeCaretAfterText(page, 'Editor Reliability Heading');
+    await page.keyboard.press('Enter');
+    await expectPressed(page, 'Heading', false);
+
+    await page.getByRole('button', { name: 'Bullet list' }).click();
+    await expectPressed(page, 'Bullet list', true);
+    await editor.pressSequentially('Bullet one');
+    await page.keyboard.press('Enter');
+    await editor.pressSequentially('Bullet two');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter');
+    await expectPressed(page, 'Bullet list', false);
+
+    await page.getByRole('button', { name: 'Numbered list' }).click();
+    await expectPressed(page, 'Numbered list', true);
+    await editor.pressSequentially('First numbered');
+    await page.keyboard.press('Enter');
+    await editor.pressSequentially('Second numbered');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter');
+    await expectPressed(page, 'Numbered list', false);
+
+    await editor.pressSequentially('After lists.');
+    await waitForStoredContent(page, /<h2>Editor Reliability Heading<\/h2>/);
+    await waitForStoredContent(page, /<ul><li>Bullet one<\/li><li>Bullet two<\/li><\/ul>/);
+    await waitForStoredContent(page, /<ol><li>First numbered<\/li><li>Second numbered<\/li><\/ol>/);
+
+    await page.reload();
+    await openFirstLoosePage(page);
+    await expect(page.getByLabel('Page content')).toContainText('Editor Reliability Heading');
+    await expect(page.getByLabel('Page content')).toContainText('Bullet one');
+    await expect(page.getByLabel('Page content')).toContainText('Second numbered');
+
+    await selectEditorText(page, 'Editor Reliability Heading');
+    await expectPressed(page, 'Heading', true);
+    await selectEditorText(page, 'Bullet one');
+    await expectPressed(page, 'Bullet list', true);
+    await selectEditorText(page, 'First numbered');
+    await expectPressed(page, 'Numbered list', true);
+  });
+});
+
+async function createLoosePage(page: Page): Promise<Locator> {
+  await page.getByRole('main').getByRole('button', { name: 'Loose Pages' }).click();
+  await page.getByRole('button', { name: 'Create Loose Page' }).click();
+  const editor = page.getByLabel('Page content');
+  await expect(editor).toBeVisible();
+  await editor.click();
+  return editor;
+}
+
+async function openFirstLoosePage(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Books', level: 1 })).toBeVisible();
+  await page.getByRole('main').getByRole('button', { name: 'Loose Pages' }).click();
+  await page.locator('article').first().getByRole('button', { name: 'Open' }).click();
+  await expect(page.getByLabel('Page content')).toBeVisible();
+}
+
+async function toggleFormatAndType(page: Page, label: string, text: string): Promise<void> {
+  await page.getByRole('button', { name: label }).click();
+  await expectPressed(page, label, true);
+  await page.getByLabel('Page content').pressSequentially(text);
+  await page.getByRole('button', { name: label }).click();
+  await expectPressed(page, label, false);
+}
+
+async function expectPressed(page: Page, label: string, pressed: boolean): Promise<void> {
+  const button = page.getByRole('button', { name: label });
+  if (pressed) {
+    await expect(button).toHaveAttribute('aria-pressed', 'true');
+    return;
+  }
+
+  await expect(button).not.toHaveAttribute('aria-pressed', 'true');
+}
+
+async function waitForStoredContent(page: Page, pattern: RegExp): Promise<void> {
+  await expect
+    .poll(async () => {
+      const pages = await getStoredPages(page);
+      return pages.some((storedPage) => pattern.test(storedPage.content));
+    })
+    .toBe(true);
+}
+
+async function getStoredPages(page: Page): Promise<Array<{ content: string }>> {
+  return page.evaluate(() => {
+    return new Promise<Array<{ content: string }>>((resolve, reject) => {
+      const request = indexedDB.open('note-library-db', 1);
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const transaction = db.transaction('app-state', 'readonly');
+        const storedRequest = transaction.objectStore('app-state').get('library');
+
+        storedRequest.onerror = () => reject(storedRequest.error);
+        storedRequest.onsuccess = () => {
+          const snapshot = storedRequest.result as { pages?: Array<{ content: string }> } | undefined;
+          resolve(snapshot?.pages ?? []);
+          db.close();
+        };
+      };
+    });
+  });
+}
+
+async function selectEditorText(page: Page, text: string): Promise<void> {
+  await setEditorSelection(page, text, 0, text.length);
+}
+
+async function placeCaretAfterText(page: Page, text: string): Promise<void> {
+  await setEditorSelection(page, text, text.length, text.length);
+}
+
+async function placeCaretAtEnd(page: Page): Promise<void> {
+  await page.getByLabel('Page content').evaluate((editor) => {
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+    (editor as HTMLElement).focus();
+    document.dispatchEvent(new Event('selectionchange', { bubbles: true }));
+  });
+}
+
+async function setEditorSelection(page: Page, text: string, startOffset: number, endOffset: number): Promise<void> {
+  await page.getByLabel('Page content').evaluate(
+    (editor, selection) => {
+      const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+      let current = walker.nextNode();
+
+      while (current) {
+        const value = current.textContent ?? '';
+        const index = value.indexOf(selection.text);
+        if (index !== -1) {
+          const range = document.createRange();
+          range.setStart(current, index + selection.startOffset);
+          range.setEnd(current, index + selection.endOffset);
+          const windowSelection = window.getSelection();
+          windowSelection?.removeAllRanges();
+          windowSelection?.addRange(range);
+          (editor as HTMLElement).focus();
+          document.dispatchEvent(new Event('selectionchange', { bubbles: true }));
+          return;
+        }
+
+        current = walker.nextNode();
+      }
+
+      throw new Error(`Could not find editor text: ${selection.text}`);
+    },
+    { text, startOffset, endOffset }
+  );
+}
