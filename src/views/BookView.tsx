@@ -57,7 +57,12 @@ export function BookView({
           <button type="button" className="primary-button" onClick={() => onCreateChapter(book.id)}>
             New Chapter
           </button>
-          <button type="button" className="danger-button subtle" onClick={() => onDeleteBook(book.id)}>
+          <button
+            type="button"
+            className="danger-button subtle"
+            aria-label={`Move ${book.title || 'Untitled Book'} and all of its chapters and pages to Trash`}
+            onClick={() => onDeleteBook(book.id)}
+          >
             Move Book to Trash
           </button>
         </div>
@@ -67,13 +72,14 @@ export function BookView({
         <ReorderableList
           items={chapters}
           onReorder={onReorderChapters}
+          getItemLabel={(chapter) => chapter.title || 'Untitled Chapter'}
           listClassName="stack-list"
           itemClassName="reorder-card"
           itemDraggingClassName="is-dragging"
           itemDropTopClassName="drop-top"
           itemDropBottomClassName="drop-bottom"
           isEnabled={chapters.length > 1}
-          renderItem={(chapter) => (
+          renderItem={(chapter, reorderControls) => (
             <article className="list-card">
               <div className="list-card-main">
                 <div className="list-card-row">
@@ -100,9 +106,15 @@ export function BookView({
                 <button type="button" className="secondary-button" onClick={() => onToggleMoveChapter(chapter.id)}>
                   Move to...
                 </button>
-                <button type="button" className="danger-button subtle" onClick={() => onDeleteChapter(chapter.id, book.id)}>
+                <button
+                  type="button"
+                  className="danger-button subtle"
+                  aria-label={`Move ${chapter.title || 'Untitled Chapter'} and all of its pages to Trash`}
+                  onClick={() => onDeleteChapter(chapter.id, book.id)}
+                >
                   Move to Trash
                 </button>
+                {reorderControls}
               </div>
               {movingChapterId === chapter.id ? (
                 <MoveTargetPanel

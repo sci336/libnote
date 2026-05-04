@@ -532,6 +532,13 @@ button {
   gap: 0.45rem;
 }
 
+.sidebar-reorder-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem;
+  align-items: center;
+}
+
 .sidebar-reorder-item,
 .reorder-card {
   border-radius: 1rem;
@@ -1391,6 +1398,36 @@ kbd {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.reorder-keyboard-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.reorder-keyboard-button {
+  min-width: 1.85rem;
+  min-height: 1.85rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  padding: 0.2rem 0.35rem;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.reorder-keyboard-button:hover,
+.reorder-keyboard-button:focus-visible {
+  color: var(--text-primary);
+  background: var(--surface-card);
+}
+
+.reorder-keyboard-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .eyebrow {

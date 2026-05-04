@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 interface Option {
   id: string;
@@ -27,6 +27,8 @@ export function MoveTargetPanel({
   onConfirm,
   onCancel
 }: MoveTargetPanelProps): JSX.Element {
+  const titleId = useId();
+  const selectRef = useRef<HTMLSelectElement | null>(null);
   const eligibleOptions = useMemo(
     () => options.filter((option) => option.id !== currentTargetId),
     [currentTargetId, options]
@@ -37,12 +39,34 @@ export function MoveTargetPanel({
     setSelectedId(eligibleOptions[0]?.id ?? '');
   }, [eligibleOptions]);
 
+  useEffect(() => {
+    const previouslyFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    window.requestAnimationFrame(() => selectRef.current?.focus());
+
+    return () => {
+      if (previouslyFocusedElement?.isConnected) {
+        previouslyFocusedElement.focus();
+      }
+    };
+  }, []);
+
   return (
-    <div className="move-panel">
-      <h3>{title}</h3>
+    <div
+      className="move-panel"
+      role="group"
+      aria-labelledby={titleId}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          onCancel();
+        }
+      }}
+    >
+      <h3 id={titleId}>{title}</h3>
       <label>
         <span>Destination</span>
-        <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
+        <select ref={selectRef} value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
           {eligibleOptions.map((option) => (
             <option key={option.id} value={option.id}>
               {option.label}

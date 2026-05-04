@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type {
   AppMenuSection,
@@ -23,6 +23,7 @@ import { RECENT_PAGES_LIMIT } from '../utils/appSettings';
 import { formatLastBackupTime, getBackupReminderState } from '../utils/backupReminder';
 import type { BackupImportPreview } from '../utils/backup';
 import { parseSingleTagInput, type TagSummary } from '../utils/tags';
+import { useModalFocus } from '../hooks/useModalFocus';
 
 const LIBRARY_ROW_OPTIONS: LibraryBooksPerRow[] = [2, 3, 4, 5];
 const LIBRARY_SHELF_STYLE_OPTIONS: Array<{ value: LibraryShelfStyle; label: string }> = [
@@ -97,20 +98,16 @@ export function AppMenu({
   onClose,
   onSelectSection
 }: AppMenuProps): JSX.Element | null {
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
+  const panelRef = useRef<HTMLElement | null>(null);
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
 
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  useModalFocus({
+    isOpen,
+    containerRef: panelRef,
+    initialFocusRef: titleRef,
+    fallbackReturnFocusSelector: 'button[aria-label="Open app menu"]',
+    onClose
+  });
 
   if (!isOpen) {
     return null;
@@ -118,17 +115,16 @@ export function AppMenu({
 
   return (
     <div className="app-menu-layer" role="dialog" aria-modal="true" aria-labelledby="app-menu-title">
-      <button
-        type="button"
+      <div
         className="app-menu-backdrop"
-        aria-label="Close app menu"
+        aria-hidden="true"
         onClick={onClose}
       />
-      <section className="app-menu-panel">
+      <section className="app-menu-panel" ref={panelRef} tabIndex={-1}>
         <div className="app-menu-header">
           <div>
             <p className="eyebrow">App Menu</p>
-            <h1 id="app-menu-title">Library Guide</h1>
+            <h1 id="app-menu-title" ref={titleRef} tabIndex={-1}>Library Guide</h1>
             <p className="app-menu-subtitle">Find help, quick reference, settings, and project info in one place.</p>
           </div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Close app menu">

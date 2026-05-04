@@ -219,11 +219,28 @@ function renderSegments(
 
             onCreatePageFromLink(label);
           }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && activePickerKey === pickerKey) {
+              event.preventDefault();
+              setActivePickerKey(null);
+            }
+          }}
         >
           {label}
         </button>
         {isAmbiguous && activePickerKey === pickerKey ? (
-          <span className="wiki-link-destination-picker" role="menu" aria-label={`Choose destination for ${label}`}>
+          <span
+            className="wiki-link-destination-picker"
+            role="menu"
+            aria-label={`Choose destination for ${label}`}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                setActivePickerKey(null);
+                event.currentTarget.parentElement?.querySelector<HTMLButtonElement>('.inline-page-link')?.focus();
+              }
+            }}
+          >
             <span className="wiki-link-destination-picker-title">Choose destination</span>
             {segment.matchingPageIds.map((pageId) => (
               <button
@@ -242,7 +259,13 @@ function renderSegments(
             <button
               type="button"
               className="wiki-link-destination-close"
-              onClick={() => setActivePickerKey(null)}
+              aria-label={`Cancel choosing destination for ${label}`}
+              onClick={(event) => {
+                setActivePickerKey(null);
+                event.currentTarget.parentElement?.parentElement
+                  ?.querySelector<HTMLButtonElement>('.inline-page-link')
+                  ?.focus();
+              }}
             >
               Cancel
             </button>

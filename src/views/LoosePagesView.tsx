@@ -51,7 +51,12 @@ export function LoosePagesView({
                 <button type="button" className="primary-button" onClick={() => onOpenPage(page.id)}>
                   Open
                 </button>
-                <button type="button" className="danger-button subtle" onClick={() => onDeletePage(page)}>
+                <button
+                  type="button"
+                  className="danger-button subtle"
+                  aria-label={`Move ${page.title || 'Untitled Page'} to Trash`}
+                  onClick={() => onDeletePage(page)}
+                >
                   Move to Trash
                 </button>
               </div>

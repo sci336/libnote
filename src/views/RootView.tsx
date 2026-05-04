@@ -1,10 +1,11 @@
-import { useEffect, useState, type CSSProperties, type KeyboardEvent, type SyntheticEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type SyntheticEvent } from 'react';
 import { EmptyState } from '../components/EmptyState';
 import { InlineEditableText } from '../components/InlineEditableText';
 import { ReorderableList } from '../components/ReorderableList';
 import type { Book, LibraryBooksPerRow, LibraryShelfStyle } from '../types/domain';
 import { BOOK_COVER_TEMPLATES, getBookCoverTemplate } from '../utils/bookCovers';
 import { formatTimestamp } from '../utils/date';
+import { useModalFocus } from '../hooks/useModalFocus';
 
 interface RootViewProps {
   books: Book[];
@@ -36,6 +37,9 @@ export function RootView({
   shelfStyle
 }: RootViewProps): JSX.Element {
   const [coverPickerBookId, setCoverPickerBookId] = useState<string | null>(null);
+  const coverPickerPanelRef = useRef<HTMLElement | null>(null);
+  const coverPickerTitleRef = useRef<HTMLHeadingElement | null>(null);
+  const coverPickerTriggerRef = useRef<HTMLButtonElement | null>(null);
   const coverPickerBook = books.find((book) => book.id === coverPickerBookId);
 
   useEffect(() => {
@@ -48,20 +52,13 @@ export function RootView({
     }
   }, [coverPickerBook, coverPickerBookId]);
 
-  useEffect(() => {
-    if (!coverPickerBookId) {
-      return;
-    }
-
-    function handleKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setCoverPickerBookId(null);
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [coverPickerBookId]);
+  useModalFocus({
+    isOpen: Boolean(coverPickerBook),
+    containerRef: coverPickerPanelRef,
+    initialFocusRef: coverPickerTitleRef,
+    returnFocusRef: coverPickerTriggerRef,
+    onClose: () => setCoverPickerBookId(null)
+  });
 
   function stopCardOpen(event: SyntheticEvent) {
     event.stopPropagation();
@@ -110,13 +107,14 @@ export function RootView({
           <ReorderableList
             items={books}
             onReorder={onReorderBooks}
+            getItemLabel={(book) => book.title || 'Untitled Book'}
             listClassName="book-gallery"
             itemClassName="reorder-card"
             itemDraggingClassName="is-dragging"
             itemDropTopClassName="drop-top"
             itemDropBottomClassName="drop-bottom"
             isEnabled={books.length > 1}
-            renderItem={(book) => {
+            renderItem={(book, reorderControls) => {
               const chapterCount = getChapterCountForBook(book.id);
               const coverTemplate = getBookCoverTemplate(book);
 
@@ -166,17 +164,22 @@ export function RootView({
                       <button
                         type="button"
                         className="secondary-button"
-                        onClick={() => setCoverPickerBookId(book.id)}
+                        onClick={(event) => {
+                          coverPickerTriggerRef.current = event.currentTarget;
+                          setCoverPickerBookId(book.id);
+                        }}
                       >
                         Change Cover
                       </button>
                       <button
                         type="button"
                         className="danger-button subtle"
+                        aria-label={`Move ${book.title || 'Untitled Book'} and all of its chapters and pages to Trash`}
                         onClick={() => onDeleteBook(book.id)}
                       >
                         Move to Trash
                       </button>
+                      {reorderControls}
                     </div>
                   </div>
                 </article>
@@ -195,17 +198,16 @@ export function RootView({
 
       {coverPickerBook && selectedCoverTemplate ? (
         <div className="cover-picker-layer" role="dialog" aria-modal="true" aria-labelledby="cover-picker-title">
-          <button
-            type="button"
+          <div
             className="cover-picker-backdrop"
-            aria-label="Close cover picker"
+            aria-hidden="true"
             onClick={() => setCoverPickerBookId(null)}
           />
-          <section className="cover-picker-panel">
+          <section className="cover-picker-panel" ref={coverPickerPanelRef} tabIndex={-1}>
             <div className="cover-picker-header">
               <div>
                 <p className="eyebrow">Book Cover</p>
-                <h2 id="cover-picker-title">Choose a Cover</h2>
+                <h2 id="cover-picker-title" ref={coverPickerTitleRef} tabIndex={-1}>Choose a Cover</h2>
                 <p className="cover-picker-subtitle">{coverPickerBook.title || 'Untitled Book'}</p>
               </div>
               <button

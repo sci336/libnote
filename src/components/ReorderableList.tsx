@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 
 type DropEdge = 'top' | 'bottom';
 
 interface ReorderableListProps<T extends { id: string }> {
   items: T[];
   onReorder: (orderedIds: string[]) => void;
-  renderItem: (item: T) => JSX.Element;
+  renderItem: (item: T, reorderControls: ReactNode) => JSX.Element;
+  getItemLabel?: (item: T) => string;
   listClassName?: string;
   itemClassName?: string;
   itemDraggingClassName?: string;
@@ -23,6 +24,7 @@ export function ReorderableList<T extends { id: string }>({
   items,
   onReorder,
   renderItem,
+  getItemLabel,
   listClassName,
   itemClassName,
   itemDraggingClassName,
@@ -54,12 +56,85 @@ export function ReorderableList<T extends { id: string }>({
     }
   }
 
+  function moveItem(itemId: string, nextIndex: number): void {
+    const currentIndex = ids.indexOf(itemId);
+
+    if (currentIndex === -1 || nextIndex < 0 || nextIndex >= ids.length || currentIndex === nextIndex) {
+      return;
+    }
+
+    const orderedIds = [...ids];
+    orderedIds.splice(currentIndex, 1);
+    orderedIds.splice(nextIndex, 0, itemId);
+    onReorder(orderedIds);
+  }
+
   return (
     <div className={listClassName}>
       {items.map((item) => {
         const isDragging = draggedId === item.id;
         const isDropTop = dropTarget?.id === item.id && dropTarget.edge === 'top';
         const isDropBottom = dropTarget?.id === item.id && dropTarget.edge === 'bottom';
+
+        const itemIndex = ids.indexOf(item.id);
+        const itemLabel = getItemLabel?.(item) ?? 'item';
+        const reorderControls =
+          isEnabled && ids.length > 1 ? (
+            <span className="reorder-keyboard-controls" role="group" aria-label={`Reorder ${itemLabel}`}>
+              <button
+                type="button"
+                className="reorder-keyboard-button"
+                aria-label={`Move ${itemLabel} to top`}
+                title="Move to top"
+                disabled={itemIndex === 0}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  moveItem(item.id, 0);
+                }}
+              >
+                ↑↑
+              </button>
+              <button
+                type="button"
+                className="reorder-keyboard-button"
+                aria-label={`Move ${itemLabel} up`}
+                title="Move up"
+                disabled={itemIndex === 0}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  moveItem(item.id, itemIndex - 1);
+                }}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                className="reorder-keyboard-button"
+                aria-label={`Move ${itemLabel} down`}
+                title="Move down"
+                disabled={itemIndex === ids.length - 1}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  moveItem(item.id, itemIndex + 1);
+                }}
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                className="reorder-keyboard-button"
+                aria-label={`Move ${itemLabel} to bottom`}
+                title="Move to bottom"
+                disabled={itemIndex === ids.length - 1}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  moveItem(item.id, ids.length - 1);
+                }}
+              >
+                ↓↓
+              </button>
+            </span>
+          ) : null;
 
         return (
           <div
@@ -119,7 +194,7 @@ export function ReorderableList<T extends { id: string }>({
             }}
             onDragEnd={resetDragState}
           >
-            {renderItem(item)}
+            {renderItem(item, reorderControls)}
           </div>
         );
       })}

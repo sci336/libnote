@@ -345,22 +345,26 @@ function SidebarSection({
             <ReorderableList
               items={items}
               onReorder={onReorder}
+              getItemLabel={(item) => item.label}
               listClassName="sidebar-reorder-list"
               itemClassName="sidebar-reorder-item"
               itemDraggingClassName="is-dragging"
               itemDropTopClassName="drop-top"
               itemDropBottomClassName="drop-bottom"
-              renderItem={(item) => (
-                <button
-                  type="button"
-                  className={`sidebar-item ${item.isActive ? 'is-active' : ''}`}
-                  onClick={item.onClick}
-                >
-                  <span className="drag-handle" aria-hidden="true">
-                    ::
-                  </span>
-                  <span className="sidebar-item-label">{item.label}</span>
-                </button>
+              renderItem={(item, reorderControls) => (
+                <div className="sidebar-reorder-content">
+                  <button
+                    type="button"
+                    className={`sidebar-item ${item.isActive ? 'is-active' : ''}`}
+                    onClick={item.onClick}
+                  >
+                    <span className="drag-handle" aria-hidden="true">
+                      ::
+                    </span>
+                    <span className="sidebar-item-label">{item.label}</span>
+                  </button>
+                  {reorderControls}
+                </div>
               )}
             />
           ) : (

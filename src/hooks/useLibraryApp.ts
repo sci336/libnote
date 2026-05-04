@@ -631,7 +631,12 @@ export function useLibraryApp() {
   }
 
   function handleDeleteBook(bookId: string): void {
-    if (!data || !window.confirm('Move this book and all of its chapters and pages to Trash?')) {
+    const bookTitle = data?.books.find((book) => book.id === bookId)?.title ?? 'this book';
+
+    if (
+      !data ||
+      !window.confirm(`Move "${bookTitle}" and all of its chapters and pages to Trash? You can restore them from Trash.`)
+    ) {
       return;
     }
 
@@ -640,7 +645,12 @@ export function useLibraryApp() {
   }
 
   function handleDeleteChapter(chapterId: string, bookId: string): void {
-    if (!data || !window.confirm('Move this chapter and all of its pages to Trash?')) {
+    const chapterTitle = data?.chapters.find((chapter) => chapter.id === chapterId)?.title ?? 'this chapter';
+
+    if (
+      !data ||
+      !window.confirm(`Move "${chapterTitle}" and all of its pages to Trash? You can restore them from Trash.`)
+    ) {
       return;
     }
 
@@ -649,7 +659,7 @@ export function useLibraryApp() {
   }
 
   function handleDeletePage(page: Page): void {
-    if (!data || !window.confirm('Move this page to Trash?')) {
+    if (!data || !window.confirm(`Move "${page.title}" to Trash? You can restore it from Trash.`)) {
       return;
     }
 
@@ -818,7 +828,7 @@ export function useLibraryApp() {
   }
 
   function handleEmptyTrash(): void {
-    if (!data || !window.confirm('Empty Trash? This will permanently delete all trashed items.')) {
+    if (!data || !window.confirm('Empty Trash? This will permanently delete all trashed items and cannot be undone.')) {
       return;
     }
 

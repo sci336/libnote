@@ -58,7 +58,12 @@ export function ChapterView({
           <button type="button" className="primary-button" onClick={() => onCreatePage(chapter.id)}>
             New Page
           </button>
-          <button type="button" className="danger-button subtle" onClick={() => onDeleteChapter(chapter.id, chapter.bookId)}>
+          <button
+            type="button"
+            className="danger-button subtle"
+            aria-label={`Move ${chapter.title || 'Untitled Chapter'} and all of its pages to Trash`}
+            onClick={() => onDeleteChapter(chapter.id, chapter.bookId)}
+          >
             Move Chapter to Trash
           </button>
         </div>
@@ -68,13 +73,14 @@ export function ChapterView({
         <ReorderableList
           items={pages}
           onReorder={onReorderPages}
+          getItemLabel={(page) => page.title || 'Untitled Page'}
           listClassName="stack-list"
           itemClassName="reorder-card"
           itemDraggingClassName="is-dragging"
           itemDropTopClassName="drop-top"
           itemDropBottomClassName="drop-bottom"
           isEnabled={pages.length > 1}
-          renderItem={(page) => (
+          renderItem={(page, reorderControls) => (
             <article className="list-card">
               <div className="list-card-main">
                 <div className="list-card-row">
@@ -98,9 +104,15 @@ export function ChapterView({
                 <button type="button" className="secondary-button" onClick={() => onToggleMovePage(page.id)}>
                   Move to...
                 </button>
-                <button type="button" className="danger-button subtle" onClick={() => onDeletePage(page)}>
+                <button
+                  type="button"
+                  className="danger-button subtle"
+                  aria-label={`Move ${page.title || 'Untitled Page'} to Trash`}
+                  onClick={() => onDeletePage(page)}
+                >
                   Move to Trash
                 </button>
+                {reorderControls}
               </div>
               {movingPageId === page.id ? (
                 <MoveTargetPanel

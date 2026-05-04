@@ -141,6 +141,37 @@ describe('useLibraryApp persistence', () => {
     expect(app?.saveStatus).toEqual({ state: 'saved', lastSavedAt: expect.any(Number) });
   });
 
+  it('uses clear destructive confirmation copy before moving a book to Trash', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    dbMocks.loadLibraryDataMock.mockResolvedValue({
+      books: [
+        {
+          id: 'book-a',
+          title: 'Field Notes',
+          sortOrder: 0,
+          createdAt: '2026-05-04T12:00:00.000Z',
+          updatedAt: '2026-05-04T12:00:00.000Z',
+          deletedAt: null,
+          deletedFrom: null
+        }
+      ],
+      chapters: [],
+      pages: []
+    });
+
+    await renderHarness();
+
+    act(() => {
+      app?.handleDeleteBook('book-a');
+    });
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Move "Field Notes" and all of its chapters and pages to Trash? You can restore them from Trash.'
+    );
+
+    confirmSpy.mockRestore();
+  });
+
   async function renderHarness(): Promise<void> {
     await act(async () => {
       root.render(<Harness onRender={(nextApp) => { app = nextApp; }} />);

@@ -22,7 +22,13 @@ export function TrashView({
           <h1>Trash</h1>
         </div>
         <div className="section-actions">
-          <button type="button" className="danger-button subtle" onClick={onEmptyTrash} disabled={items.length === 0}>
+          <button
+            type="button"
+            className="danger-button subtle"
+            aria-label="Permanently delete every item in Trash"
+            onClick={onEmptyTrash}
+            disabled={items.length === 0}
+          >
             Empty Trash
           </button>
         </div>
@@ -46,10 +52,20 @@ export function TrashView({
                 {item.originalLocation ? <p>From {item.originalLocation}</p> : null}
               </div>
               <div className="card-actions">
-                <button type="button" className="secondary-button" onClick={() => onRestore(item)}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  aria-label={`Restore ${item.title || 'Untitled'} from Trash`}
+                  onClick={() => onRestore(item)}
+                >
                   Restore
                 </button>
-                <button type="button" className="danger-button" onClick={() => onDeleteForever(item)}>
+                <button
+                  type="button"
+                  className="danger-button"
+                  aria-label={`Permanently delete ${item.title || 'Untitled'} from Trash. This cannot be undone.`}
+                  onClick={() => onDeleteForever(item)}
+                >
                   Delete Forever
                 </button>
               </div>
