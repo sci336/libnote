@@ -113,6 +113,7 @@ export function sanitizePastedHtml(html: string): string {
   const container = document.createElement('div');
 
   appendSanitizedChildren(container, doc.body);
+  normalizeWordListParagraphs(container);
   stripEmptyBlocks(container);
 
   return container.innerHTML;
@@ -181,7 +182,13 @@ function sanitizePastedNode(node: Node): Node | null {
   }
 
   if (node.tagName === 'P') {
-    return createSanitizedElement('p', node);
+    const paragraph = createSanitizedElement('p', node);
+    const wordList = getWordListParagraphMetadata(node);
+    if (wordList) {
+      paragraph.dataset.pasteListType = wordList.type;
+      paragraph.dataset.pasteListLevel = String(wordList.level);
+    }
+    return paragraph;
   }
 
   if (/^H[1-6]$/.test(node.tagName)) {
@@ -202,8 +209,19 @@ function sanitizePastedNode(node: Node): Node | null {
     return createSanitizedElement(inlineFormatTag, node);
   }
 
+  if (hasWordListIgnoreStyle(node)) {
+    return null;
+  }
+
   if (node.tagName === 'SPAN' && hasHighlightStyle(node)) {
     return createSanitizedElement('mark', node);
+  }
+
+  if (node.tagName === 'SPAN') {
+    const styledFormatTag = getInlineStyleFormatTag(node);
+    if (styledFormatTag) {
+      return createSanitizedElement(styledFormatTag, node);
+    }
   }
 
   if (PASTE_BLOCK_TAGS.has(node.tagName)) {
@@ -252,6 +270,105 @@ function createSanitizedList(source: HTMLElement): HTMLElement {
 function hasHighlightStyle(source: HTMLElement): boolean {
   const backgroundColor = source.style.backgroundColor.trim();
   return backgroundColor.length > 0 && backgroundColor !== 'transparent' && backgroundColor !== 'rgba(0, 0, 0, 0)';
+}
+
+function getInlineStyleFormatTag(source: HTMLElement): 'strong' | 'em' | 'u' | 'mark' | null {
+  const fontWeight = source.style.fontWeight.trim().toLowerCase();
+  if (fontWeight === 'bold' || Number(fontWeight) >= 600) {
+    return 'strong';
+  }
+
+  if (source.style.fontStyle.trim().toLowerCase() === 'italic') {
+    return 'em';
+  }
+
+  if (source.style.textDecorationLine.includes('underline') || source.style.textDecoration.includes('underline')) {
+    return 'u';
+  }
+
+  return hasHighlightStyle(source) ? 'mark' : null;
+}
+
+function hasWordListIgnoreStyle(source: HTMLElement): boolean {
+  return source.getAttribute('style')?.toLowerCase().includes('mso-list:ignore') ?? false;
+}
+
+function getWordListParagraphMetadata(source: HTMLElement): { type: 'ul' | 'ol'; level: number } | null {
+  const className = source.className.toString().toLowerCase();
+  const style = source.getAttribute('style')?.toLowerCase() ?? '';
+
+  if (!className.includes('msolistparagraph') && !style.includes('mso-list')) {
+    return null;
+  }
+
+  const levelMatch = style.match(/\blevel(\d+)/);
+  const level = Math.max(1, Math.min(6, levelMatch ? Number(levelMatch[1]) : 1));
+  const text = source.textContent?.replace(/\u00a0/g, ' ').trim() ?? '';
+  const type = /^\s*(\d+|[a-z]|[ivxlcdm]+)[.)]/i.test(text) ? 'ol' : 'ul';
+
+  return { type, level };
+}
+
+function normalizeWordListParagraphs(container: HTMLElement): void {
+  normalizeWordListParagraphChildren(container);
+  Array.from(container.children).forEach((child) => {
+    if (child instanceof HTMLElement) {
+      normalizeWordListParagraphs(child);
+    }
+  });
+}
+
+function normalizeWordListParagraphChildren(container: HTMLElement): void {
+  const stack: Array<{ level: number; type: 'ul' | 'ol'; list: HTMLElement; lastItem: HTMLLIElement | null }> = [];
+
+  Array.from(container.children).forEach((child) => {
+    if (!(child instanceof HTMLElement)) {
+      return;
+    }
+
+    const type = child.dataset.pasteListType as 'ul' | 'ol' | undefined;
+    const level = Number(child.dataset.pasteListLevel ?? '0');
+    if ((type !== 'ul' && type !== 'ol') || !Number.isFinite(level) || level < 1) {
+      stack.length = 0;
+      return;
+    }
+
+    while (stack.length > 0 && stack[stack.length - 1].level > level) {
+      stack.pop();
+    }
+
+    let frame = stack[stack.length - 1];
+    if (!frame || frame.level < level || frame.type !== type) {
+      while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+        stack.pop();
+      }
+
+      const list = document.createElement(type);
+      if (stack.length === 0) {
+        container.insertBefore(list, child);
+      } else {
+        const parentItem = stack[stack.length - 1].lastItem;
+        if (parentItem) {
+          parentItem.appendChild(list);
+        } else {
+          container.insertBefore(list, child);
+        }
+      }
+
+      frame = { level, type, list, lastItem: null };
+      stack.push(frame);
+    }
+
+    const item = document.createElement('li');
+    delete child.dataset.pasteListType;
+    delete child.dataset.pasteListLevel;
+    while (child.firstChild) {
+      item.appendChild(child.firstChild);
+    }
+    frame.list.appendChild(item);
+    frame.lastItem = item;
+    child.remove();
+  });
 }
 
 function hasSanitizedBlockChildren(source: HTMLElement): boolean {

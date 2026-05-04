@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { AutoFocusPlugin } from '@lexical/react/LexicalAutoFocusPlugin';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
@@ -22,6 +22,7 @@ import { $setBlocksType } from '@lexical/selection';
 import {
   $getSelection,
   $getRoot,
+  $createParagraphNode,
   $createRangeSelection,
   $isRangeSelection,
   $isTextNode,
@@ -88,6 +89,13 @@ interface LexicalAutocompleteState {
   textNodeKey: string;
   start: number;
   end: number;
+  position: LexicalAutocompletePosition;
+}
+
+interface LexicalAutocompletePosition {
+  top: number;
+  left: number;
+  width: number;
 }
 
 export function LexicalPageEditor({
@@ -454,7 +462,12 @@ function LexicalToolbar({
         break;
       case 'heading':
         editor.update(() => {
-          $setBlocksType($getSelection(), () => $createHeadingNode('h2'));
+          const selection = $getSelection();
+          const anchorNode = $isRangeSelection(selection) ? selection.anchor.getNode() : null;
+          const blockNode = anchorNode ? getNearestBlockNode(anchorNode) : null;
+          $setBlocksType(selection, () =>
+            $isHeadingNode(blockNode) ? $createParagraphNode() : $createHeadingNode('h2')
+          );
         });
         break;
       case 'bulletList':
@@ -669,6 +682,19 @@ function LexicalAutocompletePlugin({
     );
   }, [autocomplete, editor]);
 
+  useEffect(() => {
+    if (!autocomplete) {
+      return undefined;
+    }
+
+    window.addEventListener('resize', updateAutocomplete);
+    window.addEventListener('scroll', updateAutocomplete, true);
+    return () => {
+      window.removeEventListener('resize', updateAutocomplete);
+      window.removeEventListener('scroll', updateAutocomplete, true);
+    };
+  }, [autocomplete, updateAutocomplete]);
+
   if (!autocomplete || autocomplete.suggestions.length === 0) {
     return null;
   }
@@ -685,11 +711,18 @@ function LexicalAutocompleteMenu({
   autocomplete: LexicalAutocompleteState;
   onSelect: (suggestion: LexicalAutocompleteSuggestion) => void;
 }): JSX.Element {
+  const style = {
+    '--lexical-autocomplete-top': `${autocomplete.position.top}px`,
+    '--lexical-autocomplete-left': `${autocomplete.position.left}px`,
+    '--lexical-autocomplete-width': `${autocomplete.position.width}px`
+  } as CSSProperties;
+
   return (
     <div
       className="tag-suggestions-dropdown editor-autocomplete-dropdown lexical-autocomplete-dropdown"
       role="listbox"
       aria-label={autocomplete.kind === 'link' ? 'Page link suggestions' : 'Tag suggestions'}
+      style={style}
     >
       {autocomplete.suggestions.map((suggestion, index) => (
         <button
@@ -776,6 +809,7 @@ function buildNextLexicalAutocomplete(
   end: number
 ): LexicalAutocompleteState {
   const textNodeKey = textNode.getKey();
+  const position = getLexicalAutocompletePosition();
   const keepsActiveSuggestion =
     current?.kind === kind &&
     current.textNodeKey === textNodeKey &&
@@ -789,8 +823,59 @@ function buildNextLexicalAutocomplete(
     activeIndex: keepsActiveSuggestion ? Math.min(current.activeIndex, suggestions.length - 1) : 0,
     textNodeKey,
     start,
-    end
+    end,
+    position
   };
+}
+
+function getLexicalAutocompletePosition(): LexicalAutocompletePosition {
+  const fallback = { top: 48, left: 16, width: 320 };
+  const rootElement = document.activeElement?.closest('.lexical-editing-pane');
+  const pane = rootElement instanceof HTMLElement ? rootElement : null;
+  const selection = window.getSelection();
+
+  if (!pane || !selection || selection.rangeCount === 0) {
+    return fallback;
+  }
+
+  const range = selection.getRangeAt(0).cloneRange();
+  const caretRect = getRangeClientRect(range);
+  const paneRect = pane.getBoundingClientRect();
+
+  if (!caretRect || paneRect.width <= 0) {
+    return getFallbackAutocompletePosition(pane);
+  }
+
+  const menuWidth = Math.min(352, Math.max(220, paneRect.width - 32));
+  const rawLeft = caretRect.left - paneRect.left + pane.scrollLeft;
+  const rawTop = caretRect.bottom - paneRect.top + pane.scrollTop + 8;
+  const left = clamp(rawLeft, 12, Math.max(12, pane.clientWidth - menuWidth - 12));
+  const top = Math.max(12, rawTop);
+
+  return { top, left, width: menuWidth };
+}
+
+function getRangeClientRect(range: Range): DOMRect | null {
+  const firstRect = range.getClientRects()[0];
+  if (firstRect && (firstRect.width > 0 || firstRect.height > 0)) {
+    return firstRect;
+  }
+
+  const rect = range.getBoundingClientRect();
+  return rect.width > 0 || rect.height > 0 ? rect : null;
+}
+
+function getFallbackAutocompletePosition(pane: HTMLElement): LexicalAutocompletePosition {
+  const width = Math.min(352, Math.max(220, pane.clientWidth - 32));
+  return {
+    top: 48,
+    left: clamp(16, 12, Math.max(12, pane.clientWidth - width - 12)),
+    width
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
 
 function getLexicalSuggestionKey(suggestion: LexicalAutocompleteSuggestion): string {

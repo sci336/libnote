@@ -77,6 +77,25 @@ describe('lexical rich text prototype compatibility', () => {
     expect(plainText).toContain('1. First');
   });
 
+  it('preserves nested lists when existing editor HTML is loaded and saved', async () => {
+    const html = await roundTripHtml('<ul><li>Parent<ul><li>Nested</li></ul></li><li>Sibling</li></ul>');
+
+    expect(html).toContain('<ul><li>Parent<ul><li>Nested</li></ul></li><li>Sibling</li></ul>');
+    expect(contentToPlainText(html)).toBe('- Parent\n  - Nested\n- Sibling');
+  });
+
+  it('preserves nested pasted lists after sanitization and Lexical import', async () => {
+    const pastedHtml = sanitizeClipboardToHtml(
+      '<div><ul class="foreign"><li style="color:red">Parent<ul><li><b>Nested</b></li></ul></li></ul></div>',
+      ''
+    );
+    const html = await roundTripHtml(pastedHtml);
+
+    expect(pastedHtml).toBe('<ul><li>Parent<ul><li><strong>Nested</strong></li></ul></li></ul>');
+    expect(html).toContain('<ul><li>Parent<ul><li><strong>Nested</strong></li></ul></li></ul>');
+    expect(contentToPlainText(html)).toBe('- Parent\n  - Nested');
+  });
+
   it('serializes task lists in the current editor-compatible HTML shape', async () => {
     const html = await roundTripHtml(
       '<ul data-list-type="task"><li data-task-item="true" data-checked="true">Done</li><li data-task-item="true" data-checked="false">Todo</li></ul>'
@@ -124,6 +143,45 @@ describe('lexical rich text prototype compatibility', () => {
         ''
       )
     ).toBe('<p><strong>Safe</strong> [[Link]] /tag</p>');
+  });
+
+  it('keeps useful Google Docs style formatting without importing classes or styles', async () => {
+    const pastedHtml = sanitizeClipboardToHtml(
+      '<meta charset="utf-8"><p class="docs-paragraph" style="line-height:1.38"><span style="font-weight:700">Bold</span> <span style="font-style:italic">Italic</span> <span style="text-decoration:underline">Under</span> <span style="background-color:rgb(255, 242, 204)">Mark</span></p>',
+      ''
+    );
+    const html = await roundTripHtml(pastedHtml);
+
+    expect(pastedHtml).toBe('<p><strong>Bold</strong> <em>Italic</em> <u>Under</u> <mark>Mark</mark></p>');
+    expect(html).toBe('<p><strong>Bold</strong> <em>Italic</em> <u>Under</u> <mark>Mark</mark></p>');
+    expect(html).not.toContain('class=');
+    expect(html).not.toContain('style=');
+  });
+
+  it('converts Word-like list paragraphs into nested compatible lists', async () => {
+    const pastedHtml = sanitizeClipboardToHtml(
+      [
+        '<p class="MsoListParagraphCxSpFirst" style="mso-list:l0 level1 lfo1">',
+        '<span style="mso-list:Ignore">1.<span>&nbsp;&nbsp;</span></span>Parent',
+        '</p>',
+        '<p class="MsoListParagraphCxSpMiddle" style="mso-list:l0 level2 lfo1">',
+        '<span style="mso-list:Ignore">a.<span>&nbsp;&nbsp;</span></span><b>Nested</b>',
+        '</p>',
+        '<p class="MsoListParagraphCxSpLast" style="mso-list:l0 level1 lfo1">',
+        '<span style="mso-list:Ignore">2.<span>&nbsp;&nbsp;</span></span>Sibling',
+        '</p>'
+      ].join(''),
+      ''
+    );
+    const html = await roundTripHtml(pastedHtml);
+
+    expect(pastedHtml).toBe('<ol><li>Parent<ol><li><strong>Nested</strong></li></ol></li><li>Sibling</li></ol>');
+    expect(html).toBe('<ol><li>Parent<ol><li><strong>Nested</strong></li></ol></li><li>Sibling</li></ol>');
+    expect(contentToPlainText(html)).toBe('1. Parent\n  1. Nested\n2. Sibling');
+  });
+
+  it('uses plain text clipboard data when HTML is unavailable', () => {
+    expect(sanitizeClipboardToHtml('', 'Line one\nLine <two>')).toBe('Line one<br>Line &lt;two&gt;');
   });
 });
 

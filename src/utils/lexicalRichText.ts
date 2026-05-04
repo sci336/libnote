@@ -119,26 +119,53 @@ function createSupportedNodesFromDom(source: HTMLElement): LexicalNode[] {
     }
 
     if (child.tagName === 'UL' || child.tagName === 'OL') {
-      const listType: ListType =
-        child.tagName === 'OL' ? 'number' : child.dataset.listType === 'task' ? 'check' : 'bullet';
-      const list = $createListNode(listType);
-      child.childNodes.forEach((itemNode) => {
-        if (!(itemNode instanceof HTMLElement) || itemNode.tagName !== 'LI') {
-          return;
-        }
-
-        const item = $createListItemNode(listType === 'check' ? itemNode.dataset.checked === 'true' : undefined);
-        appendInlineDomChildren(item, itemNode, []);
-        list.append(item);
-      });
-
-      if (!list.isEmpty()) {
+      const list = createListNodeFromDom(child);
+      if (list && !list.isEmpty()) {
         nodes.push(list);
       }
     }
   });
 
   return nodes;
+}
+
+function createListNodeFromDom(source: HTMLElement): ListNode | null {
+  if (source.tagName !== 'UL' && source.tagName !== 'OL') {
+    return null;
+  }
+
+  const listType = getDomListType(source);
+  const list = $createListNode(listType);
+
+  source.childNodes.forEach((itemNode) => {
+    if (!(itemNode instanceof HTMLElement) || itemNode.tagName !== 'LI') {
+      return;
+    }
+
+    const item = $createListItemNode(listType === 'check' ? itemNode.dataset.checked === 'true' : undefined);
+    appendInlineDomChildren(item, itemNode, []);
+
+    itemNode.childNodes.forEach((child) => {
+      if (child instanceof HTMLElement && (child.tagName === 'UL' || child.tagName === 'OL')) {
+        const nestedList = createListNodeFromDom(child);
+        if (nestedList && !nestedList.isEmpty()) {
+          item.append(nestedList);
+        }
+      }
+    });
+
+    list.append(item);
+  });
+
+  return list;
+}
+
+function getDomListType(source: HTMLElement): ListType {
+  if (source.tagName === 'OL') {
+    return 'number';
+  }
+
+  return source.dataset.listType === 'task' ? 'check' : 'bullet';
 }
 
 function appendInlineDomChildren(target: ElementNode, source: HTMLElement, formats: TextFormatType[]): void {
@@ -161,6 +188,10 @@ function appendInlineDomChildren(target: ElementNode, source: HTMLElement, forma
 
     if (child.tagName === 'BR') {
       target.append($createLineBreakNode());
+      return;
+    }
+
+    if (child.tagName === 'UL' || child.tagName === 'OL') {
       return;
     }
 

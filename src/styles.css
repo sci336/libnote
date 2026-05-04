@@ -2835,7 +2835,9 @@ mark {
 }
 
 .lexical-autocomplete-dropdown {
-  top: 3rem;
+  top: var(--lexical-autocomplete-top, 3rem);
+  left: var(--lexical-autocomplete-left, 1rem);
+  width: min(var(--lexical-autocomplete-width, 22rem), calc(100% - 1.5rem));
   max-height: min(18rem, calc(100% - 4rem));
   overflow-y: auto;
 }
