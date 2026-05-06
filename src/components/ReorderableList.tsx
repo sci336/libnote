@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useRef, useMemo, useState, type ReactNode } from 'react';
 
 type DropEdge = 'top' | 'bottom';
 
@@ -34,6 +34,7 @@ export function ReorderableList<T extends { id: string }>({
 }: ReorderableListProps<T>): JSX.Element {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ id: string; edge: DropEdge } | null>(null);
+  const announceRef = useRef<HTMLDivElement | null>(null);
 
   const ids = useMemo(() => items.map((item) => item.id), [items]);
 
@@ -56,6 +57,12 @@ export function ReorderableList<T extends { id: string }>({
     }
   }
 
+  function announce(message: string): void {
+    if (announceRef.current) {
+      announceRef.current.textContent = message;
+    }
+  }
+
   function moveItem(itemId: string, nextIndex: number): void {
     const currentIndex = ids.indexOf(itemId);
 
@@ -63,14 +70,20 @@ export function ReorderableList<T extends { id: string }>({
       return;
     }
 
+    const item = items.find((candidate) => candidate.id === itemId);
+    const label = item ? (getItemLabel?.(item) ?? 'item') : 'item';
+
     const orderedIds = [...ids];
     orderedIds.splice(currentIndex, 1);
     orderedIds.splice(nextIndex, 0, itemId);
     onReorder(orderedIds);
+
+    announce(`${label}, position ${nextIndex + 1} of ${ids.length}`);
   }
 
   return (
     <div className={listClassName}>
+      <div ref={announceRef} className="sr-only" aria-live="assertive" role="status" />
       {items.map((item) => {
         const isDragging = draggedId === item.id;
         const isDropTop = dropTarget?.id === item.id && dropTarget.edge === 'top';

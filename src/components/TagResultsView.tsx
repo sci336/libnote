@@ -86,7 +86,7 @@ export function TagResultsView({
           <div>
             <p className="eyebrow">Tags</p>
             <h1>Tagged Pages</h1>
-            <div className="active-tag-list" aria-label="Active tag filters">
+            <div className="active-tag-list" role="group" aria-label="Active tag filters">
               {tags.map((tag) => (
                 <span key={tag} className="active-tag-pill">
                   <span>/{tag}</span>
@@ -140,6 +140,7 @@ export function TagResultsView({
                   onKeyDown={(event) => {
                     if (!shouldShowSuggestions) {
                       if (event.key === 'Escape') {
+                        event.stopPropagation();
                         setSuggestionsVisible(false);
                       }
                       return;
@@ -167,6 +168,7 @@ export function TagResultsView({
 
                     if (event.key === 'Escape') {
                       event.preventDefault();
+                      event.stopPropagation();
                       setSuggestionsVisible(false);
                     }
                   }}
@@ -187,7 +189,7 @@ export function TagResultsView({
             {tagFeedback ? <p className="tag-filter-feedback">{tagFeedback}</p> : null}
 
             {quickAddTags.length > 0 ? (
-              <div className="recent-tags-strip" aria-label="Recent tags">
+              <div className="recent-tags-strip" role="group" aria-label="Recent tags">
                 <span className="recent-tags-label">Recent</span>
                 <div className="recent-tags-list">
                   {quickAddTags.map((tag) => (

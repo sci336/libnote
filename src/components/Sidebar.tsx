@@ -174,9 +174,19 @@ export function Sidebar(props: SidebarProps): JSX.Element {
     <>
       <div
         className={`sidebar-backdrop ${isOpen ? 'is-visible' : ''}`}
+        aria-hidden="true"
         onClick={onClose}
       />
-      <aside className={`sidebar ${isOpen ? 'is-open' : ''}`}>
+      <aside
+        className={`sidebar ${isOpen ? 'is-open' : ''}`}
+        aria-label="Library navigation"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' && isOpen) {
+            event.stopPropagation();
+            onClose();
+          }
+        }}
+      >
         {/* Global and contextual sections are kept separate so loose pages stay
             reachable even while book/chapter/page context changes below. */}
         {showsBooks && (

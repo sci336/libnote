@@ -218,11 +218,17 @@ export function LexicalPageEditor({
               type="text"
               className="tag-input"
               value={tagInput}
+              aria-label="Add tag"
               onChange={(event) => setTagInput(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault();
                   addTagFromInput();
+                }
+                if (event.key === 'Escape') {
+                  event.stopPropagation();
+                  setTagInput('');
+                  (event.target as HTMLInputElement).blur();
                 }
               }}
               placeholder="Add /tag"
@@ -257,7 +263,16 @@ export function LexicalPageEditor({
       </div>
 
       {pageIsLoose && showMovePanel ? (
-        <div className="move-panel">
+        <div
+          className="move-panel"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              event.stopPropagation();
+              setShowMovePanel(false);
+            }
+          }}
+        >
           <h3>Move Loose Page into a Chapter</h3>
           <label>
             <span>Book</span>

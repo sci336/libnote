@@ -59,7 +59,7 @@ export function SearchResultsView({
       </div>
 
       {trimmedQuery && !isEmptyTag ? (
-        <div className="search-filter-row" aria-label="Search result filters">
+        <div className="search-filter-row" role="group" aria-label="Search result filters">
           {filterOptions.map((option) => (
             <button
               key={option.value}
