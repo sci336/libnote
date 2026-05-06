@@ -1,5 +1,5 @@
 import type { Book, Chapter, ID, LibraryData, Page } from '../types/domain';
-import { contentToPlainText } from './richText';
+import { contentToPlainText, contentToPreviewText } from './richText';
 import { isValidTagToken, normalizeTag, normalizeTagList, parseTagQuery } from './tags';
 import { isLoosePage } from './pageState';
 
@@ -228,7 +228,7 @@ export function searchLibraryEntities(query: string, index: SearchIndex): Search
         type: 'page',
         id: record.page.id,
         title: record.page.title,
-        snippet: '',
+        snippet: buildPreviewSnippetFromRecord(record),
         parentBookId: record.parentBookId,
         parentBookTitle: record.parentBookTitle,
         parentChapterId: record.parentChapterId,
@@ -311,7 +311,7 @@ export function searchTrashedEntities(query: string, index: SearchIndex): Search
   if (mode.type === 'tag') {
     return index.trashPages
       .filter((record) => pageHasAllTags(record, mode.tags))
-      .map((record) => pageRecordToTrashResult(record, 1, 'tag'))
+      .map((record) => pageRecordToTrashResult(record, 1, 'tag', buildPreviewSnippetFromRecord(record)))
       .sort((left, right) => left.title.localeCompare(right.title));
   }
 
@@ -685,6 +685,14 @@ function buildSnippetFromRecord(
   }
 
   return clipSnippet(record.content, 0, 0);
+}
+
+function buildPreviewSnippetFromRecord(record: Pick<SearchIndexedPageRecord, 'page' | 'content'>): string {
+  if (!record.content) {
+    return 'No content yet.';
+  }
+
+  return contentToPreviewText(record.page.content, { maxLength: 160, emptyText: 'No content yet.' });
 }
 
 function clipSnippet(text: string, matchStart: number, matchLength: number): string {

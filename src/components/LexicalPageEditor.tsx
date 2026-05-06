@@ -225,7 +225,7 @@ export function LexicalPageEditor({
                   addTagFromInput();
                 }
               }}
-              placeholder="Add tag"
+              placeholder="Add /tag"
             />
           </div>
         </div>

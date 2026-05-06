@@ -144,6 +144,7 @@ export function PageMetadataPanel({
                       key={link.key}
                       link={link}
                       destinationLabels={wikiLinkDestinationLabels}
+                      onOpenPage={onOpenPage}
                     />
                   ))}
                 </div>
@@ -200,16 +201,21 @@ export function PageMetadataPanel({
 
 function AmbiguousLinkRow({
   link,
-  destinationLabels
+  destinationLabels,
+  onOpenPage
 }: {
   link: PageConnectionLink;
   destinationLabels: Map<string, string>;
+  onOpenPage: (pageId: string) => void;
 }): JSX.Element {
-  const visibleDestinationLabels = link.matchingPageIds
+  const visibleDestinations = link.matchingPageIds
     .slice(0, MAX_VISIBLE_AMBIGUOUS_DESTINATIONS)
-    .map((pageId) => destinationLabels.get(pageId))
-    .filter((label): label is string => Boolean(label));
-  const hiddenDestinationCount = Math.max(0, link.matchingPageIds.length - visibleDestinationLabels.length);
+    .map((pageId) => ({
+      pageId,
+      label: destinationLabels.get(pageId)
+    }))
+    .filter((destination): destination is { pageId: string; label: string } => Boolean(destination.label));
+  const hiddenDestinationCount = Math.max(0, link.matchingPageIds.length - visibleDestinations.length);
 
   return (
     <div className="metadata-ambiguous-link-row">
@@ -219,10 +225,18 @@ function AmbiguousLinkRow({
           {formatCount(link.matchingPageIds.length)} possible matches
         </span>
       </div>
-      {visibleDestinationLabels.length > 0 ? (
+      {visibleDestinations.length > 0 ? (
         <ul className="metadata-ambiguous-path-list">
-          {visibleDestinationLabels.map((label) => (
-            <li key={label}>{label}</li>
+          {visibleDestinations.map((destination) => (
+            <li key={destination.pageId}>
+              <button
+                type="button"
+                className="metadata-link-item metadata-link-item-stacked"
+                onClick={() => onOpenPage(destination.pageId)}
+              >
+                {destination.label}
+              </button>
+            </li>
           ))}
           {hiddenDestinationCount > 0 ? <li>+{formatCount(hiddenDestinationCount)} more</li> : null}
         </ul>

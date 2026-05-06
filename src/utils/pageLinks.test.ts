@@ -34,6 +34,14 @@ describe('pageLinks', () => {
     ]);
   });
 
+  it('extracts bracket links from rich HTML content', () => {
+    expect(
+      extractBracketLinks(
+        '<h2>Sources</h2><p>Read <strong>[[Athena]]</strong> and <em>[[ Zeus Notes ]]</em>.</p>'
+      )
+    ).toEqual(['Athena', 'Zeus Notes']);
+  });
+
   it('resolves page links case-insensitively', () => {
     const lookup = buildPageTitleLookup(pages);
     const segments = parseContentIntoSegments('Open [[athena]].', lookup);
@@ -110,6 +118,26 @@ describe('pageLinks', () => {
   it('detects backlinks from linked pages', () => {
     expect(getBacklinks(pages[0], pages).map((page) => page.id)).toEqual(['page-athena']);
     expect(buildBacklinkIndex(pages)['page-zeus']).toEqual(['page-athena']);
+  });
+
+  it('updates backlinks when titles change because links are resolved from current titles', () => {
+    const renamedPages = pages.map((page) =>
+      page.id === 'page-zeus' ? { ...page, title: 'Storm Notes' } : page
+    );
+
+    expect(buildBacklinkIndex(renamedPages)['page-zeus']).toBeUndefined();
+
+    const updatedLinkPages = renamedPages.map((page) =>
+      page.id === 'page-athena' ? { ...page, content: 'Back to [[Storm Notes]].' } : page
+    );
+
+    expect(buildBacklinkIndex(updatedLinkPages)['page-zeus']).toEqual(['page-athena']);
+  });
+
+  it('does not keep backlinks for pages removed from the live link set', () => {
+    const livePages = pages.filter((page) => page.id !== 'page-athena');
+
+    expect(buildBacklinkIndex(livePages)['page-zeus']).toBeUndefined();
   });
 
   it('does not report ambiguous duplicate-title links as outgoing or broken links', () => {

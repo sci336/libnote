@@ -329,6 +329,57 @@ describe('useLibraryApp persistence', () => {
     confirmSpy.mockRestore();
   });
 
+  it('keeps recent tag shortcuts normalized after tag rename, delete, and merge', async () => {
+    dbMocks.loadLibraryDataMock.mockResolvedValue({
+      books: [],
+      chapters: [],
+      pages: [
+        {
+          id: 'page-a',
+          chapterId: null,
+          title: 'Tagged Page',
+          content: '',
+          tags: ['school', 'draft', 'archive'],
+          textSize: 16,
+          isLoose: true,
+          sortOrder: 0,
+          createdAt: '2026-05-04T12:00:00.000Z',
+          updatedAt: '2026-05-04T12:00:00.000Z',
+          deletedAt: null,
+          deletedFrom: null
+        }
+      ]
+    });
+
+    await renderHarness();
+
+    act(() => {
+      app?.handleOpenTag('school');
+      app?.handleOpenTag('draft');
+      app?.handleOpenTag('archive');
+    });
+
+    expect(app?.recentTags).toEqual(['archive', 'draft', 'school']);
+
+    act(() => {
+      app?.handleRenameTagEverywhere('/school', '/class');
+    });
+
+    expect(app?.recentTags).toEqual(['archive', 'draft', 'class']);
+
+    act(() => {
+      app?.handleMergeTags('/draft', '/class');
+    });
+
+    expect(app?.recentTags).toEqual(['archive', 'class']);
+
+    act(() => {
+      app?.handleDeleteTagEverywhere('/archive');
+    });
+
+    expect(app?.recentTags).toEqual(['class']);
+  });
+
   async function renderHarness(): Promise<void> {
     await act(async () => {
       root.render(<Harness onRender={(nextApp) => { app = nextApp; }} />);

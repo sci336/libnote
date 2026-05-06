@@ -72,7 +72,7 @@ import {
   isTypingInEditableTarget,
   normalizeShortcutSettings
 } from '../utils/shortcuts';
-import { formatTagQuery, normalizeTag, normalizeTagList, parseTagQuery } from '../utils/tags';
+import { formatTagQuery, normalizeTag, normalizeTagList, parseSingleTagInput, parseTagQuery } from '../utils/tags';
 import { DEFAULT_APP_SETTINGS, filterRecentPageIdsForLibrary, normalizeAppSettings, RECENT_PAGES_LIMIT } from '../utils/appSettings';
 import {
   createBackupFileName,
@@ -955,7 +955,15 @@ export function useLibraryApp() {
       return;
     }
 
+    const normalizedOldTag = parseSingleTagInput(oldTag);
+    const normalizedNewTag = parseSingleTagInput(newTag);
+
     updateData(renameTagEverywhere(data, oldTag, newTag));
+    if (normalizedOldTag && normalizedNewTag) {
+      setRecentTags((currentTags) =>
+        normalizeTagList(currentTags.map((tag) => (tag === normalizedOldTag ? normalizedNewTag : tag)))
+      );
+    }
   }
 
   function handleDeleteTagEverywhere(tag: string): void {
@@ -963,7 +971,12 @@ export function useLibraryApp() {
       return;
     }
 
+    const normalizedTag = parseSingleTagInput(tag);
+
     updateData(deleteTagEverywhere(data, tag));
+    if (normalizedTag) {
+      setRecentTags((currentTags) => currentTags.filter((currentTag) => currentTag !== normalizedTag));
+    }
   }
 
   function handleMergeTags(sourceTag: string, targetTag: string): void {
@@ -971,7 +984,15 @@ export function useLibraryApp() {
       return;
     }
 
+    const normalizedSourceTag = parseSingleTagInput(sourceTag);
+    const normalizedTargetTag = parseSingleTagInput(targetTag);
+
     updateData(mergeTags(data, sourceTag, targetTag));
+    if (normalizedSourceTag && normalizedTargetTag) {
+      setRecentTags((currentTags) =>
+        normalizeTagList(currentTags.map((tag) => (tag === normalizedSourceTag ? normalizedTargetTag : tag)))
+      );
+    }
   }
 
   function handleUpdateLibraryBooksPerRow(booksPerRow: LibraryBooksPerRow): void {

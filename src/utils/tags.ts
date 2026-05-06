@@ -27,8 +27,8 @@ export function normalizeTagList(tags: string[]): string[] {
   const normalizedTags: string[] = [];
 
   for (const rawTag of tags) {
-    const normalizedTag = normalizeTag(rawTag);
-    if (!isValidTag(normalizedTag) || normalizedTags.includes(normalizedTag)) {
+    const normalizedTag = normalizeTag(rawTag.replace(/^[/#]+/, ''));
+    if (!isValidTag(normalizedTag) || !isValidTagValue(normalizedTag) || normalizedTags.includes(normalizedTag)) {
       continue;
     }
 
@@ -262,18 +262,22 @@ export function getTagResults(
 
   return pages
     // Tag view is an intersection filter: every active tag must be present.
-    .filter((page) => tags.every((tag) => page.tags.includes(tag)))
+    .filter((page) => {
+      const pageTags = normalizeTagList(page.tags);
+      return tags.every((tag) => pageTags.includes(tag));
+    })
     .map((page) => {
       const chapter = page.chapterId ? chapterById.get(page.chapterId) : undefined;
       const book = chapter ? bookById.get(chapter.bookId) : undefined;
       const loose = isLoosePage(page) || !chapter;
+      const pageTags = normalizeTagList(page.tags);
 
       return {
         pageId: page.id,
         pageTitle: page.title || 'Untitled Page',
         path: loose ? 'Loose Pages' : book ? `${book.title} / ${chapter.title}` : chapter.title,
         snippet: buildTagSnippet(page.content),
-        tags: page.tags,
+        tags: pageTags,
         isLoose: loose,
         bookId: book?.id,
         bookTitle: book?.title,

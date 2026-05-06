@@ -743,7 +743,7 @@ export function PageEditor({
                 event.preventDefault();
                 handleAddTagFromInput();
               }}
-              placeholder="Add tag"
+              placeholder="Add /tag"
             />
             <TagSuggestionsDropdown
               suggestions={shouldShowPageTagSuggestions ? pageTagSuggestions : []}

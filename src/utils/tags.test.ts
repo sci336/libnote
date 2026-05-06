@@ -90,6 +90,21 @@ describe('tags', () => {
 
     expect(getTagResults(pages, [], [], ['history'])[0].snippet).toBe('');
   });
+
+  it('normalizes page tags before matching and displaying tag results', () => {
+    const pages = [
+      createPage('page-1', [' History ', 'history', '/School']),
+      createPage('page-2', ['history'])
+    ];
+
+    const results = getTagResults(pages, [], [], ['history', 'school']);
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      pageId: 'page-1',
+      tags: ['history', 'school']
+    });
+  });
 });
 
 function createPage(id: string, tags: string[]): Page {

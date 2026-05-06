@@ -135,6 +135,14 @@ describe('search', () => {
     expect(pageResultIds(searchPages('/mythology /school', index))).toEqual(['page-zeus']);
   });
 
+  it('shows readable snippets for tag-only page and trash searches', () => {
+    const liveResult = searchPages('/school', index).find((item) => item.id === 'page-zeus');
+    const trashResult = searchTrashedEntities('/mythology', index).find((item) => item.id === 'page-trash');
+
+    expect(liveResult && liveResult.type === 'page' ? liveResult.snippet : '').toContain('Zeus ruled from Olympus');
+    expect(trashResult && trashResult.type === 'trash' ? trashResult.snippet : '').toContain('removed prophecy');
+  });
+
   it('supports mixed text plus slash-tag searches', () => {
     expect(pageResultIds(searchPages('zeus /mythology /school', index))).toEqual(['page-zeus']);
     expect(pageResultIds(searchPages('athena /school', index))).toEqual([]);

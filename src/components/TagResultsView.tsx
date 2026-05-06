@@ -164,7 +164,7 @@ export function TagResultsView({
                       setSuggestionsVisible(false);
                     }
                   }}
-                  placeholder="Type /tag or tag"
+                  placeholder="Type /tag"
                   aria-label="Add tag filter"
                 />
                 <TagSuggestionsDropdown

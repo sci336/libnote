@@ -65,6 +65,7 @@ LibNote has no backend, account system, cloud sync, collaboration, or server-sid
 - Tag suggestions appear in the top search bar, the page tag field, the tag results add-tag field, and editor slash-tag autocomplete.
 - Clicking a tag pill opens or narrows the tag filter.
 - Tag Management can rename, delete, or merge tags across all pages.
+- Tag Management normalizes names to `/tag` syntax, collapses duplicates created by case or spacing differences, and keeps recent tag shortcuts aligned after global edits.
 
 ### Wikilinks and Backlinks
 
@@ -73,7 +74,7 @@ LibNote has no backend, account system, cloud sync, collaboration, or server-sid
 - Typing `[[` in the editor opens page-title autocomplete.
 - Preview mode renders resolved wiki links as clickable page links.
 - Missing wiki links can create a new page with that title.
-- Ambiguous wiki links, usually caused by duplicate page titles, are marked as ambiguous. Preview mode lets the user choose a destination, and Page Info lists possible matches.
+- Ambiguous wiki links, usually caused by duplicate page titles, are marked as ambiguous. Preview mode and Page Info let the user choose a destination.
 - Backlinks are derived from page content at render time rather than stored separately.
 - Page Info shows outgoing links, backlinks, broken links, and ambiguous links.
 
@@ -253,6 +254,8 @@ Multi-tag search:
 
 Multi-tag searches require every selected tag. A page tagged only `/history` will not appear for `/history /mythology`.
 
+Tag names are normalized to lowercase and trimmed when saved. The visible app syntax is `/tag`; tag inputs display saved tags that way even when forgiving input is normalized.
+
 Mixed text and tags:
 
 ```text
@@ -274,6 +277,8 @@ See [[Greek Mythology Notes]] for the source list.
 In Preview mode, resolved links open the matching page. Missing links offer to create a new page. If more than one page has the same normalized title, the link is treated as ambiguous and the app asks which destination to open.
 
 Backlinks are automatic. If Page A links to `[[Page B]]`, Page B's Page Info panel lists Page A under Backlinks.
+
+Backlinks are derived from the current live page set. Renaming a target page changes which title links resolve, moving a page updates its path labels, and trashed or permanently deleted source pages are excluded from backlink lists.
 
 ## Storage and Data Persistence
 

@@ -377,7 +377,7 @@ function HelpSection(): JSX.Element {
       <GuideSection title="Current limitations">
         <ul className="menu-list">
           <li>Tag search is exact-match and lowercase-based, so <code>/History</code> becomes <code>/history</code>.</li>
-          <li>Links and backlinks only resolve from <code>[[Page Title]]</code> links, and duplicate page titles use the first matching page right now.</li>
+          <li>Links and backlinks resolve from <code>[[Page Title]]</code> links. Duplicate page titles are treated as ambiguous so you can choose the intended page.</li>
           <li>Global shortcuts can be changed in Settings, but browser and system-reserved combinations are blocked.</li>
           <li>Recent Pages is limited to {RECENT_PAGES_LIMIT} pages and does not have a setting yet.</li>
         </ul>
@@ -810,10 +810,16 @@ function TagManagementSection({
       return;
     }
 
+    const targetAlreadyExists = knownTags.includes(targetTag);
+
     onRenameTagEverywhere(tag, targetTag);
     setEditingTag(null);
     setRenameInput('');
-    setFeedback(`Renamed /${tag} to /${targetTag}.`);
+    setFeedback(
+      targetAlreadyExists
+        ? `Merged /${tag} into existing /${targetTag}.`
+        : `Renamed /${tag} to /${targetTag}.`
+    );
   }
 
   function deleteTag(tag: string): void {
