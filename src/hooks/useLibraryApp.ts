@@ -78,12 +78,14 @@ import {
   createBackupFileName,
   createBackupPayload,
   createBackupSummary,
+  createSafetyBackupSnapshot,
   createPageExportFile,
   downloadJsonFile,
   downloadPlainTextFile,
   readBackupFile,
   validateBackupPayload,
   type BackupImportPreview,
+  type BackupSafetySnapshot,
   type ValidatedBackupPayload
 } from '../utils/backup';
 import { getStorageFailureDetails } from '../utils/storageError';
@@ -119,6 +121,7 @@ export function useLibraryApp() {
   const [tagOriginView, setTagOriginView] = useState<ViewState>({ type: 'root' });
   const [recentTags, setRecentTags] = useState<string[]>([]);
   const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null);
+  const [restoreSafetySnapshot, setRestoreSafetySnapshot] = useState<BackupSafetySnapshot | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>({ state: 'idle' });
   const latestDataRef = useRef<LibraryData | null>(null);
   const latestSettingsRef = useRef<AppSettings>(DEFAULT_APP_SETTINGS);
@@ -1045,6 +1048,22 @@ export function useLibraryApp() {
     });
   }
 
+  function handleDownloadRestoreSafetySnapshot(): void {
+    if (!restoreSafetySnapshot) {
+      setBackupStatus({
+        tone: 'info',
+        message: 'No restore safety backup is available yet. Export the current library before restoring if you want a copy.'
+      });
+      return;
+    }
+
+    downloadJsonFile(restoreSafetySnapshot.filename, restoreSafetySnapshot.payload);
+    setBackupStatus({
+      tone: 'success',
+      message: 'Safety backup downloaded. This is a copy of the library that was active before the restore attempt.'
+    });
+  }
+
   async function handlePreviewBackupImport(file: File | null): Promise<BackupImportPreview | null> {
     if (!file) {
       setBackupStatus({ tone: 'info', message: 'No file selected.' });
@@ -1069,6 +1088,7 @@ export function useLibraryApp() {
             : 'Backup parsed successfully. Review the preview before restoring.',
         warnings: validated.warnings
       });
+      setRestoreSafetySnapshot(null);
 
       return preview;
     } catch (error) {
@@ -1081,6 +1101,12 @@ export function useLibraryApp() {
   }
 
   async function handleRestoreBackupImport(validated: ValidatedBackupPayload): Promise<boolean> {
+    const previousData = latestDataRef.current;
+    const previousSettings = latestSettingsRef.current;
+    const safetySnapshot = previousData ? createSafetyBackupSnapshot(previousData, previousSettings) : null;
+
+    setRestoreSafetySnapshot(safetySnapshot);
+
     try {
       const nextData = validated.data;
       const nextSettings =
@@ -1105,6 +1131,7 @@ export function useLibraryApp() {
       navigationHistoryRef.current = [];
       setMovingChapterId(null);
       setMovingPageId(null);
+      setRestoreSafetySnapshot(null);
       replaceView({ type: 'root' });
       setBackupStatus({
         tone: validated.warnings.length > 0 ? 'warning' : 'success',
@@ -1116,15 +1143,30 @@ export function useLibraryApp() {
       });
       return true;
     } catch (error) {
+      if (previousData) {
+        latestDataRef.current = previousData;
+        shouldAutosaveDataRef.current = false;
+        setData(previousData);
+      }
+
+      latestSettingsRef.current = previousSettings;
+      setSettings(previousSettings);
+      setSaveStatus({
+        state: 'failed',
+        error: getStorageFailureDetails(error)
+      });
       setBackupStatus({
         tone: 'error',
-        message: `Restore failed: ${error instanceof Error ? error.message : 'invalid backup file.'}`
+        message:
+          `Restore failed while saving: ${error instanceof Error ? error.message : 'unknown storage error.'} ` +
+          'Your previous library is still active in this tab. Download the safety backup before closing if you want an extra recovery copy.'
       });
       return false;
     }
   }
 
   function handleCancelBackupImport(): void {
+    setRestoreSafetySnapshot(null);
     setBackupStatus({ tone: 'info', message: 'Restore canceled. Your current library was not changed.' });
   }
 
@@ -1206,6 +1248,7 @@ export function useLibraryApp() {
     tagOriginView,
     recentTags,
     backupStatus,
+    restoreSafetySnapshot,
     saveStatus,
     recentPageIds: settings.recentPageIds,
     derivedData,
@@ -1287,6 +1330,7 @@ export function useLibraryApp() {
     handleResetShortcut,
     handleResetAllShortcuts,
     handleExportLibrary,
+    handleDownloadRestoreSafetySnapshot,
     handlePreviewBackupImport,
     handleRestoreBackupImport,
     handleCancelBackupImport,

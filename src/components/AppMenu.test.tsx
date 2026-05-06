@@ -3,7 +3,9 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppMenu } from './AppMenu';
 import { DEFAULT_SHORTCUTS } from '../utils/shortcuts';
-import type { AppSettings } from '../types/domain';
+import { DEFAULT_APP_SETTINGS } from '../utils/appSettings';
+import { createSafetyBackupSnapshot } from '../utils/backup';
+import type { AppSettings, LibraryData } from '../types/domain';
 
 describe('AppMenu accessibility behavior', () => {
   let container: HTMLDivElement;
@@ -78,6 +80,43 @@ describe('AppMenu accessibility behavior', () => {
     expect(container.querySelector('button[aria-label="Close app menu"]')).not.toBeNull();
   });
 
+  it('makes restore replacement and current-library export copy clear', () => {
+    renderAppMenu({ isOpen: true, activeSection: 'backup' });
+
+    expect(container.textContent).toContain('Restore from Backup');
+    expect(container.textContent).toContain('Restore replaces the current library');
+    expect(container.textContent).toContain('it does not merge the two libraries');
+    expect(container.textContent).toContain('Export a backup first');
+  });
+
+  it('shows a safety backup download action after restore failure', () => {
+    const onDownloadRestoreSafetySnapshot = vi.fn();
+
+    renderAppMenu({
+      isOpen: true,
+      activeSection: 'backup',
+      backupStatus: {
+        tone: 'error',
+        message: 'Restore failed while saving. Your previous library is still active in this tab.'
+      },
+      restoreSafetySnapshot: createSafetyBackupSnapshot(safetyData, DEFAULT_APP_SETTINGS),
+      onDownloadRestoreSafetySnapshot
+    });
+
+    const button = Array.from(container.querySelectorAll('button')).find((item) =>
+      item.textContent?.includes('Download Safety Backup')
+    );
+
+    expect(container.textContent).toContain('Your previous library is still active in this tab.');
+    expect(container.textContent).toContain('Safety copy: 1 book, 1 page');
+
+    act(() => {
+      button?.click();
+    });
+
+    expect(onDownloadRestoreSafetySnapshot).toHaveBeenCalledTimes(1);
+  });
+
   function renderAppMenu(overrides: Partial<Parameters<typeof AppMenu>[0]> = {}): void {
     act(() => {
       root.render(
@@ -104,6 +143,8 @@ describe('AppMenu accessibility behavior', () => {
           onDeleteTagEverywhere={overrides.onDeleteTagEverywhere ?? vi.fn()}
           onMergeTags={overrides.onMergeTags ?? vi.fn()}
           onExportLibrary={overrides.onExportLibrary ?? vi.fn()}
+          restoreSafetySnapshot={overrides.restoreSafetySnapshot ?? null}
+          onDownloadRestoreSafetySnapshot={overrides.onDownloadRestoreSafetySnapshot ?? vi.fn()}
           onPreviewBackupImport={overrides.onPreviewBackupImport ?? vi.fn()}
           onRestoreBackupImport={overrides.onRestoreBackupImport ?? vi.fn()}
           onCancelBackupImport={overrides.onCancelBackupImport ?? vi.fn()}
@@ -124,4 +165,35 @@ const settings: AppSettings = {
   shortcuts: DEFAULT_SHORTCUTS,
   recentPageIds: [],
   lastBackupExportedAt: null
+};
+
+const safetyData: LibraryData = {
+  books: [
+    {
+      id: 'book-safety',
+      title: 'Current Library',
+      sortOrder: 0,
+      createdAt: '2026-05-04T12:00:00.000Z',
+      updatedAt: '2026-05-04T12:00:00.000Z',
+      deletedAt: null,
+      deletedFrom: null
+    }
+  ],
+  chapters: [],
+  pages: [
+    {
+      id: 'page-safety',
+      chapterId: null,
+      title: 'Loose Safety Page',
+      content: 'Keep this note safe.',
+      tags: [],
+      textSize: 16,
+      isLoose: true,
+      sortOrder: 0,
+      createdAt: '2026-05-04T12:00:00.000Z',
+      updatedAt: '2026-05-04T12:00:00.000Z',
+      deletedAt: null,
+      deletedFrom: null
+    }
+  ]
 };

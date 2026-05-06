@@ -58,6 +58,12 @@ export interface BackupImportPreview {
   warnings: string[];
 }
 
+export interface BackupSafetySnapshot {
+  filename: string;
+  payload: LibraryBackupPayload;
+  summary: BackupSummary;
+}
+
 export function createBackupPayload(data: LibraryData, settings: AppSettings): LibraryBackupPayload {
   return {
     app: BACKUP_APP_NAME,
@@ -70,6 +76,17 @@ export function createBackupPayload(data: LibraryData, settings: AppSettings): L
     chapters: data.chapters,
     pages: data.pages,
     settings
+  };
+}
+
+export function createSafetyBackupSnapshot(data: LibraryData, settings: AppSettings): BackupSafetySnapshot {
+  const payload = createBackupPayload(data, settings);
+  const validated = validateBackupPayload(payload);
+
+  return {
+    filename: createSafetyBackupFileName(payload.exportedAt),
+    payload,
+    summary: createBackupSummary(validated)
   };
 }
 
@@ -228,6 +245,11 @@ export function sanitizeFileName(value: string, fallback = 'libnote-backup'): st
 export function createBackupFileName(exportedAt: string): string {
   const date = Number.isNaN(new Date(exportedAt).getTime()) ? nowIso().slice(0, 10) : exportedAt.slice(0, 10);
   return `${sanitizeFileName(`libnote-backup-${date}`)}.json`;
+}
+
+export function createSafetyBackupFileName(exportedAt: string): string {
+  const date = Number.isNaN(new Date(exportedAt).getTime()) ? nowIso().slice(0, 10) : exportedAt.slice(0, 10);
+  return `${sanitizeFileName(`libnote-safety-backup-${date}`)}.json`;
 }
 
 export function createPageExportFile(page: Page): { filename: string; content: string } {

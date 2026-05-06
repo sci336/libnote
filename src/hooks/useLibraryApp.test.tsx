@@ -3,6 +3,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useLibraryApp } from './useLibraryApp';
 import type { LibraryData } from '../types/domain';
+import { DEFAULT_APP_SETTINGS } from '../utils/appSettings';
+import { createBackupPayload, validateBackupPayload } from '../utils/backup';
 
 const dbMocks = vi.hoisted(() => ({
   loadLibraryDataMock: vi.fn<() => Promise<LibraryData | null>>(),
@@ -141,6 +143,56 @@ describe('useLibraryApp persistence', () => {
     expect(app?.saveStatus).toEqual({ state: 'saved', lastSavedAt: expect.any(Number) });
   });
 
+  it('creates a safety snapshot and restores a valid backup', async () => {
+    const currentData = buildLibraryData('current', 'Current Library');
+    const restoreData = buildLibraryData('restored', 'Restored Library');
+    const validatedRestore = validateBackupPayload(createBackupPayload(restoreData, DEFAULT_APP_SETTINGS));
+    dbMocks.loadLibraryDataMock.mockResolvedValue(currentData);
+    await renderHarness();
+
+    await act(async () => {
+      const restored = await app?.handleRestoreBackupImport(validatedRestore);
+      expect(restored).toBe(true);
+      await Promise.resolve();
+    });
+
+    expect(dbMocks.saveLibraryDataMock).toHaveBeenCalledWith(validatedRestore.data);
+    expect(app?.data?.books[0].title).toBe('Restored Library');
+    expect(app?.restoreSafetySnapshot).toBeNull();
+    expect(app?.backupStatus).toMatchObject({
+      tone: 'success',
+      message: 'Restore completed successfully.'
+    });
+  });
+
+  it('keeps the previous library active and exposes a safety snapshot when restore persistence fails', async () => {
+    const currentData = buildLibraryData('current', 'Current Library');
+    const restoreData = buildLibraryData('restored', 'Restored Library');
+    const validatedRestore = validateBackupPayload(createBackupPayload(restoreData, DEFAULT_APP_SETTINGS));
+    dbMocks.loadLibraryDataMock.mockResolvedValue(currentData);
+    dbMocks.saveLibraryDataMock.mockRejectedValueOnce(new Error('Write failed'));
+    await renderHarness();
+    const activeCurrentData = app?.data;
+
+    await act(async () => {
+      const restored = await app?.handleRestoreBackupImport(validatedRestore);
+      expect(restored).toBe(false);
+      await Promise.resolve();
+    });
+
+    expect(dbMocks.saveLibraryDataMock).toHaveBeenCalledWith(validatedRestore.data);
+    expect(dbMocks.saveAppSettingsMock).not.toHaveBeenCalled();
+    expect(app?.data).toEqual(activeCurrentData);
+    expect(app?.restoreSafetySnapshot?.payload.data).toEqual(activeCurrentData);
+    expect(app?.restoreSafetySnapshot?.summary).toMatchObject({
+      bookCount: 1,
+      pageCount: 1
+    });
+    expect(app?.saveStatus.state).toBe('failed');
+    expect(app?.backupStatus?.tone).toBe('error');
+    expect(app?.backupStatus?.message).toContain('Your previous library is still active in this tab.');
+  });
+
   it('uses clear destructive confirmation copy before moving a book to Trash', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     dbMocks.loadLibraryDataMock.mockResolvedValue({
@@ -193,4 +245,48 @@ function Harness({ onRender }: { onRender: (app: LibraryAppApi) => void }): null
   const app = useLibraryApp();
   onRender(app);
   return null;
+}
+
+function buildLibraryData(idPrefix: string, bookTitle: string): LibraryData {
+  return {
+    books: [
+      {
+        id: `${idPrefix}-book`,
+        title: bookTitle,
+        sortOrder: 0,
+        createdAt: '2026-05-04T12:00:00.000Z',
+        updatedAt: '2026-05-04T12:00:00.000Z',
+        deletedAt: null,
+        deletedFrom: null
+      }
+    ],
+    chapters: [
+      {
+        id: `${idPrefix}-chapter`,
+        bookId: `${idPrefix}-book`,
+        title: 'Chapter',
+        sortOrder: 0,
+        createdAt: '2026-05-04T12:00:00.000Z',
+        updatedAt: '2026-05-04T12:00:00.000Z',
+        deletedAt: null,
+        deletedFrom: null
+      }
+    ],
+    pages: [
+      {
+        id: `${idPrefix}-page`,
+        chapterId: `${idPrefix}-chapter`,
+        title: 'Page',
+        content: `${bookTitle} page content`,
+        tags: ['restore'],
+        textSize: 16,
+        isLoose: false,
+        sortOrder: 0,
+        createdAt: '2026-05-04T12:00:00.000Z',
+        updatedAt: '2026-05-04T12:00:00.000Z',
+        deletedAt: null,
+        deletedFrom: null
+      }
+    ]
+  };
 }

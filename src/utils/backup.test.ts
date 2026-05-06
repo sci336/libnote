@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LibraryData } from '../types/domain';
 import { DEFAULT_APP_SETTINGS } from './appSettings';
-import { createBackupPayload, createBackupSummary, validateBackupPayload } from './backup';
+import { createBackupPayload, createBackupSummary, createSafetyBackupSnapshot, validateBackupPayload } from './backup';
 
 const data: LibraryData = {
   books: [
@@ -55,6 +55,29 @@ describe('backup', () => {
       settings: DEFAULT_APP_SETTINGS
     });
     expect(Number.isNaN(new Date(payload.exportedAt).getTime())).toBe(false);
+  });
+
+  it('creates a compatible safety backup snapshot before restore', () => {
+    const snapshot = createSafetyBackupSnapshot(data, DEFAULT_APP_SETTINGS);
+    const validated = validateBackupPayload(snapshot.payload);
+
+    expect(snapshot.filename).toMatch(/^libnote-safety-backup-\d{4}-\d{2}-\d{2}\.json$/);
+    expect(snapshot.payload).toMatchObject({
+      app: 'LibNote',
+      backupVersion: 2,
+      data,
+      books: data.books,
+      chapters: data.chapters,
+      pages: data.pages,
+      settings: DEFAULT_APP_SETTINGS
+    });
+    expect(snapshot.summary).toMatchObject({
+      backupType: 'LibNote library backup',
+      bookCount: 1,
+      chapterCount: 1,
+      pageCount: 1
+    });
+    expect(validated.data.pages[0].title).toBe('Page One');
   });
 
   it('validates current backup payloads and restores settings', () => {

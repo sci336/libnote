@@ -21,7 +21,7 @@ import {
 import { APP_THEMES } from '../utils/appThemes';
 import { RECENT_PAGES_LIMIT } from '../utils/appSettings';
 import { formatLastBackupTime, getBackupReminderState } from '../utils/backupReminder';
-import type { BackupImportPreview } from '../utils/backup';
+import type { BackupImportPreview, BackupSafetySnapshot } from '../utils/backup';
 import { parseSingleTagInput, type TagSummary } from '../utils/tags';
 import { useModalFocus } from '../hooks/useModalFocus';
 
@@ -58,6 +58,8 @@ interface AppMenuProps {
   onDeleteTagEverywhere: (tag: string) => void;
   onMergeTags: (sourceTag: string, targetTag: string) => void;
   onExportLibrary: () => void;
+  restoreSafetySnapshot: BackupSafetySnapshot | null;
+  onDownloadRestoreSafetySnapshot: () => void;
   onPreviewBackupImport: (file: File | null) => Promise<BackupImportPreview | null>;
   onRestoreBackupImport: (validated: BackupImportPreview['validated']) => Promise<boolean>;
   onCancelBackupImport: () => void;
@@ -92,6 +94,8 @@ export function AppMenu({
   onDeleteTagEverywhere,
   onMergeTags,
   onExportLibrary,
+  restoreSafetySnapshot,
+  onDownloadRestoreSafetySnapshot,
   onPreviewBackupImport,
   onRestoreBackupImport,
   onCancelBackupImport,
@@ -163,6 +167,8 @@ export function AppMenu({
               onDeleteTagEverywhere,
               onMergeTags,
               onExportLibrary,
+              restoreSafetySnapshot,
+              onDownloadRestoreSafetySnapshot,
               onPreviewBackupImport,
               onRestoreBackupImport,
               onCancelBackupImport,
@@ -193,6 +199,8 @@ function renderSection(
     | 'onDeleteTagEverywhere'
     | 'onMergeTags'
     | 'onExportLibrary'
+    | 'restoreSafetySnapshot'
+    | 'onDownloadRestoreSafetySnapshot'
     | 'onPreviewBackupImport'
     | 'onRestoreBackupImport'
     | 'onCancelBackupImport'
@@ -1028,12 +1036,21 @@ function BackupSection({
   settings,
   backupStatus,
   onExportLibrary,
+  restoreSafetySnapshot,
+  onDownloadRestoreSafetySnapshot,
   onPreviewBackupImport,
   onRestoreBackupImport,
   onCancelBackupImport
 }: Pick<
   AppMenuProps,
-  'settings' | 'backupStatus' | 'onExportLibrary' | 'onPreviewBackupImport' | 'onRestoreBackupImport' | 'onCancelBackupImport'
+  | 'settings'
+  | 'backupStatus'
+  | 'onExportLibrary'
+  | 'restoreSafetySnapshot'
+  | 'onDownloadRestoreSafetySnapshot'
+  | 'onPreviewBackupImport'
+  | 'onRestoreBackupImport'
+  | 'onCancelBackupImport'
 >): JSX.Element {
   const [isImporting, setIsImporting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -1159,7 +1176,11 @@ function BackupSection({
           </div>
           <p>
             Review <strong>{importPreview.fileName}</strong> before restoring. Restoring will replace the current
-            library in this browser. Export a current backup first if you have not already.
+            local library in this browser. A safety backup of the current library should be created before continuing.
+          </p>
+          <p className="settings-warning">
+            Restore does not merge libraries. Export the current library first so you have a copy of the notes that are
+            active right now.
           </p>
           <dl className="backup-preview-grid">
             <div>
@@ -1207,6 +1228,9 @@ function BackupSection({
             </ul>
           ) : null}
           <div className="backup-actions">
+            <button type="button" className="secondary-button" onClick={onExportLibrary} disabled={isRestoring}>
+              Export Current Library First
+            </button>
             <button type="button" className="danger-button" onClick={() => void restorePreview()} disabled={isRestoring}>
               {isRestoring ? 'Restoring…' : 'Restore Backup'}
             </button>
@@ -1227,6 +1251,17 @@ function BackupSection({
                 <li key={warning}>{warning}</li>
               ))}
             </ul>
+          ) : null}
+          {backupStatus.tone === 'error' && restoreSafetySnapshot ? (
+            <div className="backup-actions">
+              <button type="button" className="secondary-button" onClick={onDownloadRestoreSafetySnapshot}>
+                Download Safety Backup
+              </button>
+              <span className="backup-safety-summary">
+                Safety copy: {formatBackupCount(restoreSafetySnapshot.summary.bookCount, 'book')},{' '}
+                {formatBackupCount(restoreSafetySnapshot.summary.pageCount, 'page')}
+              </span>
+            </div>
           ) : null}
         </section>
       ) : null}
