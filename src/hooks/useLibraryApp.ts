@@ -372,16 +372,20 @@ export function useLibraryApp() {
       return;
     }
 
-    const existingPageIds = new Set(data.pages.filter((page) => !page.deletedAt).map((page) => page.id));
-    const cleanedRecentPageIds = settings.recentPageIds.filter((pageId) => existingPageIds.has(pageId));
+    const livePageById = derivedData?.livePageById;
+    if (!livePageById) {
+      return;
+    }
+
+    const cleanedRecentPageIds = settings.recentPageIds.filter((pageId) => livePageById.has(pageId));
 
     if (!areStringArraysEqual(cleanedRecentPageIds, settings.recentPageIds)) {
       setSettings((currentSettings) => ({
         ...currentSettings,
-        recentPageIds: currentSettings.recentPageIds.filter((pageId) => existingPageIds.has(pageId))
+        recentPageIds: currentSettings.recentPageIds.filter((pageId) => livePageById.has(pageId))
       }));
     }
-  }, [data, settings.recentPageIds, settingsHydrated]);
+  }, [data, derivedData, settings.recentPageIds, settingsHydrated]);
 
   function runIfDataLoaded(callback: (currentData: LibraryData) => void): void {
     if (!data) {

@@ -81,8 +81,12 @@ export function buildPageTitleLookup(allPages: Page[]): PageTitleLookup {
       continue;
     }
 
-    const matchingPages = lookup.get(normalizedTitle) ?? [];
-    lookup.set(normalizedTitle, [...matchingPages, page]);
+    const matchingPages = lookup.get(normalizedTitle);
+    if (matchingPages) {
+      matchingPages.push(page);
+    } else {
+      lookup.set(normalizedTitle, [page]);
+    }
   }
 
   return lookup;
@@ -427,8 +431,12 @@ export function buildBacklinkIndex(allPages: Page[]): BacklinkIndex {
     }
 
     for (const targetPageId of linkedTargetIds) {
-      const backlinks = backlinkIndex[targetPageId] ?? [];
-      backlinkIndex[targetPageId] = [...backlinks, sourcePage.id];
+      const backlinks = backlinkIndex[targetPageId];
+      if (backlinks) {
+        backlinks.push(sourcePage.id);
+      } else {
+        backlinkIndex[targetPageId] = [sourcePage.id];
+      }
     }
   }
 

@@ -4,6 +4,7 @@ import {
   buildBacklinkIndex,
   buildPageTitleLookup,
   extractBracketLinks,
+  getAmbiguousLinksFromSegments,
   getAmbiguousLinks,
   getBacklinks,
   getBracketLinkMatches,
@@ -14,6 +15,7 @@ import {
   replaceTextRangeWithSuggestion,
   parseContentIntoSegments
 } from './pageLinks';
+import { buildLargeLibraryFixture } from '../test/largeLibrary';
 
 const pages: Page[] = [
   createPage('page-zeus', 'Zeus Notes', 'See [[Athena]] and [[Missing Page]].'),
@@ -215,6 +217,28 @@ describe('pageLinks', () => {
     expect(replaceTextRangeWithSuggestion('See [[his later', 4, 9, '[[History Notes]]')).toBe(
       'See [[History Notes]] later'
     );
+  });
+
+  it('derives duplicate titles, broken links, ambiguous links, and many backlinks over a generated large library', () => {
+    const { data, ids } = buildLargeLibraryFixture({ linkSourceCount: 30 });
+    const lookup = buildPageTitleLookup(data.pages.filter((page) => !page.deletedAt));
+    const sourcePage = data.pages.find((page) => page.id === ids.backlinkSourcePageIds[0]);
+    const targetPage = data.pages.find((page) => page.id === ids.backlinkTargetPageId);
+
+    expect(sourcePage).toBeDefined();
+    expect(targetPage).toBeDefined();
+    expect(lookup.get('duplicate field note')?.map((page) => page.id)).toEqual(ids.duplicatePageIds);
+
+    const segments = parseContentIntoSegments(sourcePage?.content ?? '', lookup);
+    expect(getAmbiguousLinksFromSegments(segments)[0]).toMatchObject({
+      label: 'Duplicate Field Note',
+      matchingPageIds: ids.duplicatePageIds
+    });
+    expect(getBrokenLinks(sourcePage as Page, data.pages).map((link) => link.label)).toContain('Missing Field Note');
+
+    const backlinkIndex = buildBacklinkIndex(data.pages.filter((page) => !page.deletedAt));
+    expect(backlinkIndex[ids.backlinkTargetPageId]).toHaveLength(31);
+    expect(getBacklinks(targetPage as Page, data.pages.filter((page) => !page.deletedAt))).toHaveLength(31);
   });
 });
 

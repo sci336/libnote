@@ -96,6 +96,8 @@ export type SearchMode =
   | { type: 'mixed'; query: string; tags: string[] }
   | { type: 'text'; query: string };
 
+export const SEARCH_RESULT_LIMIT = 200;
+
 /**
  * Keeps search-bar state and search matching aligned on the same normalized text
  * representation so switching between views does not produce mismatched results.
@@ -224,21 +226,9 @@ export function searchLibraryEntities(query: string, index: SearchIndex): Search
   if (mode.type === 'tag') {
     return index.pages
       .filter((record) => pageHasAllTags(record, mode.tags))
-      .map<PageSearchResult>((record) => ({
-        type: 'page',
-        id: record.page.id,
-        title: record.page.title,
-        snippet: buildPreviewSnippetFromRecord(record),
-        parentBookId: record.parentBookId,
-        parentBookTitle: record.parentBookTitle,
-        parentChapterId: record.parentChapterId,
-        parentChapterTitle: record.parentChapterTitle,
-        path: record.path,
-        isLoosePage: record.isLoosePage,
-        score: 1,
-        matchKind: 'tag'
-      }))
-      .sort((left, right) => left.title.localeCompare(right.title));
+      .sort((left, right) => left.title.localeCompare(right.title))
+      .slice(0, SEARCH_RESULT_LIMIT)
+      .map<PageSearchResult>(pageRecordToTagResult);
   }
 
   const normalizedQuery = normalizeSearchText(mode.query);
@@ -294,7 +284,7 @@ export function searchLibraryEntities(query: string, index: SearchIndex): Search
     }
   }
 
-  return results.sort(compareSearchResults);
+  return results.sort(compareSearchResults).slice(0, SEARCH_RESULT_LIMIT);
 }
 
 export function searchPages(query: string, index: SearchIndex): SearchResult[] {
@@ -311,8 +301,9 @@ export function searchTrashedEntities(query: string, index: SearchIndex): Search
   if (mode.type === 'tag') {
     return index.trashPages
       .filter((record) => pageHasAllTags(record, mode.tags))
+      .sort((left, right) => left.title.localeCompare(right.title))
+      .slice(0, SEARCH_RESULT_LIMIT)
       .map((record) => pageRecordToTrashResult(record, 1, 'tag', buildPreviewSnippetFromRecord(record)))
-      .sort((left, right) => left.title.localeCompare(right.title));
   }
 
   const normalizedQuery = normalizeSearchText(mode.query);
@@ -372,7 +363,7 @@ export function searchTrashedEntities(query: string, index: SearchIndex): Search
     }
   }
 
-  return results.sort(compareSearchResults);
+  return results.sort(compareSearchResults).slice(0, SEARCH_RESULT_LIMIT);
 }
 
 export function getHighlightedParts(text: string, query: string): Array<{ text: string; isMatch: boolean }> {
@@ -569,6 +560,23 @@ function indexPage(
     parentChapterId: chapter?.id,
     parentChapterTitle: chapter?.title,
     isLoosePage: loosePage
+  };
+}
+
+function pageRecordToTagResult(record: SearchIndexedPageRecord): PageSearchResult {
+  return {
+    type: 'page',
+    id: record.page.id,
+    title: record.page.title,
+    snippet: buildPreviewSnippetFromRecord(record),
+    parentBookId: record.parentBookId,
+    parentBookTitle: record.parentBookTitle,
+    parentChapterId: record.parentChapterId,
+    parentChapterTitle: record.parentChapterTitle,
+    path: record.path,
+    isLoosePage: record.isLoosePage,
+    score: 1,
+    matchKind: 'tag'
   };
 }
 

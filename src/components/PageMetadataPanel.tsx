@@ -1,4 +1,5 @@
 import type { Book, Chapter, Page } from '../types/domain';
+import { useMemo } from 'react';
 import { formatFullTimestamp } from '../utils/date';
 import { isLoosePage } from '../utils/pageState';
 import {
@@ -35,11 +36,17 @@ export function PageMetadataPanel({
   onOpenTagSearch
 }: PageMetadataPanelProps): JSX.Element {
   const pageIsLoose = isLoosePage(page);
-  const stats = getPageWritingStats(page.content);
-  const outgoingLinks = getConnectionLinksFromSegments(contentSegments);
-  const validOutgoingLinks = outgoingLinks.filter((link) => link.resolutionStatus === 'resolved');
-  const brokenOutgoingLinks = outgoingLinks.filter((link) => link.resolutionStatus === 'missing');
-  const ambiguousOutgoingLinks = getAmbiguousLinksFromSegments(contentSegments);
+  const stats = useMemo(() => getPageWritingStats(page.content), [page.content]);
+  const connectionGroups = useMemo(() => {
+    const outgoingLinks = getConnectionLinksFromSegments(contentSegments);
+
+    return {
+      validOutgoingLinks: outgoingLinks.filter((link) => link.resolutionStatus === 'resolved'),
+      brokenOutgoingLinks: outgoingLinks.filter((link) => link.resolutionStatus === 'missing'),
+      ambiguousOutgoingLinks: getAmbiguousLinksFromSegments(contentSegments)
+    };
+  }, [contentSegments]);
+  const { validOutgoingLinks, brokenOutgoingLinks, ambiguousOutgoingLinks } = connectionGroups;
 
   return (
     <aside id="page-info-panel" className="page-metadata-panel" aria-label="Page Info">

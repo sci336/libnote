@@ -5,6 +5,7 @@ import { useLibraryApp } from './useLibraryApp';
 import type { AppSettings, LibraryData } from '../types/domain';
 import { DEFAULT_APP_SETTINGS } from '../utils/appSettings';
 import { createBackupPayload, validateBackupPayload } from '../utils/backup';
+import { buildLargeLibraryFixture } from '../test/largeLibrary';
 
 const dbMocks = vi.hoisted(() => ({
   loadLibraryDataMock: vi.fn<() => Promise<LibraryData | null>>(),
@@ -378,6 +379,24 @@ describe('useLibraryApp persistence', () => {
     });
 
     expect(app?.recentTags).toEqual(['class']);
+  });
+
+  it('cleans recent-page ids from a generated large library without losing live recent pages', async () => {
+    const { data, recentPageIds, ids } = buildLargeLibraryFixture();
+    dbMocks.loadLibraryDataMock.mockResolvedValue(data);
+    dbMocks.loadAppSettingsMock.mockResolvedValue({
+      ...DEFAULT_APP_SETTINGS,
+      recentPageIds
+    });
+
+    await renderHarness();
+
+    expect(app?.recentPageIds).toEqual([
+      ids.rareTitlePageId,
+      ids.rareContentPageId,
+      ids.looseRarePageId,
+      ids.backlinkTargetPageId
+    ]);
   });
 
   async function renderHarness(): Promise<void> {

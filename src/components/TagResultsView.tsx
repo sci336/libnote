@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { TagSuggestionsDropdown } from './TagSuggestionsDropdown';
 import type { TagResult } from '../utils/tags';
-import { getTagSuggestions, parseSingleTagInput } from '../utils/tags';
+import { TAG_RESULTS_LIMIT, getTagSuggestions, parseSingleTagInput } from '../utils/tags';
 
 interface TagResultsViewProps {
   tags: string[];
@@ -39,6 +39,7 @@ export function TagResultsView({
     [availableTags, tagInput, tags]
   );
   const shouldShowSuggestions = suggestionsVisible && suggestions.length > 0;
+  const isShowingResultLimit = results.length >= TAG_RESULTS_LIMIT;
 
   useEffect(() => {
     if (activeSuggestionIndex >= suggestions.length) {
@@ -103,6 +104,11 @@ export function TagResultsView({
             <p className="search-subtitle">
               {results.length === 1 ? '1 page' : `${results.length} pages`} • Showing pages tagged with all selected tags
             </p>
+            {isShowingResultLimit ? (
+              <p className="search-subtitle">
+                Showing the first {TAG_RESULTS_LIMIT} matches. Add another tag to narrow the list.
+              </p>
+            ) : null}
           </div>
 
           <div className="tag-filter-controls">

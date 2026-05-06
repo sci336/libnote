@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { SearchMode, SearchResult } from '../utils/search';
-import { getHighlightedParts, getSearchResultBadgeLabel, getSearchResultPath } from '../utils/search';
+import { SEARCH_RESULT_LIMIT, getHighlightedParts, getSearchResultBadgeLabel, getSearchResultPath } from '../utils/search';
 
 type SearchFilter = 'all' | 'pages' | 'books' | 'chapters' | 'loosePages' | 'trash';
 
@@ -32,6 +32,7 @@ export function SearchResultsView({
     () => buildFilterOptions(results, trashResults),
     [results, trashResults]
   );
+  const isShowingResultLimit = filteredResults.length >= SEARCH_RESULT_LIMIT;
 
   useEffect(() => {
     setActiveFilter('all');
@@ -71,6 +72,12 @@ export function SearchResultsView({
             </button>
           ))}
         </div>
+      ) : null}
+
+      {isShowingResultLimit ? (
+        <p className="search-subtitle">
+          Showing the first {SEARCH_RESULT_LIMIT} matches. Add more specific words or tags to narrow the list.
+        </p>
       ) : null}
 
       {!trimmedQuery ? (

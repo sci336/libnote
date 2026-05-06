@@ -3,6 +3,7 @@ import {
   formatTagQuery,
   getAllTagSuggestions,
   getTagResults,
+  TAG_RESULTS_LIMIT,
   isTagOnlyQuery,
   isValidTagToken,
   normalizeTag,
@@ -12,6 +13,7 @@ import {
   replaceSlashTagToken
 } from './tags';
 import type { Page } from '../types/domain';
+import { buildLargeLibraryFixture } from '../test/largeLibrary';
 
 describe('tags', () => {
   it('normalizes slash tags to lowercase trimmed values', () => {
@@ -104,6 +106,15 @@ describe('tags', () => {
       pageId: 'page-1',
       tags: ['history', 'school']
     });
+  });
+
+  it('builds capped tag summaries and tag results over a generated large library', () => {
+    const { data, ids } = buildLargeLibraryFixture();
+    const results = getTagResults(data.pages, data.chapters, data.books, ['research']);
+
+    expect(results).toHaveLength(TAG_RESULTS_LIMIT);
+    expect(results.some((result) => result.pageId === ids.rareTitlePageId)).toBe(true);
+    expect(results.every((result) => result.tags.includes('research'))).toBe(true);
   });
 });
 

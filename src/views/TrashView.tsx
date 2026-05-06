@@ -8,12 +8,17 @@ interface TrashViewProps {
   onEmptyTrash: () => void;
 }
 
+const TRASH_VIEW_LIMIT = 250;
+
 export function TrashView({
   items,
   onRestore,
   onDeleteForever,
   onEmptyTrash
 }: TrashViewProps): JSX.Element {
+  const visibleItems = items.slice(0, TRASH_VIEW_LIMIT);
+  const hiddenItemCount = Math.max(0, items.length - visibleItems.length);
+
   return (
     <section className="content-section">
       <div className="section-header">
@@ -41,7 +46,12 @@ export function TrashView({
         </div>
       ) : (
         <div className="stack-list">
-          {items.map((item) => (
+          {hiddenItemCount > 0 ? (
+            <p className="search-subtitle">
+              Showing the first {TRASH_VIEW_LIMIT} deleted items. Restore or permanently delete items to reveal older Trash entries.
+            </p>
+          ) : null}
+          {visibleItems.map((item) => (
             <article key={`${item.type}-${item.id}`} className="list-card">
               <div className="list-card-main">
                 <div className="list-card-row">

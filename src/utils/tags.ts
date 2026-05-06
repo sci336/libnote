@@ -25,13 +25,15 @@ export function isValidTagValue(tag: string): boolean {
  */
 export function normalizeTagList(tags: string[]): string[] {
   const normalizedTags: string[] = [];
+  const seenTags = new Set<string>();
 
   for (const rawTag of tags) {
     const normalizedTag = normalizeTag(rawTag.replace(/^[/#]+/, ''));
-    if (!isValidTag(normalizedTag) || !isValidTagValue(normalizedTag) || normalizedTags.includes(normalizedTag)) {
+    if (!isValidTag(normalizedTag) || !isValidTagValue(normalizedTag) || seenTags.has(normalizedTag)) {
       continue;
     }
 
+    seenTags.add(normalizedTag);
     normalizedTags.push(normalizedTag);
   }
 
@@ -246,46 +248,52 @@ export interface TagResult {
   chapterTitle?: string;
 }
 
+export const TAG_RESULTS_LIMIT = 200;
+
 export function getTagResults(
   pages: Page[],
   chapters: Chapter[],
   books: Book[],
-  rawTags: string[]
+  rawTags: string[],
+  options?: { limit?: number }
 ): TagResult[] {
   const tags = normalizeTagList(rawTags);
   if (tags.length === 0) {
     return [];
   }
 
+  const limit = options?.limit ?? TAG_RESULTS_LIMIT;
   const chapterById = new Map(chapters.map((chapter) => [chapter.id, chapter] as const));
   const bookById = new Map(books.map((book) => [book.id, book] as const));
 
-  return pages
+  const matchingPages = pages
     // Tag view is an intersection filter: every active tag must be present.
     .filter((page) => {
       const pageTags = normalizeTagList(page.tags);
       return tags.every((tag) => pageTags.includes(tag));
     })
-    .map((page) => {
-      const chapter = page.chapterId ? chapterById.get(page.chapterId) : undefined;
-      const book = chapter ? bookById.get(chapter.bookId) : undefined;
-      const loose = isLoosePage(page) || !chapter;
-      const pageTags = normalizeTagList(page.tags);
+    .sort((left, right) => left.title.localeCompare(right.title))
+    .slice(0, limit);
 
-      return {
-        pageId: page.id,
-        pageTitle: page.title || 'Untitled Page',
-        path: loose ? 'Loose Pages' : book ? `${book.title} / ${chapter.title}` : chapter.title,
-        snippet: buildTagSnippet(page.content),
-        tags: pageTags,
-        isLoose: loose,
-        bookId: book?.id,
-        bookTitle: book?.title,
-        chapterId: chapter?.id,
-        chapterTitle: chapter?.title
-      };
-    })
-    .sort((left, right) => left.pageTitle.localeCompare(right.pageTitle));
+  return matchingPages.map((page) => {
+    const chapter = page.chapterId ? chapterById.get(page.chapterId) : undefined;
+    const book = chapter ? bookById.get(chapter.bookId) : undefined;
+    const loose = isLoosePage(page) || !chapter;
+    const pageTags = normalizeTagList(page.tags);
+
+    return {
+      pageId: page.id,
+      pageTitle: page.title || 'Untitled Page',
+      path: loose ? 'Loose Pages' : book ? `${book.title} / ${chapter.title}` : chapter.title,
+      snippet: buildTagSnippet(page.content),
+      tags: pageTags,
+      isLoose: loose,
+      bookId: book?.id,
+      bookTitle: book?.title,
+      chapterId: chapter?.id,
+      chapterTitle: chapter?.title
+    };
+  });
 }
 
 function buildTagSnippet(content: string): string {
