@@ -533,9 +533,7 @@ button {
 }
 
 .sidebar-reorder-content {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.35rem;
+  display: flex;
   align-items: center;
 }
 
@@ -1401,9 +1399,15 @@ kbd {
 }
 
 .reorder-keyboard-controls {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .reorder-keyboard-button {
@@ -1419,10 +1423,29 @@ kbd {
   line-height: 1;
 }
 
-.reorder-keyboard-button:hover,
 .reorder-keyboard-button:focus-visible {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
   color: var(--text-primary);
   background: var(--surface-card);
+}
+
+.reorder-keyboard-controls:focus-within {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .reorder-keyboard-button:disabled {

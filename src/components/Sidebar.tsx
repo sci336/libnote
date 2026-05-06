@@ -358,9 +358,6 @@ function SidebarSection({
                     className={`sidebar-item ${item.isActive ? 'is-active' : ''}`}
                     onClick={item.onClick}
                   >
-                    <span className="drag-handle" aria-hidden="true">
-                      ::
-                    </span>
                     <span className="sidebar-item-label">{item.label}</span>
                   </button>
                   {reorderControls}

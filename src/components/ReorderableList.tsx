@@ -148,6 +148,16 @@ export function ReorderableList<T extends { id: string }>({
             ]
               .filter(Boolean)
               .join(' ')}
+            onKeyDown={(event) => {
+              if (!isEnabled || !event.altKey) return;
+              if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                moveItem(item.id, itemIndex - 1);
+              } else if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                moveItem(item.id, itemIndex + 1);
+              }
+            }}
             onDragStart={(event) => {
               if (!isEnabled) {
                 return;
