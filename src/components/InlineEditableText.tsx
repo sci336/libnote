@@ -52,10 +52,12 @@ export function InlineEditableText({
         onBlur={commit}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {
+            event.stopPropagation();
             commit();
           }
 
           if (event.key === 'Escape') {
+            event.stopPropagation();
             cancel();
           }
         }}

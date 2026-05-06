@@ -161,7 +161,13 @@ export function TopBar({
           onKeyDown={(event) => {
             if (!shouldShowSuggestions) {
               if (event.key === 'Escape') {
+                event.stopPropagation();
                 setSuggestionsVisible(false);
+                if (searchValue) {
+                  onSearchChange('');
+                } else {
+                  (event.target as HTMLInputElement).blur();
+                }
               }
               return;
             }
@@ -188,6 +194,7 @@ export function TopBar({
 
             if (event.key === 'Escape') {
               event.preventDefault();
+              event.stopPropagation();
               setSuggestionsVisible(false);
             }
           }}
