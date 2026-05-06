@@ -117,7 +117,7 @@ export type SaveStatus =
   | { state: 'saving' }
   | { state: 'retrying' }
   | { state: 'saved'; lastSavedAt: number }
-  | { state: 'failed'; error: StorageFailureDetails };
+  | { state: 'failed'; error: StorageFailureDetails; canRetry?: boolean };
 
 export type AppMenuSection = 'help' | 'shortcuts' | 'settings' | 'themes' | 'tagManagement' | 'backup' | 'credits';
 

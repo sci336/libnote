@@ -144,14 +144,14 @@ export function useLibraryApp() {
         nextData = await hydrateLibraryData();
       } catch (error) {
         console.error('Failed to load library data', error);
-        storageFailure = { state: 'failed', error: getStorageFailureDetails(error) };
+        storageFailure = { state: 'failed', error: getStorageFailureDetails(error), canRetry: false };
       }
 
       try {
         nextSettings = await hydrateAppSettings();
       } catch (error) {
         console.error('Failed to load app settings', error);
-        storageFailure = { state: 'failed', error: getStorageFailureDetails(error) };
+        storageFailure = { state: 'failed', error: getStorageFailureDetails(error), canRetry: false };
       }
 
       if (canceled) {
@@ -237,7 +237,7 @@ export function useLibraryApp() {
     const flush = () => {
       const latestData = latestDataRef.current;
       if (latestData) {
-        void persistLibraryData(latestData);
+        void persistLibrarySnapshot(latestData, latestDataVersionRef.current);
       }
 
       void saveAppSettings(latestSettingsRef.current);
@@ -813,20 +813,20 @@ export function useLibraryApp() {
       return;
     }
 
+    let nextData: LibraryData;
+
     if (item.type === 'book') {
-      updateData(deleteBookForever(data, item.id));
-      return;
+      nextData = deleteBookForever(data, item.id);
+    } else if (item.type === 'chapter') {
+      nextData = deleteChapterForever(data, item.id);
+    } else {
+      nextData = deletePageForever(data, item.id);
     }
 
-    if (item.type === 'chapter') {
-      updateData(deleteChapterForever(data, item.id));
-      return;
-    }
-
-    updateData(deletePageForever(data, item.id));
+    updateData(nextData);
     setSettings((currentSettings) => ({
       ...currentSettings,
-      recentPageIds: currentSettings.recentPageIds.filter((pageId) => pageId !== item.id)
+      recentPageIds: getLiveRecentPageIds(currentSettings.recentPageIds, nextData)
     }));
   }
 
@@ -1379,4 +1379,9 @@ function shouldWarnBeforeLeaving(saveStatus: SaveStatus): boolean {
 
 function areStringArraysEqual(left: string[], right: string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function getLiveRecentPageIds(recentPageIds: string[], data: LibraryData): string[] {
+  const livePageIds = new Set(data.pages.filter((page) => !page.deletedAt).map((page) => page.id));
+  return recentPageIds.filter((pageId) => livePageIds.has(pageId));
 }

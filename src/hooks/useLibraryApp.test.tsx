@@ -2,14 +2,14 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useLibraryApp } from './useLibraryApp';
-import type { LibraryData } from '../types/domain';
+import type { AppSettings, LibraryData } from '../types/domain';
 import { DEFAULT_APP_SETTINGS } from '../utils/appSettings';
 import { createBackupPayload, validateBackupPayload } from '../utils/backup';
 
 const dbMocks = vi.hoisted(() => ({
   loadLibraryDataMock: vi.fn<() => Promise<LibraryData | null>>(),
   saveLibraryDataMock: vi.fn<(data: LibraryData) => Promise<void>>(),
-  loadAppSettingsMock: vi.fn<() => Promise<null>>(),
+  loadAppSettingsMock: vi.fn<() => Promise<AppSettings | null>>(),
   saveAppSettingsMock: vi.fn<() => Promise<void>>()
 }));
 
@@ -60,12 +60,13 @@ describe('useLibraryApp persistence', () => {
     expect(app?.data).toEqual({ books: [], chapters: [], pages: [] });
     expect(app?.saveStatus).toMatchObject({
       state: 'failed',
+      canRetry: false,
       error: {
-        title: 'Changes could not be saved.',
-        recovery: 'Export a backup before closing or refreshing.'
+        title: 'LibNote could not save locally.',
+        recovery: 'If these changes are important, export a backup before closing or refreshing.'
       }
     });
-    expect(app?.saveStatus.state === 'failed' ? app.saveStatus.error.suggestion : '').toContain('Leave private browsing');
+    expect(app?.saveStatus.state === 'failed' ? app.saveStatus.error.suggestion : '').toContain('leave private browsing');
 
     await advanceAutosave();
 
@@ -87,10 +88,11 @@ describe('useLibraryApp persistence', () => {
     expect(app?.saveStatus).toMatchObject({
       state: 'failed',
       error: {
-        title: 'Changes could not be saved.',
-        message: 'Your latest edits may only exist in this open tab.'
+        title: 'LibNote could not save locally.',
+        message: 'Your latest changes are still open here, but they may not be saved in this browser yet.'
       }
     });
+    expect(app?.data?.pages).toEqual([expect.objectContaining({ title: 'Untitled Loose Page' })]);
   });
 
   it('maps quota autosave failures to quota guidance', async () => {
@@ -105,7 +107,7 @@ describe('useLibraryApp persistence', () => {
 
     expect(app?.saveStatus.state).toBe('failed');
     expect(app?.saveStatus.state === 'failed' ? app.saveStatus.error.message : '').toContain('storage appears to be full');
-    expect(app?.saveStatus.state === 'failed' ? app.saveStatus.error.suggestion : '').toContain('Free browser storage');
+    expect(app?.saveStatus.state === 'failed' ? app.saveStatus.error.suggestion : '').toContain('free browser storage');
   });
 
   it('supports retrying a failed save', async () => {
@@ -125,6 +127,29 @@ describe('useLibraryApp persistence', () => {
 
     expect(app?.saveStatus).toEqual({ state: 'saved', lastSavedAt: expect.any(Number) });
     expect(dbMocks.saveLibraryDataMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('warns before unload after a failed save and clears the warning after a successful retry', async () => {
+    dbMocks.saveLibraryDataMock.mockRejectedValueOnce(new Error('Write failed')).mockResolvedValue(undefined);
+    await renderHarness();
+
+    act(() => {
+      app?.handleCreateLoosePage();
+    });
+    await advanceAutosave();
+
+    const failedSaveUnload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(failedSaveUnload);
+    expect(failedSaveUnload.defaultPrevented).toBe(true);
+
+    await act(async () => {
+      app?.retryLibrarySave();
+      await Promise.resolve();
+    });
+
+    const savedUnload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(savedUnload);
+    expect(savedUnload.defaultPrevented).toBe(false);
   });
 
   it('still autosaves normal edits', async () => {
@@ -220,6 +245,86 @@ describe('useLibraryApp persistence', () => {
     expect(confirmSpy).toHaveBeenCalledWith(
       'Move "Field Notes" and all of its chapters and pages to Trash? You can restore them from Trash.'
     );
+
+    confirmSpy.mockRestore();
+  });
+
+  it('removes recent-page references when deleting a trashed book forever', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const currentData = {
+      books: [
+        {
+          id: 'book-a',
+          title: 'Field Notes',
+          sortOrder: 0,
+          createdAt: '2026-05-04T12:00:00.000Z',
+          updatedAt: '2026-05-04T12:00:00.000Z',
+          deletedAt: '2026-05-05T12:00:00.000Z',
+          deletedFrom: null
+        }
+      ],
+      chapters: [
+        {
+          id: 'chapter-a',
+          bookId: 'book-a',
+          title: 'Chapter',
+          sortOrder: 0,
+          createdAt: '2026-05-04T12:00:00.000Z',
+          updatedAt: '2026-05-04T12:00:00.000Z',
+          deletedAt: '2026-05-05T12:00:00.000Z',
+          deletedFrom: { bookId: 'book-a' }
+        }
+      ],
+      pages: [
+        {
+          id: 'page-a',
+          chapterId: 'chapter-a',
+          title: 'Deleted Page',
+          content: 'Deleted content',
+          tags: [],
+          textSize: 16,
+          isLoose: false,
+          sortOrder: 0,
+          createdAt: '2026-05-04T12:00:00.000Z',
+          updatedAt: '2026-05-04T12:00:00.000Z',
+          deletedAt: '2026-05-05T12:00:00.000Z',
+          deletedFrom: { bookId: 'book-a', chapterId: 'chapter-a', wasLoose: false }
+        },
+        {
+          id: 'page-live',
+          chapterId: null,
+          title: 'Live Page',
+          content: 'Keep me',
+          tags: [],
+          textSize: 16,
+          isLoose: true,
+          sortOrder: 0,
+          createdAt: '2026-05-04T12:00:00.000Z',
+          updatedAt: '2026-05-04T12:00:00.000Z',
+          deletedAt: null,
+          deletedFrom: null
+        }
+      ]
+    } satisfies LibraryData;
+    dbMocks.loadLibraryDataMock.mockResolvedValue(currentData);
+    dbMocks.loadAppSettingsMock.mockResolvedValue({
+      ...DEFAULT_APP_SETTINGS,
+      recentPageIds: ['page-a', 'page-live']
+    });
+
+    await renderHarness();
+
+    act(() => {
+      app?.handleDeleteTrashItemForever({
+        id: 'book-a',
+        type: 'book',
+        title: 'Field Notes',
+        deletedAt: '2026-05-05T12:00:00.000Z'
+      });
+    });
+
+    expect(app?.data?.pages.map((page) => page.id)).toEqual(['page-live']);
+    expect(app?.recentPageIds).toEqual(['page-live']);
 
     confirmSpy.mockRestore();
   });

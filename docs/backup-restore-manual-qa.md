@@ -51,3 +51,14 @@ After a successful restore, verify:
 - Settings such as theme, shelf style, books per row, custom shortcuts, and text size are restored or safely defaulted.
 - Trash shows restored backup Trash contents, and items can still be restored or deleted forever.
 - Search finds restored page titles, content, tags, wikilinks, and Trash results.
+
+## Local Save Failure Checks
+
+Use a disposable browser profile or development build.
+
+1. Normal save and reload: create or edit a page, wait for the Saved status, reload the tab, and confirm the latest edit is still present.
+2. Simulated save failure: temporarily block or fail IndexedDB writes in DevTools, then edit a page. Confirm the save status says LibNote could not save locally and recommends exporting a backup before closing or refreshing.
+3. Retry after failure: re-enable IndexedDB writes and choose Retry from the save warning. Confirm the status returns to Saved and a reload keeps the edit.
+4. Closing or reloading after failed save: with a failed save still visible, try to close or reload the tab. Confirm the browser warns before leaving.
+5. Backup export after failed save warning: while the failed save warning is visible, open App Menu -> Backup & Restore and export the library. Confirm the downloaded JSON includes the unsaved in-memory edit.
+6. Trash cleanup: move a page, chapter, or book to Trash, open any affected page first if needed so it appears in Recent, then delete it forever. Confirm Recent no longer shows broken links to permanently deleted pages.

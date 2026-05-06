@@ -19,17 +19,32 @@ describe('SaveStatusIndicator', () => {
     const html = render({
       state: 'failed',
       error: {
-        title: 'Changes could not be saved.',
-        message: 'Your latest edits may only exist in this open tab.',
-        recovery: 'Export a backup before closing or refreshing.',
+        title: 'LibNote could not save locally.',
+        message: 'Your latest changes are still open here, but they may not be saved in this browser yet.',
+        recovery: 'If these changes are important, export a backup before closing or refreshing.',
         suggestion: 'Browser storage may be full or unavailable.'
       }
     });
 
-    expect(html).toContain('Changes could not be saved.');
-    expect(html).toContain('Your latest edits may only exist in this open tab.');
-    expect(html).toContain('Export a backup before closing or refreshing.');
+    expect(html).toContain('LibNote could not save locally.');
+    expect(html).toContain('Your latest changes are still open here');
+    expect(html).toContain('export a backup before closing or refreshing.');
     expect(html).toContain('Retry');
+  });
+
+  it('can hide retry when the failure is not a safe save retry', () => {
+    const html = render({
+      state: 'failed',
+      canRetry: false,
+      error: {
+        title: 'LibNote could not save locally.',
+        message: 'Your latest changes are still open here, but they may not be saved in this browser yet.',
+        recovery: 'If these changes are important, export a backup before closing or refreshing.',
+        suggestion: 'Browser storage may be full or unavailable.'
+      }
+    });
+
+    expect(html).not.toContain('Retry');
   });
 });
 

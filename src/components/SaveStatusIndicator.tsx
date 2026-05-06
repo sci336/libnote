@@ -55,9 +55,11 @@ export function SaveStatusIndicator({ status, onRetry }: SaveStatusIndicatorProp
         <span>{status.error.recovery}</span>
         <span>{status.error.suggestion}</span>
       </div>
-      <button type="button" className="save-status-retry" onClick={onRetry}>
-        Retry
-      </button>
+      {status.canRetry === false ? null : (
+        <button type="button" className="save-status-retry" onClick={onRetry}>
+          Retry
+        </button>
+      )}
     </div>
   );
 }
