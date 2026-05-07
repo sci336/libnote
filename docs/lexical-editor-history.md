@@ -1,22 +1,22 @@
-# Lexical Editor Prototype
+# Lexical Editor History
 
 ## Recommendation
 
-Use raw Lexical for the next editor reliability phase. LexKit is promising, but it is still pre-1.0 (`@lexkit/editor` 0.0.x at the time of this prototype), adds a wrapper API over the core editor, and pulls LibNote toward a broader toolkit than this app needs. LibNote's current requirements are modest: dependable rich text, lists, paste normalization, HTML/plain-text compatibility, wikilink text, and slash-tag text. Raw Lexical covers that without adopting another abstraction.
+Use raw Lexical for the next editor reliability phase. LexKit is promising, but it is still pre-1.0 (`@lexkit/editor` 0.0.x at the time of that exploration), adds a wrapper API over the core editor, and pulls LibNote toward a broader toolkit than this app needs. LibNote's current requirements are modest: dependable rich text, lists, paste normalization, HTML/plain-text compatibility, wikilink text, and slash-tag text. Raw Lexical covers that without adopting another abstraction.
 
-## What Was Prototyped
+## What Was Built
 
 - Added `LexicalPageEditor`, an isolated PageEditor alternative that is now the default behind `USE_LEXICAL_EDITOR = true`.
 - Added a raw Lexical command layer for undo, redo, bold, italic, underline, highlight, heading, bullet list, numbered list, and task list.
 - Added Lexical HTML loading/export helpers for LibNote's current safe content subset.
-- Kept `Page.content` as HTML for the prototype so existing notes, backups, search, preview, and `.txt` export continue to use the existing data path.
+- Kept `Page.content` as HTML for the editor so existing notes, backups, search, preview, and `.txt` export continue to use the existing data path.
 - Added paste sanitization before Lexical import using LibNote's existing rich-text sanitizer.
-- Added toolbar active states for inline formatting, highlight, headings, and list type so the prototype responds as the cursor moves.
+- Added toolbar active states for inline formatting, highlight, headings, and list type so the editor responds as the cursor moves.
 - Added in-editor autocomplete for plain-text `[[Page Title]]` wikilinks and `/tag` slash tags.
 
 ## Serialization Strategy
 
-For this prototype, store HTML only. That is the safest bridge because all existing LibNote data flows already assume `Page.content` is a string and downstream utilities call `contentToPlainText`.
+LibNote stores HTML for the current Lexical editor bridge. That is the safest bridge because all existing LibNote data flows already assume `Page.content` is a string and downstream utilities call `contentToPlainText`.
 
 Longer term, Lexical JSON is a better canonical editor state because it avoids ambiguous browser HTML and makes custom nodes easier to preserve. A safe migration would be:
 
@@ -28,7 +28,7 @@ Longer term, Lexical JSON is a better canonical editor state because it avoids a
 
 ## What Works
 
-- Existing HTML and plain-text notes load into the Lexical prototype.
+- Existing HTML and plain-text notes load into the Lexical editor.
 - Lexical edits emit normalized compatible HTML back through `onChangeContent`.
 - Bold, italic, underline, highlight, bullet lists, numbered lists, task lists, and headings serialize to compatible HTML.
 - Clicking the heading toolbar button on an existing heading toggles the block back to a paragraph, which keeps the toolbar from trapping a paragraph in heading mode.
@@ -134,7 +134,7 @@ Manual QA performed:
 - Switched between `Long Form Scroll`, `Linked Target`, and the loose page, then returned to confirm content and page tags persisted.
 - Opened Preview and confirmed rich text rendered, resolved wikilinks appeared as page buttons, the missing wikilink appeared as a createable link, duplicate title links rendered as ambiguous, and slash-tag text remained visible.
 - Searched for `Autocomplete keyboard` and confirmed search found the Lexical-authored content in `Long Form Scroll`.
-- Reloaded after restoring `USE_LEXICAL_EDITOR = false` and confirmed the old production `PageEditor` opened the Lexical-authored HTML, tags, preview-compatible content, and save status without showing the Lexical prototype notice.
+- Reloaded after restoring `USE_LEXICAL_EDITOR = false` and confirmed the old production `PageEditor` opened the Lexical-authored HTML, tags, preview-compatible content, and save status without showing the Lexical editor notice.
 
 Autocomplete QA performed:
 

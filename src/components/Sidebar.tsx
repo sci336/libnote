@@ -361,17 +361,14 @@ function SidebarSection({
               itemDraggingClassName="is-dragging"
               itemDropTopClassName="drop-top"
               itemDropBottomClassName="drop-bottom"
-              renderItem={(item, reorderControls) => (
-                <div className="sidebar-reorder-content">
-                  <button
-                    type="button"
-                    className={`sidebar-item ${item.isActive ? 'is-active' : ''}`}
-                    onClick={item.onClick}
-                  >
-                    <span className="sidebar-item-label">{item.label}</span>
-                  </button>
-                  {reorderControls}
-                </div>
+              renderItem={(item) => (
+                <button
+                  type="button"
+                  className={`sidebar-item ${item.isActive ? 'is-active' : ''}`}
+                  onClick={item.onClick}
+                >
+                  <span className="sidebar-item-label">{item.label}</span>
+                </button>
               )}
             />
           ) : (

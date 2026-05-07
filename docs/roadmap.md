@@ -34,7 +34,7 @@ The project also has useful regression coverage: store tests, selector tests, se
 - Restore replaces the entire library. The preview/validation path is good, but manual restore QA in clean profiles and more automated restore failure tests are still important.
 - Autosave is debounced and has a `pagehide` flush, but there is no explicit conflict, journal, or last-known-good recovery layer if a write fails after many edits.
 - Lexical is default, but mobile/narrow/touch behavior still needs QA. The editor still stores HTML as the canonical page content, so import/export compatibility must remain heavily tested.
-- `docs/lexical-editor-prototype.md` contains historical prototype language. It is useful as a log, but future public-facing docs should not describe the default editor as experimental.
+- `docs/lexical-editor-history.md` preserves historical editor notes. Future public-facing docs should keep describing Lexical as the default editor.
 - `PageEditor.tsx` is still a legacy fallback. That is useful for rollback, but it doubles QA surface and should be treated as compatibility code, not the main editor.
 - Slash-tag input is mostly consistent, but `parseSingleTagInput` still accepts a leading `#` forgivingly. Public UI and docs should keep `/tag` as the only visible syntax.
 - Wikilinks resolve by normalized title. Duplicate page titles are marked ambiguous, but there is no stable page-id link syntax or rename assistance.
@@ -96,7 +96,7 @@ The project also has useful regression coverage: store tests, selector tests, se
 
 **Why now:** Once storage safety is stronger, the next highest-risk surface is editor correctness.
 
-**Likely files/components affected:** `src/components/LexicalPageEditor.tsx`, `src/components/EditorToolbar.tsx`, `src/components/PageEditor.tsx`, `src/config/editorFlags.ts`, `src/utils/lexicalRichText.ts`, `src/utils/richText.ts`, `src/components/WikiLinkPreview.tsx`, `docs/lexical-manual-qa-checklist.md`, historical `docs/lexical-editor-prototype.md`.
+**Likely files/components affected:** `src/components/LexicalPageEditor.tsx`, `src/components/EditorToolbar.tsx`, `src/components/PageEditor.tsx`, `src/config/editorFlags.ts`, `src/utils/lexicalRichText.ts`, `src/utils/richText.ts`, `src/components/WikiLinkPreview.tsx`, `docs/lexical-manual-qa-checklist.md`, historical `docs/lexical-editor-history.md`.
 
 **Risks to watch for:** HTML sanitizer stripping useful content, Lexical serializing unexpected markup, toolbar state desync, task checkbox state loss, text-size spans applying too broadly, autocomplete menus appearing offscreen, and fallback editor incompatibility.
 

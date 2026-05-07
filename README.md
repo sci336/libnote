@@ -162,10 +162,12 @@ Inline title editing uses `Enter` to save and `Esc` to cancel. Tag and autocompl
 
 - `public/manifest.webmanifest` defines the installable app metadata.
 - `public/sw.js` provides the production service worker.
-- In production, the service worker precaches `/`, `/index.html`, `/manifest.webmanifest`, and `/icon.svg`.
+- In production, the service worker precaches `/`, `/index.html`, `/manifest.webmanifest`, and app icons.
 - Same-origin GET assets are cached as they are fetched.
 - Navigation requests fall back to cached `index.html` when available.
-- Development mode unregisters service workers and clears `note-library-*` caches to avoid stale local builds.
+- Development mode unregisters service workers and clears matching `note-library-*` and `libnote-*` caches to avoid stale local builds.
+- LibNote shows a small offline indicator when the browser is offline.
+- When a new service worker is waiting, LibNote shows a small update-ready message and waits for the user to choose Reload.
 
 Offline support means the app shell can load from cache after it has been cached, and your library data remains in local browser storage. It does not mean cloud sync or remote backup.
 
@@ -331,6 +333,38 @@ Restore behavior:
 
 Export a current backup before restoring another file if you want to keep the current browser library.
 
+## Install LibNote as an App
+
+LibNote can be installed as a Progressive Web App when it is served from a production HTTPS site. After installation, users open it from an icon like an app; they should not need npm commands, a terminal, a Vite dev server, or a browser tab workflow.
+
+Install flow for normal users:
+
+- Desktop Chrome or Edge: open the deployed LibNote site and use the browser install button when it appears in the address bar or app menu.
+- iPhone or iPad: open the deployed site in Safari, use Share, then choose Add to Home Screen.
+- Android: open the deployed site and use the browser menu or install prompt where supported.
+
+Install support depends on the browser and platform. LibNote does not currently ship through the App Store, Play Store, or any native store.
+
+### Local-First Data Warning
+
+LibNote stores books, chapters, pages, loose pages, settings, and recent pages locally in browser/app storage. Installing the PWA does not create cloud backup, accounts, or sync. Clearing site data, deleting a browser profile, private/incognito storage cleanup, or losing a device can delete the local library. Export backups regularly from App Menu -> Backup & Restore.
+
+### Development, Production, and Installed PWA
+
+- Development mode: `npm install` and `npm run dev` are for contributors working on the app. Development mode unregisters LibNote service workers and clears matching app-shell caches to avoid stale local builds.
+- Production build: `npm run build` creates the static app in `dist/`. `npm run preview` serves that production build locally for verification.
+- Installed PWA: normal users install once from the deployed HTTPS site, then open LibNote from the installed icon.
+
+Normal PWA installation requires HTTPS. Browsers allow `localhost` as a development/testing exception.
+
+### Deploying So Users Can Install
+
+LibNote is compatible with static hosts that can serve the Vite `dist/` output over HTTPS, such as GitHub Pages, Netlify, Vercel, Cloudflare Pages, or another static host.
+
+The current Vite setup assumes the app is served from the site root (`/`). That works for a custom domain or root deployment. For GitHub Pages project URLs like `https://USER.github.io/REPO/`, choose the final URL first and then document/test any required Vite `base` path change instead of guessing. The manifest `start_url`, service worker scope, icons, offline reload, and installed launch URL all need to be checked against the final hosted path.
+
+See `docs/deploy-installable-pwa.md` and `docs/pwa-manual-qa.md` for deployment notes and manual install/offline/update checks.
+
 ## Setup and Development
 
 This project uses npm, React, TypeScript, Vite, Lexical, Vitest, and Playwright.
@@ -464,8 +498,14 @@ public/
   manifest.webmanifest   PWA manifest
   sw.js                  Production service worker
   icon.svg               App icon
+  icon-192.png           Install icon
+  icon-512.png           Install icon
+  apple-touch-icon.png   iOS home-screen icon
 
 docs/
+  deploy-installable-pwa.md
+                          Deployment notes for installable HTTPS hosting
+  pwa-manual-qa.md       Manual QA for install, offline, update, and backup reminders
   search-manual-qa.md    Manual QA notes for text, tag, mixed, and loose-page search
   lexical-manual-qa-checklist.md
                           Manual QA checklist for Lexical editor coverage
