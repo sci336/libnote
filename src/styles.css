@@ -638,6 +638,51 @@ button {
   font-size: 1.1rem;
 }
 
+.pwa-status-stack {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0 0 0.8rem;
+}
+
+.pwa-status {
+  width: min(100%, 920px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.52rem 0.72rem;
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  background: var(--surface-strong);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  box-shadow: 0 10px 24px rgba(17, 24, 39, 0.05);
+}
+
+.pwa-status-offline {
+  border-color: rgba(122, 84, 34, 0.22);
+}
+
+.pwa-status-update {
+  border-color: rgba(31, 41, 55, 0.16);
+}
+
+.pwa-status-button {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--accent);
+  color: #ffffff;
+  padding: 0.24rem 0.65rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.pwa-status-button:hover {
+  filter: brightness(1.04);
+}
+
 .app-menu-layer {
   position: fixed;
   inset: 0;

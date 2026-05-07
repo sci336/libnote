@@ -277,6 +277,23 @@ function HelpSection(): JSX.Element {
         </p>
       </GuideSection>
 
+      <GuideSection title="Install LibNote">
+        <p>
+          When LibNote is hosted from a production site, supported browsers can install it so it opens from an icon like
+          an app. Install support depends on the browser and platform, and local data still stays in that browser or
+          installed app storage.
+        </p>
+        <ul className="menu-list">
+          <li><strong>Desktop Chrome or Edge:</strong> use the browser install button when it appears in the address bar or app menu.</li>
+          <li><strong>iPhone or iPad:</strong> open LibNote in Safari, use Share, then choose Add to Home Screen.</li>
+          <li><strong>Android:</strong> use the browser menu or install prompt when your browser offers it.</li>
+        </ul>
+        <p>
+          Installed LibNote can reopen its app shell after it has loaded once, including while offline. This does not
+          create cloud backup or sync. Clearing site data can delete the local library, so export backups regularly.
+        </p>
+      </GuideSection>
+
       <GuideSection title="Recent Pages">
         <p>
           Recent Pages appears in the sidebar after you open or edit pages. It is a quick-access list for getting back

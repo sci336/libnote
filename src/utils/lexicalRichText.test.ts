@@ -18,7 +18,7 @@ import { extractBracketLinks } from './pageLinks';
 import { parseTagQuery } from './tags';
 import type { LibraryData } from '../types/domain';
 
-describe('lexical rich text prototype compatibility', () => {
+describe('lexical rich text editor compatibility', () => {
   it('serializes bold text to compatible HTML', async () => {
     const html = await roundTripHtml('<p>Hello <strong>bold</strong></p>');
 

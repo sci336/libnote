@@ -8,6 +8,7 @@ import { Sidebar, type RecentSidebarPage } from './components/Sidebar';
 import { TagResultsView } from './components/TagResultsView';
 import { TopBar } from './components/TopBar';
 import { SaveStatusIndicator } from './components/SaveStatusIndicator';
+import { PwaStatus } from './components/PwaStatus';
 import { useLibraryApp } from './hooks/useLibraryApp';
 import { AppLayout } from './layouts/AppLayout';
 import { getChapterCountForBookFromDerived, getPageCountForChapterFromDerived } from './store/librarySelectors';
@@ -212,6 +213,7 @@ export default function App(): JSX.Element {
         />
       }
     >
+      <PwaStatus />
       <SaveStatusIndicator status={app.saveStatus} onRetry={app.retryLibrarySave} />
       {renderMainContent(app, data, {
         openPageById,

@@ -89,6 +89,19 @@ describe('AppMenu accessibility behavior', () => {
     expect(container.textContent).toContain('Export a backup first');
   });
 
+  it('documents installable app behavior without promising app store distribution', () => {
+    renderAppMenu({ isOpen: true, activeSection: 'help' });
+
+    expect(container.textContent).toContain('Install LibNote');
+    expect(container.textContent).toContain('opens from an icon like an app');
+    expect(container.textContent).toContain('Desktop Chrome or Edge');
+    expect(container.textContent).toContain('Add to Home Screen');
+    expect(container.textContent).toContain('This does not create cloud backup or sync');
+    expect(container.textContent).not.toContain('App Store');
+    expect(container.textContent).not.toContain('Play Store');
+    expect(container.textContent).not.toContain('Quest Store');
+  });
+
   it('shows a safety backup download action after restore failure', () => {
     const onDownloadRestoreSafetySnapshot = vi.fn();
 
