@@ -1,12 +1,14 @@
 const CACHE_NAME = 'libnote-app-shell-v3';
+const SCOPE_PATH = new URL(self.registration.scope).pathname;
+const INDEX_URL = `${SCOPE_PATH}index.html`;
 const APP_SHELL = [
-  '/',
-  '/index.html',
-  '/manifest.webmanifest',
-  '/icon.svg',
-  '/icon-192.png',
-  '/icon-512.png',
-  '/apple-touch-icon.png'
+  SCOPE_PATH,
+  INDEX_URL,
+  `${SCOPE_PATH}manifest.webmanifest`,
+  `${SCOPE_PATH}icon.svg`,
+  `${SCOPE_PATH}icon-192.png`,
+  `${SCOPE_PATH}icon-512.png`,
+  `${SCOPE_PATH}apple-touch-icon.png`
 ];
 
 self.addEventListener('install', (event) => {
@@ -43,18 +45,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (!url.pathname.startsWith(SCOPE_PATH)) {
+    return;
+  }
+
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
           if (response.ok) {
             const clone = response.clone();
-            void caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', clone));
+            void caches.open(CACHE_NAME).then((cache) => cache.put(INDEX_URL, clone));
           }
 
           return response;
         })
-        .catch(() => caches.match('/index.html'))
+        .catch(() => caches.match(INDEX_URL))
     );
     return;
   }
@@ -69,10 +75,10 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (
             response.ok &&
-            !url.pathname.startsWith('/@vite') &&
-            !url.pathname.startsWith('/src/') &&
-            url.pathname !== '/' &&
-            url.pathname !== '/index.html'
+            !url.pathname.startsWith(`${SCOPE_PATH}@vite`) &&
+            !url.pathname.startsWith(`${SCOPE_PATH}src/`) &&
+            url.pathname !== SCOPE_PATH &&
+            url.pathname !== INDEX_URL
           ) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
@@ -96,7 +102,7 @@ async function cacheAppShell() {
   await cache.addAll(APP_SHELL);
 
   try {
-    const indexResponse = await fetch('/index.html', { cache: 'no-store' });
+    const indexResponse = await fetch(INDEX_URL, { cache: 'no-store' });
 
     if (!indexResponse.ok) {
       return;
@@ -106,7 +112,7 @@ async function cacheAppShell() {
     const indexHtml = await indexResponse.text();
     const assetUrls = getSameOriginAssetUrls(indexHtml);
 
-    await cache.put('/index.html', indexClone);
+    await cache.put(INDEX_URL, indexClone);
 
     if (assetUrls.length > 0) {
       await cache.addAll(assetUrls);
@@ -122,9 +128,9 @@ function getSameOriginAssetUrls(indexHtml) {
   let match = assetPattern.exec(indexHtml);
 
   while (match) {
-    const assetUrl = new URL(match[1], self.location.origin);
+    const assetUrl = new URL(match[1], self.registration.scope);
 
-    if (assetUrl.origin === self.location.origin && assetUrl.pathname.startsWith('/assets/')) {
+    if (assetUrl.origin === self.location.origin && assetUrl.pathname.startsWith(`${SCOPE_PATH}assets/`)) {
       urls.add(assetUrl.pathname);
     }
 

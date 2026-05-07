@@ -18,8 +18,10 @@ export function registerProductionServiceWorker(): void {
     }
   });
 
+  const serviceWorkerUrl = new URL('sw.js', window.location.origin + import.meta.env.BASE_URL);
+
   navigator.serviceWorker
-    .register('/sw.js')
+    .register(serviceWorkerUrl.href, { scope: import.meta.env.BASE_URL })
     .then((registration) => {
       if (registration.waiting && navigator.serviceWorker.controller) {
         notifyUpdateReady(registration);
@@ -78,7 +80,7 @@ export function activateWaitingServiceWorker(): void {
   window.dispatchEvent(new Event(PWA_RELOAD_FOR_UPDATE_EVENT));
 
   navigator.serviceWorker
-    .getRegistration()
+    .getRegistration(import.meta.env.BASE_URL)
     .then((registration) => {
       registration?.waiting?.postMessage({ type: 'SKIP_WAITING' });
     })

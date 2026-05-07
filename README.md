@@ -411,6 +411,20 @@ Preview the production build:
 npm run preview
 ```
 
+## GitHub Pages Deployment
+
+This repo is configured for GitHub Pages at:
+
+```text
+https://sci336.github.io/libnote/
+```
+
+Deployment is handled by `.github/workflows/deploy-pages.yml`. In GitHub, set Settings -> Pages -> Build and deployment -> Source to GitHub Actions, then push to `main`. The workflow runs typecheck, tests, builds the Vite app, and publishes `dist/`.
+
+The Vite base path is `/libnote/` so assets, the manifest, icons, and service worker load correctly from the GitHub Pages project URL.
+
+See `docs/github-pages-deployment.md` for the full deployment and verification checklist.
+
 There is no lint script in the current `package.json`.
 
 Exact npm scripts:
