@@ -372,9 +372,9 @@ function HelpSection(): JSX.Element {
           match the page title or content, and the page must include every slash tag in the query.
         </p>
         <p>
-          To add tags to a page, open that page and use the <strong>Add tag</strong> field under the title. Type a tag
-          and press Enter. Tags are stored in lowercase. Clicking a tag pill on a page or in Page Info opens a tag
-          search for that tag.
+          To add tags to a page, open that page and use the <strong>Add tag</strong> field under the title. Type a
+          slash tag like <code>/history</code> and press Enter. Tags are stored in lowercase. Clicking a tag pill on a
+          page or in Page Info opens a tag search for that tag.
         </p>
         <p>
           In the tag results view, you can add another existing tag with the Add tag field, use recent tag suggestions,

@@ -36,7 +36,7 @@ The project also has useful regression coverage: store tests, selector tests, se
 - Lexical is default, but mobile/narrow/touch behavior still needs QA. The editor still stores HTML as the canonical page content, so import/export compatibility must remain heavily tested.
 - `docs/lexical-editor-history.md` preserves historical editor notes. Future public-facing docs should keep describing Lexical as the default editor.
 - `PageEditor.tsx` is still a legacy fallback. That is useful for rollback, but it doubles QA surface and should be treated as compatibility code, not the main editor.
-- Slash-tag input is mostly consistent, but `parseSingleTagInput` still accepts a leading `#` forgivingly. Public UI and docs should keep `/tag` as the only visible syntax.
+- Slash-tag input now rejects leading `#` in typed tag fields while preserving legacy saved prefixes through defensive normalization. Public UI and docs should continue keeping `/tag` as the only visible syntax.
 - Wikilinks resolve by normalized title. Duplicate page titles are marked ambiguous, but there is no stable page-id link syntax or rename assistance.
 - Derived selectors and lazy search indexing help scaling, but there is no virtualization, explicit search result cap, or documented stress-test size target.
 - Accessibility is improving, but modals, cover picker, sidebar, autocomplete, keyboard reordering, Escape behavior, focus return, and mobile sidebar flows need wider regression coverage.
@@ -121,7 +121,7 @@ The project also has useful regression coverage: store tests, selector tests, se
 
 - Improve search result limits, empty states, snippets, and tag/text mixed-search clarity.
 - Keep slash-tag syntax consistent everywhere as `/tag`.
-- Consider rejecting or visibly normalizing leading `#` in tag entry so hashtag syntax is not reintroduced.
+- Keep rejecting leading `#` in tag entry so hashtag syntax is not reintroduced.
 - Harden tag rename/delete/merge edge cases with trashed pages, duplicate names, empty input, and recent tag state.
 - Improve wikilink rename and duplicate-title handling, including clearer ambiguous-link choices.
 - Add navigation polish from backlinks, broken links, tag results, and search results.

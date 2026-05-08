@@ -257,7 +257,7 @@ Multi-tag search:
 
 Multi-tag searches require every selected tag. A page tagged only `/history` will not appear for `/history /mythology`.
 
-Tag names are normalized to lowercase and trimmed when saved. The visible app syntax is `/tag`; tag inputs display saved tags that way even when forgiving input is normalized.
+Tag names are normalized to lowercase and trimmed when saved. The visible app syntax is `/tag`. Focused tag fields accept a bare name like `history`, but hashtag-style input like `#history` is rejected instead of silently becoming `/history`.
 
 Mixed text and tags:
 

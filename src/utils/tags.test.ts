@@ -9,6 +9,7 @@ import {
   normalizeTag,
   normalizeTagList,
   parseSingleTagInput,
+  parseTagSuggestionInput,
   parseTagQuery,
   replaceSlashTagToken
 } from './tags';
@@ -16,10 +17,20 @@ import type { Page } from '../types/domain';
 import { buildLargeLibraryFixture } from '../test/largeLibrary';
 
 describe('tags', () => {
-  it('normalizes slash tags to lowercase trimmed values', () => {
+  it('accepts slash tags and bare names in focused tag fields', () => {
     expect(normalizeTag('  History  ')).toBe('history');
     expect(parseSingleTagInput('/History')).toBe('history');
-    expect(parseSingleTagInput('#History')).toBe('history');
+    expect(parseSingleTagInput('History')).toBe('history');
+  });
+
+  it('rejects hashtag-style input instead of silently normalizing it', () => {
+    expect(parseSingleTagInput('#History')).toBeNull();
+    expect(parseSingleTagInput('##history')).toBeNull();
+    expect(parseTagSuggestionInput('#hist')).toBeNull();
+  });
+
+  it('normalizes legacy persisted tag prefixes for display and search', () => {
+    expect(normalizeTagList(['#History', '/history', 'Mythology'])).toEqual(['history', 'mythology']);
   });
 
   it('parses tag-only queries and rejects mixed input', () => {
@@ -40,6 +51,7 @@ describe('tags', () => {
     expect(normalizeTagList(['/History', '/history'].map((tag) => parseSingleTagInput(tag) ?? ''))).toEqual([
       'history'
     ]);
+    expect(normalizeTagList(['/History', 'history', '/Mythology'])).toEqual(['history', 'mythology']);
     expect(formatTagQuery(['History', 'history', 'Mythology'])).toBe('/history /mythology');
   });
 
@@ -60,6 +72,12 @@ describe('tags', () => {
     ];
 
     expect(getAllTagSuggestions(pages, 'history')).toEqual(['history', 'history-class', 'art-history']);
+  });
+
+  it('uses slash-prefixed input to drive tag suggestions', () => {
+    expect(parseTagSuggestionInput('/')).toBe('');
+    expect(parseTagSuggestionInput('/hist')).toBe('hist');
+    expect(parseTagSuggestionInput('hist')).toBe('hist');
   });
 
   it('deduplicates normalized slash tag suggestions', () => {

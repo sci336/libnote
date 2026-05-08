@@ -31,7 +31,12 @@ import {
   sanitizePastedHtml,
   sanitizePastedPlainText
 } from '../utils/richText';
-import { detectActiveSlashTagTrigger, getAllTagSuggestions, parseSingleTagInput } from '../utils/tags';
+import {
+  detectActiveSlashTagTrigger,
+  getAllTagSuggestions,
+  parseSingleTagInput,
+  parseTagSuggestionInput
+} from '../utils/tags';
 
 export interface PageEditorProps {
   page: Page;
@@ -110,10 +115,12 @@ export function PageEditor({
   const isSyncingEditorRef = useRef(false);
   const [activeTextSize, setActiveTextSize] = useState<TextSizePresetId>(() => getPresetForLegacyPx(page.textSize).id);
   const pageTagSuggestions = useMemo(
-    () =>
-      tagInput.trim().length > 0
-        ? getAllTagSuggestions(pages, parseSingleTagInput(tagInput) ?? '', { excludeTags: page.tags })
-        : [],
+    () => {
+      const suggestionQuery = parseTagSuggestionInput(tagInput);
+      return suggestionQuery !== null
+        ? getAllTagSuggestions(pages, suggestionQuery, { excludeTags: page.tags })
+        : [];
+    },
     [page.tags, pages, tagInput]
   );
   const shouldShowPageTagSuggestions = tagSuggestionsVisible && pageTagSuggestions.length > 0;

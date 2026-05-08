@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { TagSuggestionsDropdown } from './TagSuggestionsDropdown';
 import type { TagResult } from '../utils/tags';
-import { TAG_RESULTS_LIMIT, getTagSuggestions, parseSingleTagInput } from '../utils/tags';
+import { TAG_RESULTS_LIMIT, getTagSuggestions, parseSingleTagInput, parseTagSuggestionInput } from '../utils/tags';
 
 interface TagResultsViewProps {
   tags: string[];
@@ -32,10 +32,12 @@ export function TagResultsView({
     [recentTags, tags]
   );
   const suggestions = useMemo(
-    () =>
-      tagInput.trim().length > 0
-        ? getTagSuggestions(availableTags, parseSingleTagInput(tagInput) ?? '', { excludeTags: tags })
-        : [],
+    () => {
+      const suggestionQuery = parseTagSuggestionInput(tagInput);
+      return suggestionQuery !== null
+        ? getTagSuggestions(availableTags, suggestionQuery, { excludeTags: tags })
+        : [];
+    },
     [availableTags, tagInput, tags]
   );
   const shouldShowSuggestions = suggestionsVisible && suggestions.length > 0;

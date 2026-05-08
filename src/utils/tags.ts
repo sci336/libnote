@@ -28,6 +28,9 @@ export function normalizeTagList(tags: string[]): string[] {
   const seenTags = new Set<string>();
 
   for (const rawTag of tags) {
+    // Persisted backups and older local data may contain display prefixes.
+    // Strip them here so legacy values display and search as slash tags, while
+    // new typed input is still validated by parseSingleTagInput before saving.
     const normalizedTag = normalizeTag(rawTag.replace(/^[/#]+/, ''));
     if (!isValidTag(normalizedTag) || !isValidTagValue(normalizedTag) || seenTags.has(normalizedTag)) {
       continue;
@@ -42,7 +45,8 @@ export function normalizeTagList(tags: string[]): string[] {
 
 /**
  * Accepts a single tag from lightweight UI inputs and keeps it aligned with the
- * slash-search format while still being forgiving about leading "/" or "#".
+ * slash-search format. A leading "/" is optional for focused tag fields, but
+ * leading "#" is rejected so hashtag-style tags are not silently normalized.
  */
 export function parseSingleTagInput(raw: string): string | null {
   const trimmed = raw.trim();
@@ -50,12 +54,34 @@ export function parseSingleTagInput(raw: string): string | null {
     return null;
   }
 
-  const normalizedTag = normalizeTag(trimmed.replace(/^[/#]+/, ''));
+  if (trimmed.startsWith('#')) {
+    return null;
+  }
+
+  const normalizedTag = normalizeTag(trimmed.replace(/^\/+/, ''));
   if (!isValidTag(normalizedTag) || !isValidTagValue(normalizedTag)) {
     return null;
   }
 
   return normalizedTag;
+}
+
+/**
+ * Returns the normalized query part that should drive tag suggestions for
+ * focused tag-entry fields. "/" intentionally means "show all suggestions";
+ * "#tag" is invalid input, so it should not open slash-tag suggestions.
+ */
+export function parseTagSuggestionInput(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed === '/') {
+    return '';
+  }
+
+  return parseSingleTagInput(trimmed);
 }
 
 export interface TagTokenMatch {
