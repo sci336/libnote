@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { AutoFocusPlugin } from '@lexical/react/LexicalAutoFocusPlugin';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
@@ -42,6 +42,7 @@ import {
   type LexicalEditor,
   type LexicalNode,
   type PasteCommandType,
+  type RangeSelection,
   type TextNode
 } from 'lexical';
 import { InlineEditableText } from './InlineEditableText';
@@ -419,6 +420,7 @@ function LexicalToolbar({
   const [editor] = useLexicalComposerContext();
   const [activeFormats, setActiveFormats] = useState<Partial<Record<EditorFormatAction, boolean>>>({});
   const [selectionTextSize, setSelectionTextSize] = useState<TextSizePresetId>(activeTextSize);
+  const lastRangeSelectionRef = useRef<RangeSelection | null>(null);
 
   useEffect(() => {
     function updateToolbarState(): void {
@@ -429,6 +431,9 @@ function LexicalToolbar({
           return;
         }
 
+        if (!selection.isCollapsed()) {
+          lastRangeSelectionRef.current = selection.clone();
+        }
         const anchorNode = selection.anchor.getNode();
         const listNode = getNearestListNode(anchorNode);
         const blockNode = listNode ?? getNearestBlockNode(anchorNode);
@@ -513,8 +518,12 @@ function LexicalToolbar({
   function applyTextSize(size: TextSizePresetId): void {
     const preset = getPreset(size);
     editor.update(() => {
-      const selection = $getSelection();
+      const currentSelection = $getSelection();
+      const selection = $isRangeSelection(currentSelection)
+        ? currentSelection
+        : lastRangeSelectionRef.current?.clone() ?? null;
       if ($isRangeSelection(selection)) {
+        $setSelection(selection);
         $patchStyleText(selection, { 'font-size': preset.id === 'normal' ? null : preset.fontSize });
       }
     });
@@ -726,9 +735,24 @@ function LexicalAutocompletePlugin({
       return undefined;
     }
 
+    function handlePointerDown(event: PointerEvent): void {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      if (target.closest('.lexical-autocomplete-dropdown') || target.closest('.lexical-editing-pane')) {
+        return;
+      }
+
+      setAutocomplete(null);
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown);
     window.addEventListener('resize', updateAutocomplete);
     window.addEventListener('scroll', updateAutocomplete, true);
     return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('resize', updateAutocomplete);
       window.removeEventListener('scroll', updateAutocomplete, true);
     };

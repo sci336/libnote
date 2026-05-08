@@ -2,6 +2,7 @@ import { expect, type Locator, type Page, test } from '@playwright/test';
 
 test.describe('default Lexical editor', () => {
   test.beforeEach(async ({ page }) => {
+    await clearLibraryDatabase(page);
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Books', level: 1 })).toBeVisible();
   });
@@ -124,21 +125,183 @@ test.describe('default Lexical editor', () => {
     await selectEditorText(page, 'First numbered');
     await expectPressed(page, 'Numbered list', true);
   });
+
+  test('scopes text size changes to the selected text and preserves neighboring content', async ({ page }) => {
+    const editor = await createLoosePage(page);
+
+    await editor.pressSequentially('Normal first. Sized target. Normal last.');
+    await selectEditorText(page, 'Sized target');
+    await page.getByLabel('Text size').selectOption('large');
+    await expect(page.getByLabel('Text size')).toHaveValue('large');
+
+    await selectEditorText(page, 'Normal first');
+    await expect(page.getByLabel('Text size')).toHaveValue('normal');
+
+    await waitForStoredContent(page, /<span style="font-size: 1\.25rem;?">Sized target<\/span>/);
+    await expect
+      .poll(async () => {
+        const [storedPage] = await getStoredPages(page);
+        return storedPage?.content ?? '';
+      })
+      .toMatch(/^<p>Normal first\. <span style="font-size: 1\.25rem;?">Sized target<\/span>\. Normal last\.<\/p>$/);
+
+    await page.reload();
+    await openFirstLoosePage(page);
+    await expect(page.getByLabel('Page content')).toContainText('Normal first. Sized target. Normal last.');
+    await selectEditorText(page, 'Sized target');
+    await expect(page.getByLabel('Text size')).toHaveValue('large');
+  });
+
+  test('creates, saves, reloads, and restores checklist items as task list content', async ({ page }) => {
+    const editor = await createLoosePage(page);
+
+    await page.getByRole('button', { name: 'Checkbox list' }).click();
+    await expectPressed(page, 'Checkbox list', true);
+    await editor.pressSequentially('Pack fixtures');
+    await page.keyboard.press('Enter');
+    await editor.pressSequentially('Run smoke test');
+
+    const checklist = page.locator('.lexical-rich-text ul.lexical-checklist');
+    await expect(checklist).toBeVisible();
+    await expect(checklist.locator('li.lexical-listitem-unchecked')).toHaveCount(2);
+    await waitForStoredContent(page, /<ul data-list-type="task">/);
+    await waitForStoredContent(page, /<li data-task-item="true" data-checked="false">Pack fixtures<\/li>/);
+
+    await page.reload();
+    await openFirstLoosePage(page);
+    const reloadedChecklist = page.locator('.lexical-rich-text ul.lexical-checklist');
+    await expect(reloadedChecklist).toBeVisible();
+    await expect(reloadedChecklist.locator('li.lexical-listitem-unchecked')).toHaveCount(2);
+    await selectEditorText(page, 'Pack fixtures');
+    await expectPressed(page, 'Checkbox list', true);
+  });
+
+  test('sanitizes rich paste from external sources and persists compatible markup', async ({ page }) => {
+    const editor = await createLoosePage(page);
+
+    await pasteIntoEditor(
+      page,
+      '<meta charset="utf-8"><p class="docs" style="color:red"><span style="font-weight:700">Pasted bold</span> <span style="text-decoration:underline">under</span> <span style="background-color:rgb(255, 242, 204)">mark</span><script>bad()</script></p>',
+      'Pasted bold under mark'
+    );
+
+    await expect(editor).toContainText('Pasted bold under mark');
+    await waitForStoredContent(page, /<p><strong>Pasted bold<\/strong> <u>under<\/u> <mark>mark<\/mark><\/p>/);
+    await expect
+      .poll(async () => {
+        const [storedPage] = await getStoredPages(page);
+        return storedPage?.content ?? '';
+      })
+      .not.toMatch(/script|class=|color:red/);
+  });
+
+  test('inserts page and tag autocomplete suggestions and safely dismisses popovers', async ({ page }) => {
+    await createNamedLoosePage(page, 'Atlas Notes', { tags: ['/research'] });
+    const editor = await createNamedLoosePage(page, 'Autocomplete Scratch');
+
+    await editor.pressSequentially('See [[At');
+    const linkSuggestions = page.getByRole('listbox', { name: 'Page link suggestions' });
+    await expect(linkSuggestions).toBeVisible();
+    await linkSuggestions.getByRole('option', { name: /\[\[Atlas Notes\]\]/ }).click();
+    await expect(editor).toContainText('See [[Atlas Notes]]');
+
+    await editor.pressSequentially(' and /re');
+    const tagSuggestions = page.getByRole('listbox', { name: 'Tag suggestions' });
+    await expect(tagSuggestions).toBeVisible();
+    await tagSuggestions.getByRole('option', { name: '/research' }).click();
+    await expect(editor).toContainText('and /research');
+
+    await editor.pressSequentially(' dismiss [[At');
+    await expect(linkSuggestions).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(linkSuggestions).toBeHidden();
+
+    await editor.pressSequentially(']]');
+    await editor.pressSequentially(' outside /re');
+    await expect(tagSuggestions).toBeVisible();
+    await page.getByRole('main').getByRole('button', { name: 'Autocomplete Scratch' }).click();
+    await expect(tagSuggestions).toBeHidden();
+
+    await waitForStoredContent(page, /\[\[Atlas Notes\]\]/);
+    await waitForStoredContent(page, /\/research/);
+  });
+
+  test('keeps the default editor usable on a narrow mobile viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Books', level: 1 })).toBeVisible();
+
+    await createNamedLoosePage(page, 'Mobile Target', { tags: ['/mobile'] });
+    const editor = await createNamedLoosePage(page, 'Mobile Scratch');
+
+    await editor.pressSequentially('Mobile body ');
+    await page.getByRole('button', { name: 'Bold' }).click();
+    await editor.pressSequentially('bold');
+    await page.getByRole('button', { name: 'Bold' }).click();
+    await editor.pressSequentially(' [[Mob');
+    await expect(page.getByRole('listbox', { name: 'Page link suggestions' })).toBeVisible();
+    await page.getByRole('option', { name: /\[\[Mobile Target\]\]/ }).click();
+    await expect(editor).toContainText('Mobile body bold [[Mobile Target]]');
+
+    await waitForStoredContent(page, /<strong>bold<\/strong>/);
+    await waitForStoredContent(page, /\[\[Mobile Target\]\]/);
+    await page.reload();
+    await openFirstLoosePage(page, 'Mobile Scratch');
+    await expect(page.getByLabel('Page content')).toContainText('Mobile body bold [[Mobile Target]]');
+  });
 });
 
 async function createLoosePage(page: Page): Promise<Locator> {
   await page.getByRole('main').getByRole('button', { name: 'Loose Pages' }).click();
-  await page.getByRole('button', { name: 'Create Loose Page' }).click();
+  await page
+    .getByRole('main')
+    .getByRole('button', { name: /^(Create Loose Page|New Loose Page)$/ })
+    .first()
+    .click();
   const editor = page.getByLabel('Page content');
   await expect(editor).toBeVisible();
   await editor.click();
   return editor;
 }
 
-async function openFirstLoosePage(page: Page): Promise<void> {
+async function createNamedLoosePage(
+  page: Page,
+  title: string,
+  options: { tags?: string[] } = {}
+): Promise<Locator> {
+  await goToLibraryHome(page);
+  const editor = await createLoosePage(page);
+  await renameActivePage(page, title);
+
+  for (const tag of options.tags ?? []) {
+    await page.getByLabel('Add tag').fill(tag);
+    await page.getByLabel('Add tag').press('Enter');
+  }
+
+  await editor.click();
+  return editor;
+}
+
+async function renameActivePage(page: Page, title: string): Promise<void> {
+  await page.getByRole('main').getByRole('button', { name: /^Untitled (Loose )?Page$/ }).click();
+  await page.getByLabel('Edit title').fill(title);
+  await page.getByLabel('Edit title').press('Enter');
+  await expect(page.getByRole('main').getByRole('button', { name: title })).toBeVisible();
+}
+
+async function goToLibraryHome(page: Page): Promise<void> {
+  const homeButton = page.getByRole('button', { name: 'Go to library home' });
+  if (await homeButton.isVisible()) {
+    await homeButton.click();
+  }
+  await expect(page.getByRole('heading', { name: 'Books', level: 1 })).toBeVisible();
+}
+
+async function openFirstLoosePage(page: Page, title?: string): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Books', level: 1 })).toBeVisible();
   await page.getByRole('main').getByRole('button', { name: 'Loose Pages' }).click();
-  await page.locator('article').first().getByRole('button', { name: 'Open' }).click();
+  const card = title ? page.locator('article').filter({ hasText: title }) : page.locator('article').first();
+  await card.getByRole('button', { name: 'Open' }).click();
   await expect(page.getByLabel('Page content')).toBeVisible();
 }
 
@@ -169,6 +332,18 @@ async function waitForStoredContent(page: Page, pattern: RegExp): Promise<void> 
     .toBe(true);
 }
 
+async function clearLibraryDatabase(page: Page): Promise<void> {
+  await page.goto('/');
+  await page.evaluate(() => {
+    return new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase('note-library-db');
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+      request.onblocked = () => resolve();
+    });
+  });
+}
+
 async function getStoredPages(page: Page): Promise<Array<{ content: string }>> {
   return page.evaluate(() => {
     return new Promise<Array<{ content: string }>>((resolve, reject) => {
@@ -189,6 +364,23 @@ async function getStoredPages(page: Page): Promise<Array<{ content: string }>> {
       };
     });
   });
+}
+
+async function pasteIntoEditor(page: Page, html: string, text: string): Promise<void> {
+  await page.getByLabel('Page content').evaluate(
+    (editor, payload) => {
+      const clipboardData = new DataTransfer();
+      clipboardData.setData('text/html', payload.html);
+      clipboardData.setData('text/plain', payload.text);
+      const event = new ClipboardEvent('paste', {
+        bubbles: true,
+        cancelable: true,
+        clipboardData
+      });
+      editor.dispatchEvent(event);
+    },
+    { html, text }
+  );
 }
 
 async function selectEditorText(page: Page, text: string): Promise<void> {
