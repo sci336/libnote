@@ -25,9 +25,15 @@ Normal PWA installation requires HTTPS. `localhost` is the development exception
 
 ## GitHub Pages Base Path
 
-This repo currently uses Vite's default root base path (`/`). That is correct for a custom domain or root deployment.
+This repo currently uses `base: '/libnote/'` in `vite.config.ts`. That matches the configured GitHub Pages project URL:
 
-For a project site such as `https://USER.github.io/REPO/`, Vite usually needs a matching `base: '/REPO/'` configuration and the manifest/service-worker paths need to be checked against that subpath. Do not change the base path blindly: choose the final URL first, then test the manifest, service worker, icons, offline reload, and installed start URL from that exact deployed URL.
+```text
+https://sci336.github.io/libnote/
+```
+
+The manifest uses relative `start_url` and `scope` values (`"."`) so installed launches remain under the current deployment path. The service worker is registered at `import.meta.env.BASE_URL`, so its scope follows the Vite base path.
+
+If LibNote moves to a custom domain/root deployment or a different GitHub Pages project path, update `vite.config.ts` to match that final URL and then test the manifest, service worker, icons, offline reload, and installed start URL from the deployed site. Do not change the base path blindly.
 
 ## User Install Flow
 

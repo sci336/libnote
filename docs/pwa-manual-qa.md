@@ -7,8 +7,9 @@ Use a production build or deployed site for this checklist. Vite development mod
 1. Run `npm run build`.
 2. Run `npm run preview`.
 3. Open the preview URL and confirm LibNote loads to the Books view.
-4. Confirm the manifest is detected with `LibNote`, `start_url: /`, `scope: /`, `display: standalone`, theme/background colors, and 192/512 PNG icons.
+4. Confirm the manifest is detected with `LibNote`, relative `start_url: "."`, relative `scope: "."`, `display: standalone`, theme/background colors, and 192/512 PNG icons.
 5. Confirm `sw.js` is registered on the production preview or deployed site.
+6. On the GitHub Pages deployment, confirm manifest and service-worker URLs resolve under `/libnote/`, not the domain root.
 
 ## Desktop Install
 

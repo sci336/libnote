@@ -1,5 +1,7 @@
 # Lexical Editor History
 
+This file is historical. Current guidance is that Lexical is the default desktop-first editor path, and the old `PageEditor` is a legacy compatibility fallback behind `USE_LEXICAL_EDITOR = false`. Older dated notes below describe the state at the time they were written.
+
 ## Recommendation
 
 Use raw Lexical for the next editor reliability phase. LexKit is promising, but it is still pre-1.0 (`@lexkit/editor` 0.0.x at the time of that exploration), adds a wrapper API over the core editor, and pulls LibNote toward a broader toolkit than this app needs. LibNote's current requirements are modest: dependable rich text, lists, paste normalization, HTML/plain-text compatibility, wikilink text, and slash-tag text. Raw Lexical covers that without adopting another abstraction.
@@ -115,7 +117,7 @@ Manual QA not completed in this pass:
 
 Recommendation at that point:
 
-Lexical is closer to default-ready after caret-anchored autocomplete and richer paste normalization, but it should stay off by default. The next pass should be a manual defaulting-readiness soak, not an immediate flag flip.
+At this point in the editor history, Lexical was closer to default-ready after caret-anchored autocomplete and richer paste normalization, but the recommendation was to keep it off by default until a manual defaulting-readiness soak. Later QA superseded this, and Lexical is now the default editor path.
 
 ## Manual Default-Readiness Soak - 2026-05-04
 

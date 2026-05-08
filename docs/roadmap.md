@@ -1,6 +1,6 @@
 # LibNote Updated Roadmap
 
-This roadmap reflects the current codebase as of May 4, 2026. It replaces older assumptions about editor prototypes or broad productivity features with a focused path for making LibNote a dependable local-first personal library app.
+This roadmap reflects the current codebase as of May 8, 2026. It replaces older assumptions about editor prototypes or broad productivity features with a focused path for making LibNote a dependable local-first personal library app.
 
 LibNote should keep the home/library shelf dominant. Future work should strengthen Books -> Chapters -> Pages, Loose Pages, reliable local storage, rich writing, search, tags, links, and recovery. It should not drift into a dashboard, database, or Notion-style workspace.
 
@@ -17,7 +17,7 @@ The project also has useful regression coverage: store tests, selector tests, se
 - Books, chapters, chapter pages, and loose pages: create, rename, reorder, move, trash, restore, and delete forever are implemented.
 - Local IndexedDB storage: the app stores one library snapshot and app settings in `src/db/indexedDb.ts`.
 - Autosave/save status: debounced library persistence, `pagehide` flush, failure state, retry, and before-unload warning are implemented.
-- Backup/export/import restore preview: backup payloads, validation, repair warnings, summary preview, restore, page `.txt` export, and last-backup reminder are implemented.
+- Backup/export/import restore preview: backup payloads, validation, repair warnings, summary preview, restore, pre-restore safety backup, page `.txt` export, and last-backup reminder are implemented.
 - Trash system: soft delete, cascade trash, restore behavior, delete forever, empty trash, original-location labels, and destructive copy are implemented.
 - Search: live books, chapters, pages, loose pages, and separate trash results are indexed lazily and ranked with snippets.
 - Slash tags: page metadata tags, slash-tag search, multi-tag AND filtering, mixed text plus tags, suggestions, tag results, and tag management are implemented.
@@ -25,14 +25,14 @@ The project also has useful regression coverage: store tests, selector tests, se
 - Rich text editing: Lexical is the default editor path, not a prototype. It supports common formatting, text-size spans, lists, checklist items, paste sanitization, preview, page info, wikilink autocomplete, slash-tag autocomplete, and HTML compatibility.
 - App menu/settings/help: Library Guide, shortcuts, settings, themes, tag management, backup/restore, credits, shortcut customization, storage stats, and focus management are implemented.
 - Themes and covers: app theme packs, shelf style options, books-per-row settings, built-in CSS book cover templates, and a cover picker are implemented.
-- PWA shell: manifest, app icon, production service worker install/activate/fetch behavior, and dev service worker cleanup are present.
+- PWA shell: manifest, app icon, production service worker install/activate/fetch behavior, visible offline/update status, and dev service worker cleanup are present.
 - Existing tests: Vitest and Playwright cover many current core behaviors.
 
 ## Still Fragile / Needs Hardening
 
 - Storage writes are coarse-grained whole-library snapshots. This is simple, but failed writes, quota limits, interrupted restores, and large snapshots need stronger end-to-end confidence.
-- Restore replaces the entire library. The preview/validation path is good, but manual restore QA in clean profiles and more automated restore failure tests are still important.
-- Autosave is debounced and has a `pagehide` flush, but there is no explicit conflict, journal, or last-known-good recovery layer if a write fails after many edits.
+- Restore replaces the entire library. The preview/validation path and pre-restore safety backup are good, but manual restore QA in clean profiles and more automated restore failure tests are still important.
+- Autosave is debounced and has a `pagehide` flush, but there is no durable persisted journal or full last-known-good recovery layer if a write fails after many edits.
 - Lexical is default, but mobile/narrow/touch behavior still needs QA. The editor still stores HTML as the canonical page content, so import/export compatibility must remain heavily tested.
 - `docs/lexical-editor-history.md` preserves historical editor notes. Future public-facing docs should keep describing Lexical as the default editor.
 - `PageEditor.tsx` is still a legacy fallback. That is useful for rollback, but it doubles QA surface and should be treated as compatibility code, not the main editor.
@@ -40,7 +40,7 @@ The project also has useful regression coverage: store tests, selector tests, se
 - Wikilinks resolve by normalized title. Duplicate page titles are marked ambiguous, but there is no stable page-id link syntax or rename assistance.
 - Derived selectors and lazy search indexing help scaling, but there is no virtualization, explicit search result cap, or documented stress-test size target.
 - Accessibility is improving, but modals, cover picker, sidebar, autocomplete, keyboard reordering, Escape behavior, focus return, and mobile sidebar flows need wider regression coverage.
-- PWA behavior is basic. There is no visible update/offline state, install guidance, or release checklist.
+- PWA behavior is basic. Visible offline and update-ready status exists, but install/offline/update QA still needs to be repeated before releases.
 
 ## Roadmap Phases
 
@@ -53,8 +53,9 @@ The project also has useful regression coverage: store tests, selector tests, se
 **What to build/fix:**
 
 - Harden IndexedDB load/save error handling, including quota, unavailable storage, transaction aborts, and retry behavior.
-- Add a last-known-good or pre-restore safety snapshot before replacing the library during restore.
+- Keep the implemented pre-restore safety snapshot covered by tests and manual QA.
 - Improve backup restore confirmation copy and make restore failure states more recoverable.
+- Consider a durable persisted recovery journal or full last-known-good layer for failures that happen outside the current tab/session.
 - Add backup reminder and export/import manual QA to the release checklist.
 - Confirm Trash restore behavior for nested trashed books/chapters/pages and missing parent cases.
 - Add tests for interrupted or failed restore writes and for recent-page cleanup after permanent deletion.
@@ -65,7 +66,7 @@ The project also has useful regression coverage: store tests, selector tests, se
 
 **Likely files/components affected:** `src/db/indexedDb.ts`, `src/hooks/useLibraryApp.ts`, `src/store/libraryStore.ts`, `src/store/librarySelectors.ts`, `src/utils/backup.ts`, `src/utils/storageError.ts`, `src/utils/backupReminder.ts`, `src/components/AppMenu.tsx`, `src/components/SaveStatusIndicator.tsx`, `src/views/TrashView.tsx`.
 
-**Risks to watch for:** Accidental data replacement, stale save status after failed writes, restoring settings that reference missing pages, Trash cascades deleting live children, and backup validation becoming too strict for older backups.
+**Risks to watch for:** Accidental data replacement, stale save status after failed writes, safety backups existing only in the current restore flow, restoring settings that reference missing pages, Trash cascades deleting live children, and backup validation becoming too strict for older backups.
 
 **Manual QA checklist:**
 
@@ -248,10 +249,11 @@ The project also has useful regression coverage: store tests, selector tests, se
 
 **What to build/fix:**
 
-- Add visible offline/update messaging if the service worker has a new cached version.
+- Keep the implemented visible offline and update-ready messaging covered by release QA.
 - Improve install behavior and manifest metadata if needed.
 - Keep README aligned with actual features and limitations.
 - Replace or rename public-facing prototype docs so Lexical is consistently described as default.
+- Keep GitHub Pages `/libnote/` base-path docs aligned with `vite.config.ts`, the manifest, and service-worker registration.
 - Maintain manual QA checklists for backup/restore, Lexical, search, PWA/offline, accessibility, and release readiness.
 - Add changelog/release-note discipline around backup format, storage changes, and editor changes.
 
@@ -267,7 +269,8 @@ The project also has useful regression coverage: store tests, selector tests, se
 
 - Build production, preview it, and verify service worker install/offline shell behavior.
 - Confirm development mode unregisters stale service workers and clears matching caches.
-- Install the PWA where supported and check icon/name/start URL.
+- Install the PWA where supported and check icon/name/start URL under the deployed path.
+- Trigger an update-ready service-worker state and confirm LibNote waits for the user to choose Reload.
 - Read README and Library Guide against the current UI.
 - Run release checklist before tagging.
 
@@ -275,7 +278,7 @@ The project also has useful regression coverage: store tests, selector tests, se
 
 ## Recommended Next Step
 
-Start with Phase 1 by adding a pre-restore safety snapshot and restore-failure tests. This is the best first implementation task because restore currently replaces the whole local library, and a safety snapshot would improve user trust without changing the app’s product direction.
+Start with Phase 1 by hardening restore-failure coverage around the existing pre-restore safety snapshot, then evaluate whether LibNote needs a durable persisted recovery journal or full last-known-good layer. This is still the best first implementation area because restore replaces the whole local library, and recovery confidence matters more than adding new product surface.
 
 ## Things to Avoid
 

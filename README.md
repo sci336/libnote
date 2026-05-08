@@ -162,7 +162,8 @@ Inline title editing uses `Enter` to save and `Esc` to cancel. Tag and autocompl
 
 - `public/manifest.webmanifest` defines the installable app metadata.
 - `public/sw.js` provides the production service worker.
-- In production, the service worker precaches `/`, `/index.html`, `/manifest.webmanifest`, and app icons.
+- The Vite production build is currently configured with `base: '/libnote/'` for the GitHub Pages project URL.
+- In production, the service worker precaches the app shell under its registration scope, including the scoped root, `index.html`, `manifest.webmanifest`, and app icons.
 - Same-origin GET assets are cached as they are fetched.
 - Navigation requests fall back to cached `index.html` when available.
 - Development mode unregisters service workers and clears matching `note-library-*` and `libnote-*` caches to avoid stale local builds.
@@ -324,6 +325,7 @@ Restore behavior:
 - Restore replaces the current browser library and settings. It does not merge libraries.
 - Invalid JSON is rejected.
 - Unsupported backup versions are rejected.
+- LibNote creates an in-memory pre-restore safety backup before replacing the library. If the restore write fails, the previous library is kept active in the current tab and the safety backup can be downloaded.
 - The preview shows backup type, app metadata, backup date, version, and counts for books, chapters, pages, loose pages, trashed items, and unique tags.
 - Missing or invalid metadata can be repaired with warnings.
 - Missing titles, timestamps, invalid tags, invalid settings, missing parent chapters, and similar recoverable issues are repaired or skipped with warnings where possible.
@@ -361,7 +363,9 @@ Normal PWA installation requires HTTPS. Browsers allow `localhost` as a developm
 
 LibNote is compatible with static hosts that can serve the Vite `dist/` output over HTTPS, such as GitHub Pages, Netlify, Vercel, Cloudflare Pages, or another static host.
 
-The current Vite setup assumes the app is served from the site root (`/`). That works for a custom domain or root deployment. For GitHub Pages project URLs like `https://USER.github.io/REPO/`, choose the final URL first and then document/test any required Vite `base` path change instead of guessing. The manifest `start_url`, service worker scope, icons, offline reload, and installed launch URL all need to be checked against the final hosted path.
+The current Vite setup uses `base: '/libnote/'` for the GitHub Pages project URL `https://sci336.github.io/libnote/`. Built assets, the manifest, icons, and service worker are expected to load from that subpath. The manifest uses relative `start_url` and `scope` values (`"."`) so installed launches stay inside the deployed subpath.
+
+If LibNote is moved to a root deployment or a different project path, update `vite.config.ts` first, then verify the manifest, service worker registration scope, icons, offline reload, and installed launch URL from that exact hosted URL.
 
 See `docs/deploy-installable-pwa.md` and `docs/pwa-manual-qa.md` for deployment notes and manual install/offline/update checks.
 
@@ -568,6 +572,7 @@ npm run test:e2e
 - There is no cloud sync, account system, server storage, encryption layer, or collaboration.
 - Clearing browser storage can remove the local library.
 - Restore replaces the current library; it does not merge two libraries.
+- Restore creates a pre-restore safety backup for failed restore writes, but there is no durable persisted recovery journal or full last-known-good recovery layer.
 - Navigation does not use URL routes, so books, chapters, and pages do not have shareable deep links.
 - Recent Pages is fixed at 4 pages and is not currently configurable.
 - The page editor uses Lexical by default and saves compatible rich HTML for search, export, backlinks, backup, and restore. The older contentEditable editor remains as a code fallback behind `USE_LEXICAL_EDITOR = false`.
