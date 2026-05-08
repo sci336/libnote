@@ -5,6 +5,14 @@ const STORE_NAME = 'app-state';
 const DB_VERSION = 1;
 const SNAPSHOT_KEY = 'library';
 const SETTINGS_KEY = 'settings';
+const RESTORE_RECOVERY_SNAPSHOT_KEY = 'restore-recovery-snapshot';
+
+export interface RestoreRecoverySnapshot {
+  kind: 'restore-recovery-snapshot';
+  createdAt: string;
+  data: LibraryData;
+  settings: AppSettings;
+}
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -159,6 +167,105 @@ export async function saveAppSettings(settings: AppSettings): Promise<void> {
   });
 }
 
+export async function loadRestoreRecoverySnapshot(): Promise<RestoreRecoverySnapshot | null> {
+  const db = await openDb();
+
+  return new Promise((resolve, reject) => {
+    const settle = createSettler(resolve, reject, db);
+    let transaction: IDBTransaction;
+    let request: IDBRequest;
+
+    try {
+      transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      request = store.get(RESTORE_RECOVERY_SNAPSHOT_KEY);
+    } catch (error) {
+      settle.reject(error);
+      return;
+    }
+
+    request.onsuccess = () => {
+      const result = request.result;
+      if (result === undefined || result === null) {
+        settle.resolve(null);
+        return;
+      }
+
+      if (!isRestoreRecoverySnapshot(result)) {
+        settle.reject(createStorageException('Stored restore recovery snapshot is not readable.', 'DataError'));
+        return;
+      }
+
+      settle.resolve(result);
+    };
+    request.onerror = () =>
+      settle.reject(request.error ?? createStorageException('IndexedDB could not read the restore recovery snapshot.', 'UnknownError'));
+    transaction.onerror = () =>
+      settle.reject(transaction.error ?? createStorageException('IndexedDB restore recovery read transaction failed.', 'UnknownError'));
+    transaction.onabort = () =>
+      settle.reject(transaction.error ?? createStorageException('IndexedDB restore recovery read transaction was aborted.', 'AbortError'));
+  });
+}
+
+/**
+ * Stores the last-known-good local library before a restore replaces it.
+ * This internal snapshot is separate from exported backup JSON and exists only
+ * so an interrupted or partially failed restore can be rolled back by the user.
+ */
+export async function saveRestoreRecoverySnapshot(snapshot: RestoreRecoverySnapshot): Promise<void> {
+  const db = await openDb();
+
+  return new Promise((resolve, reject) => {
+    const settle = createSettler(resolve, reject, db);
+    let transaction: IDBTransaction;
+    let request: IDBRequest;
+
+    try {
+      transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      request = store.put(snapshot, RESTORE_RECOVERY_SNAPSHOT_KEY);
+    } catch (error) {
+      settle.reject(error);
+      return;
+    }
+
+    transaction.oncomplete = () => settle.resolve(undefined);
+    transaction.onerror = () =>
+      settle.reject(transaction.error ?? createStorageException('IndexedDB restore recovery save transaction failed.', 'UnknownError'));
+    transaction.onabort = () =>
+      settle.reject(transaction.error ?? createStorageException('IndexedDB restore recovery save transaction was aborted.', 'AbortError'));
+    request.onerror = () =>
+      settle.reject(request.error ?? createStorageException('IndexedDB could not write the restore recovery snapshot.', 'UnknownError'));
+  });
+}
+
+export async function clearRestoreRecoverySnapshot(): Promise<void> {
+  const db = await openDb();
+
+  return new Promise((resolve, reject) => {
+    const settle = createSettler(resolve, reject, db);
+    let transaction: IDBTransaction;
+    let request: IDBRequest;
+
+    try {
+      transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      request = store.delete(RESTORE_RECOVERY_SNAPSHOT_KEY);
+    } catch (error) {
+      settle.reject(error);
+      return;
+    }
+
+    transaction.oncomplete = () => settle.resolve(undefined);
+    transaction.onerror = () =>
+      settle.reject(transaction.error ?? createStorageException('IndexedDB restore recovery clear transaction failed.', 'UnknownError'));
+    transaction.onabort = () =>
+      settle.reject(transaction.error ?? createStorageException('IndexedDB restore recovery clear transaction was aborted.', 'AbortError'));
+    request.onerror = () =>
+      settle.reject(request.error ?? createStorageException('IndexedDB could not clear the restore recovery snapshot.', 'UnknownError'));
+  });
+}
+
 function createSettler<T>(
   resolve: (value: T) => void,
   reject: (reason?: unknown) => void,
@@ -198,6 +305,19 @@ function isLibraryDataSnapshot(value: unknown): value is LibraryData {
   }
 
   return Array.isArray(value.books) && Array.isArray(value.chapters) && Array.isArray(value.pages);
+}
+
+function isRestoreRecoverySnapshot(value: unknown): value is RestoreRecoverySnapshot {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    value.kind === 'restore-recovery-snapshot' &&
+    typeof value.createdAt === 'string' &&
+    isLibraryDataSnapshot(value.data) &&
+    isRecord(value.settings)
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

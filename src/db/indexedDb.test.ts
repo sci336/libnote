@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { loadLibraryData, saveLibraryData } from './indexedDb';
+import {
+  clearRestoreRecoverySnapshot,
+  loadLibraryData,
+  loadRestoreRecoverySnapshot,
+  saveLibraryData,
+  saveRestoreRecoverySnapshot
+} from './indexedDb';
 import type { LibraryData } from '../types/domain';
+import { DEFAULT_APP_SETTINGS } from '../utils/appSettings';
 
 describe('indexedDb persistence', () => {
   const originalIndexedDb = window.indexedDB;
@@ -62,6 +69,42 @@ describe('indexedDb persistence', () => {
       message: 'Transaction aborted'
     });
   });
+
+  it('loads a durable restore recovery snapshot', async () => {
+    const snapshot = {
+      kind: 'restore-recovery-snapshot',
+      createdAt: '2026-05-06T12:00:00.000Z',
+      data: emptyData,
+      settings: DEFAULT_APP_SETTINGS
+    };
+    setIndexedDb(createIndexedDbMock({ getResult: snapshot }));
+
+    await expect(loadRestoreRecoverySnapshot()).resolves.toEqual(snapshot);
+  });
+
+  it('rejects malformed restore recovery snapshots', async () => {
+    setIndexedDb(createIndexedDbMock({ getResult: { kind: 'restore-recovery-snapshot', data: { books: null } } }));
+
+    await expect(loadRestoreRecoverySnapshot()).rejects.toMatchObject({
+      name: 'DataError',
+      message: 'Stored restore recovery snapshot is not readable.'
+    });
+  });
+
+  it('saves and clears a durable restore recovery snapshot', async () => {
+    const operations: string[] = [];
+    setIndexedDb(createIndexedDbMock({ operations }));
+
+    await saveRestoreRecoverySnapshot({
+      kind: 'restore-recovery-snapshot',
+      createdAt: '2026-05-06T12:00:00.000Z',
+      data: emptyData,
+      settings: DEFAULT_APP_SETTINGS
+    });
+    await clearRestoreRecoverySnapshot();
+
+    expect(operations).toEqual(['put:restore-recovery-snapshot', 'delete:restore-recovery-snapshot']);
+  });
 });
 
 const emptyData: LibraryData = {
@@ -76,6 +119,7 @@ interface IndexedDbMockOptions {
   getError?: DOMException;
   putError?: DOMException;
   abortOnPut?: DOMException;
+  operations?: string[];
 }
 
 function setIndexedDb(value: IDBFactory | undefined): void {
@@ -138,6 +182,7 @@ function createTransaction(options: IndexedDbMockOptions): IDBTransaction {
       put: () => {
         const request = createRequest();
         setTimeout(() => {
+          options.operations?.push('put:restore-recovery-snapshot');
           if (options.putError) {
             request.error = options.putError;
             request.onerror?.(new Event('error'));
@@ -150,6 +195,14 @@ function createTransaction(options: IndexedDbMockOptions): IDBTransaction {
             return;
           }
 
+          transaction.oncomplete?.(new Event('complete'));
+        }, 0);
+        return request as IDBRequest;
+      },
+      delete: () => {
+        const request = createRequest();
+        setTimeout(() => {
+          options.operations?.push('delete:restore-recovery-snapshot');
           transaction.oncomplete?.(new Event('complete'));
         }, 0);
         return request as IDBRequest;
@@ -168,6 +221,7 @@ interface MutableTransaction {
   objectStore: () => {
     get: () => IDBRequest;
     put: () => IDBRequest;
+    delete: () => IDBRequest;
   };
   onabort: ((event: Event) => void) | null;
   oncomplete: ((event: Event) => void) | null;

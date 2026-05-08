@@ -11,14 +11,20 @@ const dbMocks = vi.hoisted(() => ({
   loadLibraryDataMock: vi.fn<() => Promise<LibraryData | null>>(),
   saveLibraryDataMock: vi.fn<(data: LibraryData) => Promise<void>>(),
   loadAppSettingsMock: vi.fn<() => Promise<AppSettings | null>>(),
-  saveAppSettingsMock: vi.fn<() => Promise<void>>()
+  saveAppSettingsMock: vi.fn<() => Promise<void>>(),
+  loadRestoreRecoverySnapshotMock: vi.fn(),
+  saveRestoreRecoverySnapshotMock: vi.fn(),
+  clearRestoreRecoverySnapshotMock: vi.fn()
 }));
 
 vi.mock('../db/indexedDb', () => ({
   loadLibraryData: dbMocks.loadLibraryDataMock,
   saveLibraryData: dbMocks.saveLibraryDataMock,
   loadAppSettings: dbMocks.loadAppSettingsMock,
-  saveAppSettings: dbMocks.saveAppSettingsMock
+  saveAppSettings: dbMocks.saveAppSettingsMock,
+  loadRestoreRecoverySnapshot: dbMocks.loadRestoreRecoverySnapshotMock,
+  saveRestoreRecoverySnapshot: dbMocks.saveRestoreRecoverySnapshotMock,
+  clearRestoreRecoverySnapshot: dbMocks.clearRestoreRecoverySnapshotMock
 }));
 
 type LibraryAppApi = ReturnType<typeof useLibraryApp>;
@@ -37,6 +43,9 @@ describe('useLibraryApp persistence', () => {
     dbMocks.saveLibraryDataMock.mockResolvedValue(undefined);
     dbMocks.loadAppSettingsMock.mockResolvedValue(null);
     dbMocks.saveAppSettingsMock.mockResolvedValue(undefined);
+    dbMocks.loadRestoreRecoverySnapshotMock.mockResolvedValue(null);
+    dbMocks.saveRestoreRecoverySnapshotMock.mockResolvedValue(undefined);
+    dbMocks.clearRestoreRecoverySnapshotMock.mockResolvedValue(undefined);
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -130,6 +139,151 @@ describe('useLibraryApp persistence', () => {
     expect(dbMocks.saveLibraryDataMock).toHaveBeenCalledTimes(2);
   });
 
+  it('does not let a stale successful save overwrite newer unsaved changes', async () => {
+    const firstSave = createDeferred<void>();
+    dbMocks.saveLibraryDataMock.mockImplementationOnce(() => firstSave.promise).mockResolvedValue(undefined);
+    await renderHarness();
+
+    act(() => {
+      app?.handleCreateLoosePage();
+    });
+    await advanceAutosave();
+    expect(app?.saveStatus.state).toBe('saving');
+
+    act(() => {
+      app?.handleCreateLoosePage();
+    });
+    expect(app?.saveStatus).toEqual({ state: 'unsaved' });
+
+    await act(async () => {
+      firstSave.resolve();
+      await firstSave.promise;
+      await Promise.resolve();
+    });
+
+    expect(app?.saveStatus).toEqual({ state: 'unsaved' });
+
+    await advanceAutosave();
+
+    expect(app?.saveStatus).toEqual({ state: 'saved', lastSavedAt: expect.any(Number) });
+    expect(dbMocks.saveLibraryDataMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        pages: [
+          expect.objectContaining({ title: 'Untitled Loose Page' }),
+          expect.objectContaining({ title: 'Untitled Loose Page' })
+        ]
+      })
+    );
+  });
+
+  it('keeps failed save state visible across more edits until retry saves the latest data and settings', async () => {
+    dbMocks.saveLibraryDataMock.mockRejectedValueOnce(new Error('Write failed')).mockResolvedValue(undefined);
+    await renderHarness();
+
+    act(() => {
+      app?.handleCreateLoosePage();
+    });
+    await advanceAutosave();
+    expect(app?.saveStatus.state).toBe('failed');
+
+    const pageId = app?.data?.pages[0].id;
+    act(() => {
+      if (pageId) {
+        app?.handleUpdatePageContent(pageId, '<p>Latest after failure</p>');
+      }
+      app?.handleUpdateTheme('dark-archive');
+    });
+
+    expect(app?.saveStatus.state).toBe('failed');
+
+    dbMocks.saveAppSettingsMock.mockClear();
+    await act(async () => {
+      app?.retryLibrarySave();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(app?.saveStatus).toEqual({ state: 'saved', lastSavedAt: expect.any(Number) });
+    expect(dbMocks.saveLibraryDataMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        pages: [expect.objectContaining({ content: '<p>Latest after failure</p>' })]
+      })
+    );
+    expect(dbMocks.saveAppSettingsMock).toHaveBeenLastCalledWith(expect.objectContaining({ theme: 'dark-archive' }));
+  });
+
+  it('does not clear failed save state on navigation or view changes', async () => {
+    dbMocks.saveLibraryDataMock.mockRejectedValue(new Error('Write failed'));
+    await renderHarness();
+
+    act(() => {
+      app?.handleCreateLoosePage();
+    });
+    await advanceAutosave();
+    expect(app?.saveStatus.state).toBe('failed');
+
+    act(() => {
+      app?.handleOpenLoosePages();
+      app?.navigateHome();
+      app?.openAppMenu('backup');
+      app?.closeAppMenu();
+    });
+
+    expect(app?.saveStatus.state).toBe('failed');
+  });
+
+  it('warns before unload while dirty changes are waiting for autosave', async () => {
+    await renderHarness();
+
+    act(() => {
+      app?.handleCreateLoosePage();
+    });
+
+    const dirtyUnload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(dirtyUnload);
+
+    expect(dirtyUnload.defaultPrevented).toBe(true);
+  });
+
+  it('pagehide flush attempts to save the latest data and settings immediately', async () => {
+    await renderHarness();
+
+    act(() => {
+      app?.handleCreateLoosePage();
+      app?.handleUpdateTheme('warm-study');
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new Event('pagehide'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(dbMocks.saveLibraryDataMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pages: [expect.objectContaining({ title: 'Untitled Loose Page' })]
+      })
+    );
+    expect(dbMocks.saveAppSettingsMock).toHaveBeenCalledWith(expect.objectContaining({ theme: 'warm-study' }));
+  });
+
+  it('pagehide flush failures leave the app in failed save state', async () => {
+    dbMocks.saveLibraryDataMock.mockRejectedValue(new Error('Pagehide write failed'));
+    await renderHarness();
+
+    act(() => {
+      app?.handleCreateLoosePage();
+    });
+
+    await act(async () => {
+      window.dispatchEvent(new Event('pagehide'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(app?.saveStatus.state).toBe('failed');
+  });
+
   it('warns before unload after a failed save and clears the warning after a successful retry', async () => {
     dbMocks.saveLibraryDataMock.mockRejectedValueOnce(new Error('Write failed')).mockResolvedValue(undefined);
     await renderHarness();
@@ -175,6 +329,8 @@ describe('useLibraryApp persistence', () => {
     const validatedRestore = validateBackupPayload(createBackupPayload(restoreData, DEFAULT_APP_SETTINGS));
     dbMocks.loadLibraryDataMock.mockResolvedValue(currentData);
     await renderHarness();
+    const activeCurrentData = app?.data;
+    const activeCurrentSettings = app?.settings;
 
     await act(async () => {
       const restored = await app?.handleRestoreBackupImport(validatedRestore);
@@ -182,8 +338,17 @@ describe('useLibraryApp persistence', () => {
       await Promise.resolve();
     });
 
+    expect(dbMocks.saveRestoreRecoverySnapshotMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'restore-recovery-snapshot',
+        data: activeCurrentData,
+        settings: activeCurrentSettings
+      })
+    );
     expect(dbMocks.saveLibraryDataMock).toHaveBeenCalledWith(validatedRestore.data);
+    expect(dbMocks.clearRestoreRecoverySnapshotMock).toHaveBeenCalledTimes(1);
     expect(app?.data?.books[0].title).toBe('Restored Library');
+    expect(app?.restoreRecoverySnapshot).toBeNull();
     expect(app?.restoreSafetySnapshot).toBeNull();
     expect(app?.backupStatus).toMatchObject({
       tone: 'success',
@@ -208,7 +373,14 @@ describe('useLibraryApp persistence', () => {
 
     expect(dbMocks.saveLibraryDataMock).toHaveBeenCalledWith(validatedRestore.data);
     expect(dbMocks.saveAppSettingsMock).not.toHaveBeenCalled();
+    expect(dbMocks.saveRestoreRecoverySnapshotMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: activeCurrentData
+      })
+    );
+    expect(dbMocks.clearRestoreRecoverySnapshotMock).not.toHaveBeenCalled();
     expect(app?.data).toEqual(activeCurrentData);
+    expect(app?.restoreRecoverySnapshot?.data).toEqual(activeCurrentData);
     expect(app?.restoreSafetySnapshot?.payload.data).toEqual(activeCurrentData);
     expect(app?.restoreSafetySnapshot?.summary).toMatchObject({
       bookCount: 1,
@@ -216,7 +388,122 @@ describe('useLibraryApp persistence', () => {
     });
     expect(app?.saveStatus.state).toBe('failed');
     expect(app?.backupStatus?.tone).toBe('error');
-    expect(app?.backupStatus?.message).toContain('Your previous library is still active in this tab.');
+    expect(app?.backupStatus?.message).toContain('Restore failed before the library replacement was saved');
+    expect(app?.backupStatus?.message).toContain('restore recovery snapshot is saved');
+  });
+
+  it('keeps the recovery snapshot when settings fail after library restore is written', async () => {
+    const currentData = buildLibraryData('current', 'Current Library');
+    const restoreData = buildLibraryData('restored', 'Restored Library');
+    const validatedRestore = validateBackupPayload(createBackupPayload(restoreData, DEFAULT_APP_SETTINGS));
+    dbMocks.loadLibraryDataMock.mockResolvedValue(currentData);
+    dbMocks.saveAppSettingsMock.mockRejectedValueOnce(new Error('Settings write failed'));
+    await renderHarness();
+    const activeCurrentData = app?.data;
+
+    await act(async () => {
+      const restored = await app?.handleRestoreBackupImport(validatedRestore);
+      expect(restored).toBe(false);
+      await Promise.resolve();
+    });
+
+    expect(dbMocks.saveLibraryDataMock).toHaveBeenCalledWith(validatedRestore.data);
+    expect(dbMocks.saveAppSettingsMock).toHaveBeenCalledWith(validatedRestore.settings);
+    expect(dbMocks.clearRestoreRecoverySnapshotMock).not.toHaveBeenCalled();
+    expect(app?.data).toEqual(activeCurrentData);
+    expect(app?.restoreRecoverySnapshot?.data).toEqual(activeCurrentData);
+    expect(app?.backupStatus?.message).toContain('Restore saved the library data but failed before settings were saved');
+  });
+
+  it('loads a durable restore recovery snapshot after refresh', async () => {
+    const currentData = buildLibraryData('current', 'Current Library');
+    const recoveryData = buildLibraryData('previous', 'Previous Library');
+    dbMocks.loadLibraryDataMock.mockResolvedValue(currentData);
+    dbMocks.loadRestoreRecoverySnapshotMock.mockResolvedValue({
+      kind: 'restore-recovery-snapshot',
+      createdAt: '2026-05-06T12:00:00.000Z',
+      data: recoveryData,
+      settings: DEFAULT_APP_SETTINGS
+    });
+
+    await renderHarness();
+
+    expect(app?.data?.books[0].title).toBe('Current Library');
+    expect(app?.restoreRecoverySnapshot?.data).toEqual(recoveryData);
+    expect(app?.appMenuSection).toBe('backup');
+    expect(app?.backupStatus).toMatchObject({
+      tone: 'warning',
+      message: expect.stringContaining('previous library snapshot')
+    });
+  });
+
+  it('recovers the previous library from the durable snapshot and cleans stale recent pages', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const currentData = buildLibraryData('current', 'Current Library');
+    const recoveryData = buildLibraryData('previous', 'Previous Library');
+    const recoverySettings = {
+      ...DEFAULT_APP_SETTINGS,
+      recentPageIds: ['previous-page', 'missing-page']
+    };
+    dbMocks.loadLibraryDataMock.mockResolvedValue(currentData);
+    dbMocks.loadRestoreRecoverySnapshotMock.mockResolvedValue({
+      kind: 'restore-recovery-snapshot',
+      createdAt: '2026-05-06T12:00:00.000Z',
+      data: recoveryData,
+      settings: recoverySettings
+    });
+    await renderHarness();
+
+    await act(async () => {
+      const recovered = await app?.handleRecoverRestoreSnapshot();
+      expect(recovered).toBe(true);
+      await Promise.resolve();
+    });
+
+    expect(dbMocks.saveLibraryDataMock).toHaveBeenCalledWith(recoveryData);
+    expect(dbMocks.saveAppSettingsMock).toHaveBeenCalledWith({
+      ...recoverySettings,
+      recentPageIds: ['previous-page']
+    });
+    expect(dbMocks.clearRestoreRecoverySnapshotMock).toHaveBeenCalledTimes(1);
+    expect(app?.data?.books[0].title).toBe('Previous Library');
+    expect(app?.recentPageIds).toEqual(['previous-page']);
+    expect(app?.restoreRecoverySnapshot).toBeNull();
+    expect(app?.backupStatus).toMatchObject({
+      tone: 'success',
+      message: 'Previous library recovered from the restore recovery snapshot.'
+    });
+
+    confirmSpy.mockRestore();
+  });
+
+  it('dismisses a stale restore recovery snapshot without changing the current library', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const currentData = buildLibraryData('current', 'Current Library');
+    const recoveryData = buildLibraryData('previous', 'Previous Library');
+    dbMocks.loadLibraryDataMock.mockResolvedValue(currentData);
+    dbMocks.loadRestoreRecoverySnapshotMock.mockResolvedValue({
+      kind: 'restore-recovery-snapshot',
+      createdAt: '2026-05-06T12:00:00.000Z',
+      data: recoveryData,
+      settings: DEFAULT_APP_SETTINGS
+    });
+    await renderHarness();
+    const activeCurrentData = app?.data;
+
+    await act(async () => {
+      const dismissed = await app?.handleDismissRestoreRecoverySnapshot();
+      expect(dismissed).toBe(true);
+      await Promise.resolve();
+    });
+
+    expect(dbMocks.clearRestoreRecoverySnapshotMock).toHaveBeenCalledTimes(1);
+    expect(dbMocks.saveLibraryDataMock).not.toHaveBeenCalled();
+    expect(app?.data).toEqual(activeCurrentData);
+    expect(app?.restoreRecoverySnapshot).toBeNull();
+    expect(app?.backupStatus?.message).toContain('dismissed');
+
+    confirmSpy.mockRestore();
   });
 
   it('uses clear destructive confirmation copy before moving a book to Trash', async () => {
@@ -464,4 +751,19 @@ function buildLibraryData(idPrefix: string, bookTitle: string): LibraryData {
       }
     ]
   };
+}
+
+function createDeferred<T>(): {
+  promise: Promise<T>;
+  reject: (reason?: unknown) => void;
+  resolve: (value: T | PromiseLike<T>) => void;
+} {
+  let reject!: (reason?: unknown) => void;
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return { promise, reject, resolve };
 }

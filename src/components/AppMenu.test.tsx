@@ -130,6 +130,44 @@ describe('AppMenu accessibility behavior', () => {
     expect(onDownloadRestoreSafetySnapshot).toHaveBeenCalledTimes(1);
   });
 
+  it('shows durable restore recovery actions without auto-recovering', () => {
+    const onRecoverRestoreSnapshot = vi.fn();
+    const onDismissRestoreRecoverySnapshot = vi.fn();
+
+    renderAppMenu({
+      isOpen: true,
+      activeSection: 'backup',
+      restoreRecoverySnapshot: {
+        kind: 'restore-recovery-snapshot',
+        createdAt: '2026-05-06T12:00:00.000Z',
+        data: safetyData,
+        settings: DEFAULT_APP_SETTINGS
+      },
+      onRecoverRestoreSnapshot,
+      onDismissRestoreRecoverySnapshot
+    });
+
+    expect(container.textContent).toContain('Restore Recovery Snapshot');
+    expect(container.textContent).toContain('interrupted or failed restore');
+    expect(container.textContent).toContain('Recover Previous Library');
+    expect(container.textContent).toContain('Dismiss Snapshot');
+
+    const recoverButton = Array.from(container.querySelectorAll('button')).find((item) =>
+      item.textContent?.includes('Recover Previous Library')
+    );
+    const dismissButton = Array.from(container.querySelectorAll('button')).find((item) =>
+      item.textContent?.includes('Dismiss Snapshot')
+    );
+
+    act(() => {
+      recoverButton?.click();
+      dismissButton?.click();
+    });
+
+    expect(onRecoverRestoreSnapshot).toHaveBeenCalledTimes(1);
+    expect(onDismissRestoreRecoverySnapshot).toHaveBeenCalledTimes(1);
+  });
+
   function renderAppMenu(overrides: Partial<Parameters<typeof AppMenu>[0]> = {}): void {
     act(() => {
       root.render(
@@ -157,7 +195,10 @@ describe('AppMenu accessibility behavior', () => {
           onMergeTags={overrides.onMergeTags ?? vi.fn()}
           onExportLibrary={overrides.onExportLibrary ?? vi.fn()}
           restoreSafetySnapshot={overrides.restoreSafetySnapshot ?? null}
+          restoreRecoverySnapshot={overrides.restoreRecoverySnapshot ?? null}
           onDownloadRestoreSafetySnapshot={overrides.onDownloadRestoreSafetySnapshot ?? vi.fn()}
+          onRecoverRestoreSnapshot={overrides.onRecoverRestoreSnapshot ?? vi.fn()}
+          onDismissRestoreRecoverySnapshot={overrides.onDismissRestoreRecoverySnapshot ?? vi.fn()}
           onPreviewBackupImport={overrides.onPreviewBackupImport ?? vi.fn()}
           onRestoreBackupImport={overrides.onRestoreBackupImport ?? vi.fn()}
           onCancelBackupImport={overrides.onCancelBackupImport ?? vi.fn()}

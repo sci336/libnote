@@ -244,7 +244,10 @@ export default function App(): JSX.Element {
         onMergeTags={app.handleMergeTags}
         onExportLibrary={app.handleExportLibrary}
         restoreSafetySnapshot={app.restoreSafetySnapshot}
+        restoreRecoverySnapshot={app.restoreRecoverySnapshot}
         onDownloadRestoreSafetySnapshot={app.handleDownloadRestoreSafetySnapshot}
+        onRecoverRestoreSnapshot={app.handleRecoverRestoreSnapshot}
+        onDismissRestoreRecoverySnapshot={app.handleDismissRestoreRecoverySnapshot}
         onPreviewBackupImport={app.handlePreviewBackupImport}
         onRestoreBackupImport={app.handleRestoreBackupImport}
         onCancelBackupImport={app.handleCancelBackupImport}

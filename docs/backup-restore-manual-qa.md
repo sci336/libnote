@@ -37,10 +37,20 @@ Use a disposable browser profile when possible. LibNote is local-first, and rest
 
 1. In a development browser, open DevTools and temporarily make IndexedDB writes fail if possible, such as by blocking storage, using a private/storage-restricted context, or injecting a failing `indexedDB` wrapper before restore.
 2. Select a valid backup and proceed to Restore Backup.
-3. Confirm Backup Status shows restore failed while saving.
-4. Confirm the previous library remains active in the current tab.
-5. Confirm Download Safety Backup appears and downloads the pre-restore library copy.
-6. Refresh only after exporting or downloading the safety backup, then confirm whether browser storage kept the old library or needs recovery from the safety backup.
+3. Confirm Backup Status names whether restore failed before the library write or after the library data write but before settings were saved.
+4. Confirm a Restore Recovery Snapshot appears in Backup & Restore and offers Recover Previous Library and Dismiss Snapshot.
+5. Refresh the tab and confirm the Restore Recovery Snapshot is still available.
+6. Choose Recover Previous Library and confirm the pre-restore library and sane recent pages/settings are restored.
+7. Repeat the failure simulation, then choose Dismiss Snapshot and confirm the current library is unchanged and the recovery warning disappears.
+8. Confirm Download Safety Backup appears for the in-memory safety copy during the failed restore tab session.
+
+## Successful Restore Recovery Cleanup
+
+1. Select a valid backup and proceed through Restore Preview.
+2. Choose Restore Backup.
+3. Confirm the restored library is active and the success status is shown.
+4. Refresh the tab.
+5. Confirm Backup & Restore does not show a Restore Recovery Snapshot warning after the successful restore.
 
 ## Successful Restore Content Checks
 
@@ -58,7 +68,10 @@ Use a disposable browser profile or development build.
 
 1. Normal save and reload: create or edit a page, wait for the Saved status, reload the tab, and confirm the latest edit is still present.
 2. Simulated save failure: temporarily block or fail IndexedDB writes in DevTools, then edit a page. Confirm the save status says LibNote could not save locally and recommends exporting a backup before closing or refreshing.
-3. Retry after failure: re-enable IndexedDB writes and choose Retry from the save warning. Confirm the status returns to Saved and a reload keeps the edit.
-4. Closing or reloading after failed save: with a failed save still visible, try to close or reload the tab. Confirm the browser warns before leaving.
-5. Backup export after failed save warning: while the failed save warning is visible, open App Menu -> Backup & Restore and export the library. Confirm the downloaded JSON includes the unsaved in-memory edit.
-6. Trash cleanup: move a page, chapter, or book to Trash, open any affected page first if needed so it appears in Recent, then delete it forever. Confirm Recent no longer shows broken links to permanently deleted pages.
+3. More edits after failure: leave the failed save warning visible, make another edit, and confirm the warning does not disappear as though the library were saved.
+4. Retry after failure: re-enable IndexedDB writes and choose Retry from the save warning. Confirm the status returns to Saved and a reload keeps the latest edit, not only the first failed edit.
+5. Closing or reloading after failed save: with a failed save still visible, try to close or reload the tab. Confirm the browser warns before leaving.
+6. Dirty close warning: make a new edit and immediately try to close or reload before the debounced save finishes. Confirm the browser warns before leaving.
+7. Backup export after failed save warning: while the failed save warning is visible, open App Menu -> Backup & Restore and export the library. Confirm the downloaded JSON includes the unsaved in-memory edit.
+8. Normal recovery: after a successful retry or normal autosave, confirm Save Status returns to Saved and closing/reloading no longer warns.
+9. Trash cleanup: move a page, chapter, or book to Trash, open any affected page first if needed so it appears in Recent, then delete it forever. Confirm Recent no longer shows broken links to permanently deleted pages.

@@ -13,7 +13,14 @@ import type {
   TrashItem,
   ViewState
 } from '../types/domain';
-import { loadAppSettings, saveAppSettings } from '../db/indexedDb';
+import {
+  clearRestoreRecoverySnapshot,
+  loadAppSettings,
+  loadRestoreRecoverySnapshot,
+  saveAppSettings,
+  saveRestoreRecoverySnapshot,
+  type RestoreRecoverySnapshot
+} from '../db/indexedDb';
 import {
   createBook,
   createChapter,
@@ -122,6 +129,7 @@ export function useLibraryApp() {
   const [recentTags, setRecentTags] = useState<string[]>([]);
   const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null);
   const [restoreSafetySnapshot, setRestoreSafetySnapshot] = useState<BackupSafetySnapshot | null>(null);
+  const [restoreRecoverySnapshot, setRestoreRecoverySnapshot] = useState<RestoreRecoverySnapshot | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>({ state: 'idle' });
   const latestDataRef = useRef<LibraryData | null>(null);
   const latestSettingsRef = useRef<AppSettings>(DEFAULT_APP_SETTINGS);
@@ -154,6 +162,14 @@ export function useLibraryApp() {
         storageFailure = { state: 'failed', error: getStorageFailureDetails(error), canRetry: false };
       }
 
+      let recoverySnapshot: RestoreRecoverySnapshot | null = null;
+      try {
+        recoverySnapshot = await loadRestoreRecoverySnapshot();
+      } catch (error) {
+        console.error('Failed to load restore recovery snapshot', error);
+        storageFailure = { state: 'failed', error: getStorageFailureDetails(error), canRetry: false };
+      }
+
       if (canceled) {
         return;
       }
@@ -161,6 +177,16 @@ export function useLibraryApp() {
       setData(nextData);
       setSettings(nextSettings);
       setSettingsHydrated(true);
+      setRestoreRecoverySnapshot(recoverySnapshot);
+
+      if (recoverySnapshot) {
+        setBackupStatus({
+          tone: 'warning',
+          message:
+            'LibNote found a previous library snapshot from an interrupted or failed restore. Review it in Backup & Restore before deleting it.'
+        });
+        setAppMenuSection('backup');
+      }
 
       if (storageFailure) {
         setSaveStatus(storageFailure);
@@ -237,7 +263,8 @@ export function useLibraryApp() {
     const flush = () => {
       const latestData = latestDataRef.current;
       if (latestData) {
-        void persistLibrarySnapshot(latestData, latestDataVersionRef.current);
+        void persistLibrarySnapshot(latestData, latestDataVersionRef.current, { includeSettings: true });
+        return;
       }
 
       void saveAppSettings(latestSettingsRef.current);
@@ -397,14 +424,14 @@ export function useLibraryApp() {
 
   function updateData(nextData: LibraryData): void {
     shouldAutosaveDataRef.current = true;
-    setSaveStatus({ state: 'unsaved' });
+    setSaveStatus((currentStatus) => (currentStatus.state === 'failed' ? currentStatus : { state: 'unsaved' }));
     setData(nextData);
   }
 
   async function persistLibrarySnapshot(
     snapshot: LibraryData,
     dataVersion: number,
-    options?: { isRetry?: boolean }
+    options?: { includeSettings?: boolean; isRetry?: boolean }
   ): Promise<void> {
     const requestId = saveRequestIdRef.current + 1;
     saveRequestIdRef.current = requestId;
@@ -412,6 +439,9 @@ export function useLibraryApp() {
 
     try {
       await persistLibraryData(snapshot);
+      if (options?.includeSettings) {
+        await saveAppSettings(latestSettingsRef.current);
+      }
 
       if (requestId === saveRequestIdRef.current && dataVersion === latestDataVersionRef.current) {
         shouldAutosaveDataRef.current = false;
@@ -435,7 +465,7 @@ export function useLibraryApp() {
       return;
     }
 
-    void persistLibrarySnapshot(latestData, latestDataVersionRef.current, { isRetry: true });
+    void persistLibrarySnapshot(latestData, latestDataVersionRef.current, { includeSettings: true, isRetry: true });
   }
 
   function replaceView(nextView: ViewState, options?: { shouldCloseSidebar?: boolean }): void {
@@ -1129,6 +1159,14 @@ export function useLibraryApp() {
     const previousData = latestDataRef.current;
     const previousSettings = latestSettingsRef.current;
     const safetySnapshot = previousData ? createSafetyBackupSnapshot(previousData, previousSettings) : null;
+    const recoverySnapshot: RestoreRecoverySnapshot | null = previousData
+      ? {
+          kind: 'restore-recovery-snapshot',
+          createdAt: new Date().toISOString(),
+          data: previousData,
+          settings: previousSettings
+        }
+      : null;
 
     setRestoreSafetySnapshot(safetySnapshot);
 
@@ -1139,8 +1177,30 @@ export function useLibraryApp() {
           ? validated.settings
           : filterRecentPageIdsForLibrary(DEFAULT_APP_SETTINGS, nextData.pages.map((page) => page.id));
 
-      await persistLibraryData(nextData);
-      await saveAppSettings(nextSettings);
+      if (recoverySnapshot) {
+        await saveRestoreRecoverySnapshot(recoverySnapshot);
+        setRestoreRecoverySnapshot(recoverySnapshot);
+      }
+
+      try {
+        await persistLibraryData(nextData);
+      } catch (error) {
+        throw createRestoreStageError('library', error);
+      }
+
+      try {
+        await saveAppSettings(nextSettings);
+      } catch (error) {
+        throw createRestoreStageError('settings', error);
+      }
+
+      if (recoverySnapshot) {
+        try {
+          await clearRestoreRecoverySnapshot();
+        } catch (error) {
+          throw createRestoreStageError('cleanup', error);
+        }
+      }
 
       latestDataRef.current = nextData;
       latestSettingsRef.current = nextSettings;
@@ -1157,6 +1217,7 @@ export function useLibraryApp() {
       setMovingChapterId(null);
       setMovingPageId(null);
       setRestoreSafetySnapshot(null);
+      setRestoreRecoverySnapshot(null);
       replaceView({ type: 'root' });
       setBackupStatus({
         tone: validated.warnings.length > 0 ? 'warning' : 'success',
@@ -1178,13 +1239,113 @@ export function useLibraryApp() {
       setSettings(previousSettings);
       setSaveStatus({
         state: 'failed',
-        error: getStorageFailureDetails(error)
+        error: getStorageFailureDetails(getRestoreStageCause(error))
       });
       setBackupStatus({
         tone: 'error',
         message:
-          `Restore failed while saving: ${error instanceof Error ? error.message : 'unknown storage error.'} ` +
-          'Your previous library is still active in this tab. Download the safety backup before closing if you want an extra recovery copy.'
+          `${getRestoreFailureMessage(error)} ` +
+          'A restore recovery snapshot is saved in this browser so you can recover the previous library after refresh.'
+      });
+      return false;
+    }
+  }
+
+  async function handleRecoverRestoreSnapshot(): Promise<boolean> {
+    const snapshot = restoreRecoverySnapshot;
+    if (!snapshot) {
+      setBackupStatus({ tone: 'info', message: 'No restore recovery snapshot is available.' });
+      return false;
+    }
+
+    if (
+      !window.confirm(
+        'Recover the previous library from the restore recovery snapshot? This will replace the library currently open in this browser.'
+      )
+    ) {
+      return false;
+    }
+
+    try {
+      const recoverySettings = filterRecentPageIdsForLibrary(
+        normalizeAppSettings(snapshot.settings),
+        snapshot.data.pages.map((page) => page.id)
+      );
+
+      try {
+        await persistLibraryData(snapshot.data);
+      } catch (error) {
+        throw createRestoreStageError('library', error);
+      }
+
+      try {
+        await saveAppSettings(recoverySettings);
+      } catch (error) {
+        throw createRestoreStageError('settings', error);
+      }
+
+      await clearRestoreRecoverySnapshot();
+
+      latestDataRef.current = snapshot.data;
+      latestSettingsRef.current = recoverySettings;
+      shouldAutosaveDataRef.current = false;
+      setData(snapshot.data);
+      setSettings(recoverySettings);
+      setSearchQuery('');
+      setRecentTags([]);
+      setSearchOriginView({ type: 'root' });
+      setTagOriginView({ type: 'root' });
+      setNavigationHistory([]);
+      navigationHistoryRef.current = [];
+      setMovingChapterId(null);
+      setMovingPageId(null);
+      setRestoreRecoverySnapshot(null);
+      setRestoreSafetySnapshot(null);
+      setSaveStatus({ state: 'saved', lastSavedAt: Date.now() });
+      replaceView({ type: 'root' });
+      setBackupStatus({ tone: 'success', message: 'Previous library recovered from the restore recovery snapshot.' });
+      return true;
+    } catch (error) {
+      setSaveStatus({
+        state: 'failed',
+        error: getStorageFailureDetails(getRestoreStageCause(error))
+      });
+      setBackupStatus({
+        tone: 'error',
+        message: `${getRestoreRecoveryFailureMessage(error)} The recovery snapshot was kept so you can try again.`
+      });
+      return false;
+    }
+  }
+
+  async function handleDismissRestoreRecoverySnapshot(): Promise<boolean> {
+    const snapshot = restoreRecoverySnapshot;
+    if (!snapshot) {
+      setBackupStatus({ tone: 'info', message: 'No restore recovery snapshot is available.' });
+      return false;
+    }
+
+    if (
+      !window.confirm(
+        'Delete the restore recovery snapshot? This only removes the saved recovery copy; it will not change your current library.'
+      )
+    ) {
+      return false;
+    }
+
+    try {
+      await clearRestoreRecoverySnapshot();
+      setRestoreRecoverySnapshot(null);
+      setBackupStatus({ tone: 'info', message: 'Restore recovery snapshot dismissed. Your current library was not changed.' });
+      return true;
+    } catch (error) {
+      setSaveStatus({
+        state: 'failed',
+        error: getStorageFailureDetails(error)
+      });
+      setBackupStatus({
+        tone: 'error',
+        message: `Could not delete the restore recovery snapshot: ${error instanceof Error ? error.message : 'unknown storage error.'}`
       });
       return false;
     }
@@ -1274,6 +1435,7 @@ export function useLibraryApp() {
     recentTags,
     backupStatus,
     restoreSafetySnapshot,
+    restoreRecoverySnapshot,
     saveStatus,
     recentPageIds: settings.recentPageIds,
     derivedData,
@@ -1356,6 +1518,8 @@ export function useLibraryApp() {
     handleResetAllShortcuts,
     handleExportLibrary,
     handleDownloadRestoreSafetySnapshot,
+    handleRecoverRestoreSnapshot,
+    handleDismissRestoreRecoverySnapshot,
     handlePreviewBackupImport,
     handleRestoreBackupImport,
     handleCancelBackupImport,
@@ -1386,6 +1550,71 @@ function areViewsEqual(left: ViewState, right: ViewState): boolean {
     default:
       return false;
   }
+}
+
+type RestoreStage = 'library' | 'settings' | 'cleanup';
+
+interface RestoreStageError extends Error {
+  stage: RestoreStage;
+  cause: unknown;
+}
+
+function createRestoreStageError(stage: RestoreStage, cause: unknown): RestoreStageError {
+  const stageLabel =
+    stage === 'library'
+      ? 'library data'
+      : stage === 'settings'
+        ? 'settings'
+        : 'restore recovery cleanup';
+  const causeMessage = cause instanceof Error ? cause.message : 'unknown storage error';
+  const error = new Error(`Restore failed while saving ${stageLabel}: ${causeMessage}`) as RestoreStageError;
+  error.stage = stage;
+  error.cause = cause;
+  return error;
+}
+
+function isRestoreStageError(error: unknown): error is RestoreStageError {
+  return error instanceof Error && 'stage' in error && 'cause' in error;
+}
+
+function getRestoreStageCause(error: unknown): unknown {
+  return isRestoreStageError(error) ? error.cause : error;
+}
+
+function getRestoreFailureMessage(error: unknown): string {
+  if (!isRestoreStageError(error)) {
+    return `Restore failed while saving: ${error instanceof Error ? error.message : 'unknown storage error.'}`;
+  }
+
+  if (error.stage === 'library') {
+    return `Restore failed before the library replacement was saved: ${getCauseMessage(error.cause)}`;
+  }
+
+  if (error.stage === 'settings') {
+    return `Restore saved the library data but failed before settings were saved: ${getCauseMessage(error.cause)}`;
+  }
+
+  return `Restore saved the library and settings, but could not clear the recovery snapshot: ${getCauseMessage(error.cause)}`;
+}
+
+function getRestoreRecoveryFailureMessage(error: unknown): string {
+  if (!isRestoreStageError(error)) {
+    return `Recovery failed: ${error instanceof Error ? error.message : 'unknown storage error.'}`;
+  }
+
+  if (error.stage === 'library') {
+    return `Recovery failed before the previous library was saved: ${getCauseMessage(error.cause)}`;
+  }
+
+  if (error.stage === 'settings') {
+    return `Recovery saved the previous library but failed before settings were saved: ${getCauseMessage(error.cause)}`;
+  }
+
+  return `Recovery restored the previous library but could not delete the recovery snapshot: ${getCauseMessage(error.cause)}`;
+}
+
+function getCauseMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : 'unknown storage error.';
 }
 
 async function hydrateAppSettings(): Promise<AppSettings> {

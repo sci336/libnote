@@ -22,6 +22,7 @@ import { APP_THEMES } from '../utils/appThemes';
 import { RECENT_PAGES_LIMIT } from '../utils/appSettings';
 import { formatLastBackupTime, getBackupReminderState } from '../utils/backupReminder';
 import type { BackupImportPreview, BackupSafetySnapshot } from '../utils/backup';
+import type { RestoreRecoverySnapshot } from '../db/indexedDb';
 import { parseSingleTagInput, type TagSummary } from '../utils/tags';
 import { useModalFocus } from '../hooks/useModalFocus';
 
@@ -59,7 +60,10 @@ interface AppMenuProps {
   onMergeTags: (sourceTag: string, targetTag: string) => void;
   onExportLibrary: () => void;
   restoreSafetySnapshot: BackupSafetySnapshot | null;
+  restoreRecoverySnapshot: RestoreRecoverySnapshot | null;
   onDownloadRestoreSafetySnapshot: () => void;
+  onRecoverRestoreSnapshot: () => Promise<boolean>;
+  onDismissRestoreRecoverySnapshot: () => Promise<boolean>;
   onPreviewBackupImport: (file: File | null) => Promise<BackupImportPreview | null>;
   onRestoreBackupImport: (validated: BackupImportPreview['validated']) => Promise<boolean>;
   onCancelBackupImport: () => void;
@@ -95,7 +99,10 @@ export function AppMenu({
   onMergeTags,
   onExportLibrary,
   restoreSafetySnapshot,
+  restoreRecoverySnapshot,
   onDownloadRestoreSafetySnapshot,
+  onRecoverRestoreSnapshot,
+  onDismissRestoreRecoverySnapshot,
   onPreviewBackupImport,
   onRestoreBackupImport,
   onCancelBackupImport,
@@ -168,7 +175,10 @@ export function AppMenu({
               onMergeTags,
               onExportLibrary,
               restoreSafetySnapshot,
+              restoreRecoverySnapshot,
               onDownloadRestoreSafetySnapshot,
+              onRecoverRestoreSnapshot,
+              onDismissRestoreRecoverySnapshot,
               onPreviewBackupImport,
               onRestoreBackupImport,
               onCancelBackupImport,
@@ -200,7 +210,10 @@ function renderSection(
     | 'onMergeTags'
     | 'onExportLibrary'
     | 'restoreSafetySnapshot'
+    | 'restoreRecoverySnapshot'
     | 'onDownloadRestoreSafetySnapshot'
+    | 'onRecoverRestoreSnapshot'
+    | 'onDismissRestoreRecoverySnapshot'
     | 'onPreviewBackupImport'
     | 'onRestoreBackupImport'
     | 'onCancelBackupImport'
@@ -1060,7 +1073,10 @@ function BackupSection({
   backupStatus,
   onExportLibrary,
   restoreSafetySnapshot,
+  restoreRecoverySnapshot,
   onDownloadRestoreSafetySnapshot,
+  onRecoverRestoreSnapshot,
+  onDismissRestoreRecoverySnapshot,
   onPreviewBackupImport,
   onRestoreBackupImport,
   onCancelBackupImport
@@ -1070,7 +1086,10 @@ function BackupSection({
   | 'backupStatus'
   | 'onExportLibrary'
   | 'restoreSafetySnapshot'
+  | 'restoreRecoverySnapshot'
   | 'onDownloadRestoreSafetySnapshot'
+  | 'onRecoverRestoreSnapshot'
+  | 'onDismissRestoreRecoverySnapshot'
   | 'onPreviewBackupImport'
   | 'onRestoreBackupImport'
   | 'onCancelBackupImport'
@@ -1148,6 +1167,44 @@ function BackupSection({
           switching devices, or importing another library.
         </p>
       </section>
+
+      {restoreRecoverySnapshot ? (
+        <section className="menu-card backup-status-card is-warning" aria-live="polite">
+          <div className="settings-placeholder-head">
+            <h2>Restore Recovery Snapshot</h2>
+            <span className="search-result-badge">Available</span>
+          </div>
+          <p>
+            LibNote found a previous library snapshot from an interrupted or failed restore. You can recover that
+            previous library, or dismiss this snapshot if your current library looks right.
+          </p>
+          <p className="backup-safety-summary">
+            Snapshot from {formatBackupDate(restoreRecoverySnapshot.createdAt)} ·{' '}
+            {formatBackupCount(restoreRecoverySnapshot.data.books.length, 'book')},{' '}
+            {formatBackupCount(restoreRecoverySnapshot.data.pages.length, 'page')}
+          </p>
+          <div className="backup-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                void onRecoverRestoreSnapshot();
+              }}
+            >
+              Recover Previous Library
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                void onDismissRestoreRecoverySnapshot();
+              }}
+            >
+              Dismiss Snapshot
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section className="menu-card settings-card-grid">
         <article className="settings-placeholder-card settings-control-card">
