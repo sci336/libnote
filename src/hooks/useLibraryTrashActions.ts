@@ -65,18 +65,7 @@ export function useLibraryTrashActions({
       ...currentSettings,
       recentPageIds: currentSettings.recentPageIds.filter((pageId) => pageId !== page.id)
     }));
-
-    if (isLoosePage(page)) {
-      replaceView({ type: 'loosePages' });
-      return;
-    }
-
-    if (page.chapterId) {
-      replaceView({ type: 'chapter', chapterId: page.chapterId });
-      return;
-    }
-
-    replaceView({ type: 'root' });
+    replaceView(getViewAfterPageTrash(page));
   }
 
   function handleRestoreTrashItem(item: TrashItem): void {
@@ -102,15 +91,7 @@ export function useLibraryTrashActions({
       return;
     }
 
-    let nextData: LibraryData;
-
-    if (item.type === 'book') {
-      nextData = deleteBookForever(data, item.id);
-    } else if (item.type === 'chapter') {
-      nextData = deleteChapterForever(data, item.id);
-    } else {
-      nextData = deletePageForever(data, item.id);
-    }
+    const nextData = deleteTrashItemForever(data, item);
 
     updateData(nextData);
     setSettings((currentSettings) => ({
@@ -124,12 +105,12 @@ export function useLibraryTrashActions({
       return;
     }
 
-    updateData(emptyTrash(data));
+    const nextData = emptyTrash(data);
+
+    updateData(nextData);
     setSettings((currentSettings) => ({
       ...currentSettings,
-      recentPageIds: currentSettings.recentPageIds.filter((pageId) =>
-        data.pages.some((page) => page.id === pageId && !page.deletedAt)
-      )
+      recentPageIds: getLiveRecentPageIds(currentSettings.recentPageIds, nextData)
     }));
   }
 
@@ -141,6 +122,30 @@ export function useLibraryTrashActions({
     handleDeleteTrashItemForever,
     handleEmptyTrash
   };
+}
+
+function getViewAfterPageTrash(page: Page): ViewState {
+  if (isLoosePage(page)) {
+    return { type: 'loosePages' };
+  }
+
+  if (page.chapterId) {
+    return { type: 'chapter', chapterId: page.chapterId };
+  }
+
+  return { type: 'root' };
+}
+
+function deleteTrashItemForever(data: LibraryData, item: TrashItem): LibraryData {
+  if (item.type === 'book') {
+    return deleteBookForever(data, item.id);
+  }
+
+  if (item.type === 'chapter') {
+    return deleteChapterForever(data, item.id);
+  }
+
+  return deletePageForever(data, item.id);
 }
 
 function getLiveRecentPageIds(recentPageIds: string[], data: LibraryData): string[] {

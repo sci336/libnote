@@ -39,9 +39,9 @@ import { useLibraryChapterActions } from './useLibraryChapterActions';
 import { useLibraryPageActions } from './useLibraryPageActions';
 import { useLibrarySearchAndTags } from './useLibrarySearchAndTags';
 import { useLibrarySettingsActions } from './useLibrarySettingsActions';
+import { useLibraryShortcuts } from './useLibraryShortcuts';
 import { useLibraryTagActions } from './useLibraryTagActions';
 import { useLibraryTrashActions } from './useLibraryTrashActions';
-import { eventMatchesShortcut, isTypingInEditableTarget } from '../utils/shortcuts';
 import { DEFAULT_APP_SETTINGS, normalizeAppSettings } from '../utils/appSettings';
 import { getStorageFailureDetails } from '../utils/storageError';
 
@@ -577,51 +577,16 @@ export function useLibraryApp() {
     navigateToView({ type: 'trash' }, { shouldCloseSidebar: true });
   }
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.isComposing || appMenuOpen || isTypingInEditableTarget(event.target)) {
-        return;
-      }
-
-      const shortcuts = settings.shortcuts;
-
-      if (eventMatchesShortcut(event, shortcuts.newLoosePage)) {
-        event.preventDefault();
-        handleCreateLoosePage();
-        return;
-      }
-
-      if (eventMatchesShortcut(event, shortcuts.newChapterPage)) {
-        if (sidebarChapterId) {
-          event.preventDefault();
-          handleCreatePage(sidebarChapterId);
-        }
-        return;
-      }
-
-      if (eventMatchesShortcut(event, shortcuts.toggleSidebar)) {
-        event.preventDefault();
-        setSidebarOpen((open) => !open);
-        return;
-      }
-
-      if (eventMatchesShortcut(event, shortcuts.goHome)) {
-        event.preventDefault();
-        navigateHome();
-        return;
-      }
-
-      if (eventMatchesShortcut(event, shortcuts.goBack)) {
-        event.preventDefault();
-        navigateBack();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [appMenuOpen, handleCreateLoosePage, handleCreatePage, settings.shortcuts, sidebarChapterId]);
+  useLibraryShortcuts({
+    appMenuOpen,
+    shortcuts: settings.shortcuts,
+    sidebarChapterId,
+    handleCreateLoosePage,
+    handleCreatePage,
+    setSidebarOpen,
+    navigateHome,
+    navigateBack
+  });
 
   return {
     data,
