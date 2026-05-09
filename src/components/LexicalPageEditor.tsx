@@ -134,6 +134,7 @@ export function LexicalPageEditor({
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
   const [showMovePanel, setShowMovePanel] = useState(false);
   const [showMetadataPanel, setShowMetadataPanel] = useState(false);
+  const [showPageActionsMenu, setShowPageActionsMenu] = useState(false);
   const [selectedBookId, setSelectedBookId] = useState(initialMoveBookId);
   const [selectedChapterId, setSelectedChapterId] = useState('');
   const [tagInput, setTagInput] = useState('');
@@ -145,6 +146,10 @@ export function LexicalPageEditor({
     [chapters, selectedBookId]
   );
   const canMove = Boolean(selectedBookId && selectedChapterId);
+  const pageContextLabel = pageIsLoose
+    ? 'Loose Pages'
+    : [parentBook?.title, parentChapter?.title].filter(Boolean).join(' / ');
+  const pageTypeLabel = pageIsLoose ? 'Loose Page' : 'Chapter Page';
   const initialConfig = useMemo(
     () => ({
       namespace: `LibNoteLexicalPrototype-${page.id}`,
@@ -213,10 +218,14 @@ export function LexicalPageEditor({
     }
   }
 
+  function closePageActionsMenu(): void {
+    setShowPageActionsMenu(false);
+  }
+
   return (
     <section className="editor-shell lexical-editor-shell">
       <div className="editor-header">
-        <div>
+        <div className="editor-header-main">
           <InlineEditableText
             value={page.title}
             onSave={onChangeTitle}
@@ -224,50 +233,129 @@ export function LexicalPageEditor({
             inputClassName="editor-title-input"
             placeholder="Untitled Page"
           />
+          {!pageIsLoose && pageContextLabel ? (
+            <p className="editor-context">{pageContextLabel}</p>
+          ) : null}
           <p className="editor-meta">
-            Updated {formatTimestamp(page.updatedAt)}
-            {pageIsLoose ? ' - Loose Page' : ''}
+            Updated {formatTimestamp(page.updatedAt)} - {pageTypeLabel}
           </p>
-          <div className="tag-editor" aria-label="Page tags">
-            <div className="tag-list">
-              {page.tags.map((tag) => (
-                <span key={tag} className="tag-pill">
-                  <button
-                    type="button"
-                    className="tag-pill-label inline-tag-button page-tag-button"
-                    aria-label={`Open tag filter for ${tag}`}
-                    onClick={() => onOpenTagSearch?.(tag)}
-                  >
-                    /{tag}
-                  </button>
-                  <button
-                    type="button"
-                    className="tag-pill-remove"
-                    aria-label={`Remove tag ${tag}`}
-                    onClick={() => onChangeTags(page.tags.filter((existingTag) => existingTag !== tag))}
-                  >
-                    x
-                  </button>
-                </span>
-              ))}
+
+          <div className="editor-utility-row">
+            <div className="tag-editor" aria-label="Page tags">
+              <div className="tag-list">
+                {page.tags.map((tag) => (
+                  <span key={tag} className="tag-pill">
+                    <button
+                      type="button"
+                      className="tag-pill-label inline-tag-button page-tag-button"
+                      aria-label={`Open tag filter for ${tag}`}
+                      onClick={() => onOpenTagSearch?.(tag)}
+                    >
+                      /{tag}
+                    </button>
+                    <button
+                      type="button"
+                      className="tag-pill-remove"
+                      aria-label={`Remove tag ${tag}`}
+                      onClick={() => onChangeTags(page.tags.filter((existingTag) => existingTag !== tag))}
+                    >
+                      x
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <form className="tag-input-form" onSubmit={handleTagSubmit}>
+                <input
+                  ref={tagInputRef}
+                  type="text"
+                  className="tag-input"
+                  value={tagInput}
+                  aria-label="Add tag"
+                  enterKeyHint="done"
+                  onChange={(event) => setTagInput(event.target.value)}
+                  onKeyDown={handleTagKeyDown}
+                  placeholder={page.tags.length > 0 ? '/tag' : 'Add /tag'}
+                />
+              </form>
             </div>
-            <form className="tag-input-form" onSubmit={handleTagSubmit}>
-              <input
-                ref={tagInputRef}
-                type="text"
-                className="tag-input"
-                value={tagInput}
-                aria-label="Add tag"
-                enterKeyHint="done"
-                onChange={(event) => setTagInput(event.target.value)}
-                onKeyDown={handleTagKeyDown}
-                placeholder="Add /tag"
-              />
-            </form>
+
+            <div
+              className="editor-actions editor-actions-mobile"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  closePageActionsMenu();
+                }
+              }}
+            >
+              <button
+                type="button"
+                className="secondary-button mobile-page-actions-button"
+                aria-label="Page actions"
+                aria-haspopup="menu"
+                aria-expanded={showPageActionsMenu}
+                onClick={() => setShowPageActionsMenu((open) => !open)}
+              >
+                Actions <span aria-hidden="true">...</span>
+              </button>
+              {showPageActionsMenu ? (
+                <div className="mobile-page-actions-menu" role="menu" aria-label="Page actions">
+                  {pageIsLoose ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="mobile-page-actions-item"
+                      onClick={() => {
+                        setShowMovePanel((open) => !open);
+                        closePageActionsMenu();
+                      }}
+                    >
+                      Move to Chapter
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="mobile-page-actions-item"
+                    onClick={() => {
+                      setShowMetadataPanel((open) => !open);
+                      closePageActionsMenu();
+                    }}
+                    aria-controls="page-info-panel"
+                  >
+                    {showMetadataPanel ? 'Hide Page Info' : 'Show Page Info'}
+                  </button>
+                  {onExportPage ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="mobile-page-actions-item"
+                      onClick={() => {
+                        onExportPage();
+                        closePageActionsMenu();
+                      }}
+                    >
+                      Export Page (.txt)
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="mobile-page-actions-item is-danger"
+                    onClick={() => {
+                      closePageActionsMenu();
+                      onDelete();
+                    }}
+                  >
+                    Move to Trash
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
-        <div className="editor-actions">
+        <div className="editor-actions editor-actions-desktop">
           {pageIsLoose ? (
             <button type="button" className="secondary-button" onClick={() => setShowMovePanel((open) => !open)}>
               Move to Chapter
