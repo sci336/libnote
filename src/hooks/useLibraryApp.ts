@@ -20,16 +20,12 @@ import {
 } from '../db/indexedDb';
 import {
   createBook,
-  createChapter,
   hydrateLibraryData,
-  moveChapterToBook,
   emptyLibraryData,
   persistLibraryData,
   reorderBooks,
-  reorderChaptersInBook,
   updateBook,
-  updateBookCover,
-  updateChapter
+  updateBookCover
 } from '../store/libraryStore';
 import {
   buildLibraryDerivedData,
@@ -51,6 +47,7 @@ import {
 } from '../store/librarySelectors';
 import { useDebouncedEffect } from './useDebouncedEffect';
 import { useLibraryBackupActions } from './useLibraryBackupActions';
+import { useLibraryChapterActions } from './useLibraryChapterActions';
 import { useLibraryPageActions } from './useLibraryPageActions';
 import { useLibrarySearchAndTags } from './useLibrarySearchAndTags';
 import { useLibraryTagActions } from './useLibraryTagActions';
@@ -413,6 +410,17 @@ export function useLibraryApp() {
     setShouldAutoFocusEditor,
     setMovingPageId
   });
+  const {
+    handleCreateChapter,
+    handleReorderChapters,
+    handleMoveChapter,
+    handleRenameChapter
+  } = useLibraryChapterActions({
+    data,
+    updateData,
+    navigateToView,
+    setMovingChapterId
+  });
 
   function runIfDataLoaded(callback: (currentData: LibraryData) => void): void {
     if (!data) {
@@ -571,37 +579,12 @@ export function useLibraryApp() {
     });
   }
 
-  function handleCreateChapter(bookId: string): void {
-    runIfDataLoaded((currentData) => {
-      const result = createChapter(currentData, bookId);
-      updateData(result.data);
-      navigateToView({ type: 'chapter', chapterId: result.chapter.id }, { shouldCloseSidebar: true });
-    });
-  }
-
-  function handleReorderChapters(bookId: string, orderedChapterIds: string[]): void {
-    if (!data) {
-      return;
-    }
-
-    updateData(reorderChaptersInBook(data, bookId, orderedChapterIds));
-  }
-
   function handleReorderBooks(orderedBookIds: string[]): void {
     if (!data) {
       return;
     }
 
     updateData(reorderBooks(data, orderedBookIds));
-  }
-
-  function handleMoveChapter(chapterId: string, destinationBookId: string): void {
-    if (!data) {
-      return;
-    }
-
-    updateData(moveChapterToBook(data, chapterId, destinationBookId));
-    setMovingChapterId(null);
   }
 
   function handleOpenBook(bookId: string): void {
@@ -638,14 +621,6 @@ export function useLibraryApp() {
     }
 
     updateData(updateBookCover(data, bookId, coverId));
-  }
-
-  function handleRenameChapter(chapterId: string, title: string): void {
-    if (!data) {
-      return;
-    }
-
-    updateData(updateChapter(data, chapterId, title));
   }
 
   function handleUpdateLibraryBooksPerRow(booksPerRow: LibraryBooksPerRow): void {
