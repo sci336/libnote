@@ -7,6 +7,8 @@ import { SearchResultsView } from './components/SearchResultsView';
 import { Sidebar, type RecentSidebarPage } from './components/Sidebar';
 import { TagResultsView } from './components/TagResultsView';
 import { TopBar } from './components/TopBar';
+import { MobileBottomNav } from './components/MobileBottomNav';
+import { MobileTopHeader } from './components/MobileTopHeader';
 import { SaveStatusIndicator } from './components/SaveStatusIndicator';
 import { PwaStatus } from './components/PwaStatus';
 import { useLibraryApp } from './hooks/useLibraryApp';
@@ -171,19 +173,32 @@ export default function App(): JSX.Element {
     <AppLayout
       theme={app.settings.theme}
       topBar={
-        <TopBar
-          showBack={app.nav.showBack}
-          breadcrumbs={app.nav.breadcrumbs}
-          searchValue={app.searchQuery}
-          availableTags={availableTags}
-          onGoHome={app.navigateHome}
-          onOpenAppMenu={() => app.openAppMenu()}
-          onToggleSidebar={() => app.setSidebarOpen((open) => !open)}
-          onGoBack={app.navigateBack}
-          onBreadcrumbClick={(view) => app.navigateToView(view, { shouldCloseSidebar: true })}
-          onSearchChange={app.handleSearchChange}
-          onSearchFocus={app.handleSearchFocus}
-        />
+        <>
+          <TopBar
+            showBack={app.nav.showBack}
+            breadcrumbs={app.nav.breadcrumbs}
+            searchValue={app.searchQuery}
+            availableTags={availableTags}
+            onGoHome={app.navigateHome}
+            onOpenAppMenu={() => app.openAppMenu()}
+            onToggleSidebar={() => app.setSidebarOpen((open) => !open)}
+            onGoBack={app.navigateBack}
+            onBreadcrumbClick={(view) => app.navigateToView(view, { shouldCloseSidebar: true })}
+            onSearchChange={app.handleSearchChange}
+            onSearchFocus={app.handleSearchFocus}
+          />
+          <MobileTopHeader
+            showBack={app.nav.showBack}
+            breadcrumbs={app.nav.breadcrumbs}
+            searchValue={app.searchQuery}
+            availableTags={availableTags}
+            isSearchRoute={app.view.type === 'search' || app.view.type === 'tag'}
+            onOpenAppMenu={() => app.openAppMenu()}
+            onGoBack={app.navigateBack}
+            onSearchChange={app.handleSearchChange}
+            onSearchFocus={app.handleSearchFocus}
+          />
+        </>
       }
       sidebar={
         <Sidebar
@@ -210,6 +225,24 @@ export default function App(): JSX.Element {
           onReorderPages={sidebarReorderPages}
           onCreateLoosePageInContext={app.handleCreateLoosePage}
           onClose={() => app.setSidebarOpen(false)}
+        />
+      }
+      bottomNav={
+        <MobileBottomNav
+          canCreateChapter={Boolean(app.sidebarBookId)}
+          canCreatePage={Boolean(app.sidebarChapterId)}
+          onGoLibrary={app.navigateHome}
+          onOpenSearch={app.handleSearchFocus}
+          onOpenTags={() => app.openAppMenu('tagManagement')}
+          onOpenTrash={app.handleOpenTrash}
+          onCreateBook={app.handleCreateBook}
+          onCreateLoosePage={app.handleCreateLoosePage}
+          onCreateChapter={
+            app.sidebarBookId ? () => app.handleCreateChapter(app.sidebarBookId as string) : undefined
+          }
+          onCreatePage={
+            app.sidebarChapterId ? () => app.handleCreatePage(app.sidebarChapterId as string) : undefined
+          }
         />
       }
     >
@@ -253,6 +286,10 @@ export default function App(): JSX.Element {
         onCancelBackupImport={app.handleCancelBackupImport}
         onClose={app.closeAppMenu}
         onSelectSection={app.navigateAppMenu}
+        onNavigateLibrary={app.navigateHome}
+        onNavigateLoosePages={app.handleOpenLoosePages}
+        onNavigateSearch={app.handleSearchFocus}
+        onNavigateTrash={app.handleOpenTrash}
       />
     </AppLayout>
   );

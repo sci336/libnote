@@ -221,9 +221,10 @@ async function expectTrashCard(page: Page, title: string, typeLabel: string, loc
 }
 
 async function expectNormalSearchHasNoMatch(page: Page, query: string): Promise<void> {
-  await page.getByLabel('Search books, chapters, pages, or slash tags').fill(query);
+  const desktopSearch = page.getByLabel('Search books, chapters, pages, or slash tags', { exact: true });
+  await desktopSearch.fill(query);
   await expect(page.getByRole('heading', { name: 'No matches found' })).toBeVisible();
-  await page.getByLabel('Search books, chapters, pages, or slash tags').fill('');
+  await desktopSearch.fill('');
   await goToLibraryHome(page);
 }
 

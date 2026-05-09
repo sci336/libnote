@@ -328,6 +328,14 @@ async function goToLibraryHome(page: Page): Promise<void> {
   const homeButton = page.getByRole('button', { name: 'Go to library home' });
   if (await homeButton.isVisible()) {
     await homeButton.click();
+  } else {
+    const mobileLibraryButton = page
+      .getByRole('navigation', { name: 'Primary mobile navigation' })
+      .getByRole('button', { name: 'Library' });
+
+    if (await mobileLibraryButton.isVisible()) {
+      await mobileLibraryButton.click();
+    }
   }
   await expect(page.getByRole('heading', { name: 'Books', level: 1 })).toBeVisible();
 }

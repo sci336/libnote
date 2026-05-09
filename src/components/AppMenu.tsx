@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type {
   AppMenuSection,
   AppSettings,
@@ -58,6 +58,10 @@ interface AppMenuProps {
   onCancelBackupImport: () => void;
   onClose: () => void;
   onSelectSection: (section: AppMenuSection) => void;
+  onNavigateLibrary?: () => void;
+  onNavigateLoosePages?: () => void;
+  onNavigateSearch?: () => void;
+  onNavigateTrash?: () => void;
 }
 
 const MENU_SECTIONS: Array<{ id: AppMenuSection; label: string; summary: string }> = [
@@ -96,10 +100,15 @@ export function AppMenu({
   onRestoreBackupImport,
   onCancelBackupImport,
   onClose,
-  onSelectSection
+  onSelectSection,
+  onNavigateLibrary = () => undefined,
+  onNavigateLoosePages = () => undefined,
+  onNavigateSearch = () => undefined,
+  onNavigateTrash = () => undefined
 }: AppMenuProps): JSX.Element | null {
   const panelRef = useRef<HTMLElement | null>(null);
   const titleRef = useRef<HTMLHeadingElement | null>(null);
+  const [mobileDetailSection, setMobileDetailSection] = useState<AppMenuSection | null>(null);
 
   useModalFocus({
     isOpen,
@@ -109,9 +118,51 @@ export function AppMenu({
     onClose
   });
 
+  useEffect(() => {
+    if (!isOpen) {
+      setMobileDetailSection(null);
+    }
+  }, [isOpen]);
+
   if (!isOpen) {
     return null;
   }
+
+  function openMobileSection(section: AppMenuSection): void {
+    onSelectSection(section);
+    setMobileDetailSection(section);
+  }
+
+  function navigateFromMobileMenu(action: () => void): void {
+    onClose();
+    action();
+  }
+
+  const sectionProps = {
+    settings,
+    backupStatus,
+    tagSummaries,
+    storageStats,
+    onUpdateTheme,
+    onUpdateLibraryBooksPerRow,
+    onUpdateLibraryShelfStyle,
+    onUpdateShortcut,
+    onResetShortcut,
+    onResetAllShortcuts,
+    onRenameTagEverywhere,
+    onDeleteTagEverywhere,
+    onMergeTags,
+    onExportLibrary,
+    restoreSafetySnapshot,
+    restoreRecoverySnapshot,
+    onDownloadRestoreSafetySnapshot,
+    onRecoverRestoreSnapshot,
+    onDismissRestoreRecoverySnapshot,
+    onPreviewBackupImport,
+    onRestoreBackupImport,
+    onCancelBackupImport,
+    onSelectSection
+  };
 
   return (
     <div className="app-menu-layer" role="dialog" aria-modal="true" aria-labelledby="app-menu-title">
@@ -132,6 +183,78 @@ export function AppMenu({
           </button>
         </div>
 
+        <div className="mobile-app-menu">
+          {mobileDetailSection ? (
+            <div className="mobile-app-menu-detail">
+              <div className="mobile-app-menu-detail-header">
+                <button type="button" className="mobile-icon-button" onClick={() => setMobileDetailSection(null)} aria-label="Back to app menu">
+                  ←
+                </button>
+                <h2>{getMenuSectionLabel(mobileDetailSection)}</h2>
+              </div>
+              <div className="mobile-app-menu-detail-body">
+                {renderSection(mobileDetailSection, sectionProps)}
+              </div>
+            </div>
+          ) : (
+            <div className="mobile-app-menu-scroll">
+              <div className="mobile-app-brand">
+                <span className="mobile-app-brand-mark" aria-hidden="true">▥</span>
+                <div>
+                  <strong>LibNote</strong>
+                  <span>Your ideas, organized.</span>
+                </div>
+              </div>
+
+              <div className="mobile-menu-list" role="list">
+                <button type="button" className="mobile-menu-row is-primary" onClick={() => navigateFromMobileMenu(onNavigateLibrary)}>
+                  <span aria-hidden="true">▥</span>
+                  <strong>Library</strong>
+                </button>
+                <button type="button" className="mobile-menu-row" onClick={() => navigateFromMobileMenu(onNavigateLoosePages)}>
+                  <span aria-hidden="true">□</span>
+                  <strong>Loose Pages</strong>
+                </button>
+                <button type="button" className="mobile-menu-row" onClick={() => navigateFromMobileMenu(onNavigateLibrary)}>
+                  <span aria-hidden="true">▭</span>
+                  <strong>All Books</strong>
+                </button>
+                <button type="button" className="mobile-menu-row" onClick={() => openMobileSection('tagManagement')}>
+                  <span aria-hidden="true">◇</span>
+                  <strong>Tags</strong>
+                </button>
+                <button type="button" className="mobile-menu-row" onClick={() => navigateFromMobileMenu(onNavigateSearch)}>
+                  <span aria-hidden="true">⌕</span>
+                  <strong>Search</strong>
+                </button>
+                <button type="button" className="mobile-menu-row" onClick={() => navigateFromMobileMenu(onNavigateTrash)}>
+                  <span aria-hidden="true">♲</span>
+                  <strong>Trash</strong>
+                </button>
+              </div>
+
+              <div className="mobile-menu-list" role="list">
+                <button type="button" className="mobile-menu-row" onClick={() => openMobileSection('settings')}>
+                  <span aria-hidden="true">⚙</span>
+                  <strong>Settings</strong>
+                </button>
+                <button type="button" className="mobile-menu-row" onClick={() => openMobileSection('themes')}>
+                  <span aria-hidden="true">◐</span>
+                  <strong>Appearance</strong>
+                </button>
+                <button type="button" className="mobile-menu-row" onClick={() => openMobileSection('backup')}>
+                  <span aria-hidden="true">☁</span>
+                  <strong>Backups</strong>
+                </button>
+                <button type="button" className="mobile-menu-row" onClick={() => openMobileSection('help')}>
+                  <span aria-hidden="true">?</span>
+                  <strong>Help / Library Guide</strong>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="app-menu-body">
           <nav className="app-menu-nav" aria-label="App menu sections">
             {MENU_SECTIONS.map((section) => (
@@ -148,36 +271,16 @@ export function AppMenu({
           </nav>
 
           <div className="app-menu-content">
-            {renderSection(activeSection, {
-              settings,
-              backupStatus,
-              tagSummaries,
-              storageStats,
-              onUpdateTheme,
-              onUpdateLibraryBooksPerRow,
-              onUpdateLibraryShelfStyle,
-              onUpdateShortcut,
-              onResetShortcut,
-              onResetAllShortcuts,
-              onRenameTagEverywhere,
-              onDeleteTagEverywhere,
-              onMergeTags,
-              onExportLibrary,
-              restoreSafetySnapshot,
-              restoreRecoverySnapshot,
-              onDownloadRestoreSafetySnapshot,
-              onRecoverRestoreSnapshot,
-              onDismissRestoreRecoverySnapshot,
-              onPreviewBackupImport,
-              onRestoreBackupImport,
-              onCancelBackupImport,
-              onSelectSection
-            })}
+            {renderSection(activeSection, sectionProps)}
           </div>
         </div>
       </section>
     </div>
   );
+}
+
+function getMenuSectionLabel(section: AppMenuSection): string {
+  return MENU_SECTIONS.find((item) => item.id === section)?.label ?? 'Menu';
 }
 
 function renderSection(

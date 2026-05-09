@@ -6,51 +6,42 @@ test.describe('mobile and narrow viewport flows', () => {
     await clearAppStorage(page);
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Books', level: 1 })).toBeVisible();
-    await expectSidebarClosed(page);
+    await expect(page.getByRole('navigation', { name: 'Primary mobile navigation' })).toBeVisible();
   });
 
-  test('keeps sidebar off-canvas by default, closes after mobile navigation, and keeps Loose and Recent pages reachable', async ({
-    page
-  }) => {
-    const names = {
-      book: 'Mobile Sidebar Book',
-      chapter: 'Mobile Sidebar Chapter',
-      page: 'Mobile Sidebar Page'
-    };
-
-    await createNamedHierarchy(page, names);
-    await createNamedLoosePage(page, 'Mobile Loose Reachable');
+  test('uses mobile app menu and bottom navigation for primary phone routes', async ({ page }) => {
+    await createNamedLoosePage(page, 'Mobile Menu Loose Page');
     await goToLibraryHome(page);
-    await expectSidebarClosed(page);
 
-    await openSidebar(page);
-    await sidebar(page).getByRole('button', { name: names.book, exact: true }).click();
-    await expect(page.getByRole('main').getByRole('button', { name: names.book, exact: true })).toBeVisible();
-    await expectSidebarClosed(page);
+    const bottomNav = page.getByRole('navigation', { name: 'Primary mobile navigation' });
+    await expect(bottomNav.getByRole('button', { name: 'Library' })).toBeVisible();
+    await expect(bottomNav.getByRole('button', { name: 'Search' })).toBeVisible();
+    await expect(bottomNav.getByRole('button', { name: 'New' })).toBeVisible();
+    await expect(bottomNav.getByRole('button', { name: 'Tags' })).toBeVisible();
+    await expect(bottomNav.getByRole('button', { name: 'Trash' })).toBeVisible();
 
-    await openSidebar(page);
-    await sidebar(page).getByRole('button', { name: names.chapter, exact: true }).click();
-    await expect(page.getByRole('main').getByRole('button', { name: names.chapter, exact: true })).toBeVisible();
-    await expectSidebarClosed(page);
+    await page.getByRole('button', { name: 'Open app menu' }).click();
+    const appMenu = page.getByRole('dialog', { name: 'Library Guide' });
+    await expect(appMenu).toBeVisible();
+    await expect(appMenu.getByRole('button', { name: 'Library', exact: true })).toBeVisible();
+    await expect(appMenu.getByRole('button', { name: 'Loose Pages', exact: true })).toBeVisible();
+    await expect(appMenu.getByRole('button', { name: 'All Books', exact: true })).toBeVisible();
+    await expect(appMenu.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
 
-    await openSidebar(page);
-    await sidebar(page).getByRole('button', { name: names.page, exact: true }).click();
-    await expect(page.getByLabel('Page content')).toBeVisible();
-    await expectSidebarClosed(page);
+    await appMenu.getByRole('button', { name: 'Settings', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Settings' }).first()).toBeVisible();
+    await page.getByRole('button', { name: 'Back to app menu' }).click();
+    await expect(appMenu.getByRole('button', { name: 'Loose Pages', exact: true })).toBeVisible();
 
-    await openSidebar(page);
-    await expect(sidebar(page).getByRole('button', { name: 'Loose Pages', exact: true })).toBeVisible();
-    await sidebar(page).getByRole('button', { name: 'View All' }).click();
+    await appMenu.getByRole('button', { name: 'Loose Pages', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Loose Pages', level: 1 })).toBeVisible();
-    await expect(page.locator('article').filter({ hasText: 'Mobile Loose Reachable' })).toBeVisible();
-    await expectSidebarClosed(page);
+    await expect(page.locator('article').filter({ hasText: 'Mobile Menu Loose Page' })).toBeVisible();
 
-    await openSidebar(page);
-    await expect(sidebar(page).getByRole('button', { name: 'Recent Pages' })).toBeVisible();
-    await sidebar(page).getByRole('button', { name: /Mobile Sidebar Page/ }).click();
-    await expect(page.getByLabel('Page content')).toBeVisible();
-    await expect(page.getByRole('main').getByRole('button', { name: names.page, exact: true })).toBeVisible();
-    await expectSidebarClosed(page);
+    await bottomNav.getByRole('button', { name: 'Search' }).click();
+    await expect(page.getByRole('searchbox', { name: 'Mobile search books, chapters, pages, or slash tags' })).toBeVisible();
+
+    await bottomNav.getByRole('button', { name: 'Trash' }).click();
+    await expect(page.getByRole('heading', { name: 'Trash', level: 1 })).toBeVisible();
   });
 
   test('edits Lexical content with toolbar formatting and persists it after mobile reload', async ({ page }) => {
@@ -202,6 +193,14 @@ async function goToLibraryHome(page: Page): Promise<void> {
   const homeButton = page.getByRole('button', { name: 'Go to library home' });
   if (await homeButton.isVisible()) {
     await homeButton.click();
+  } else {
+    const mobileLibraryButton = page
+      .getByRole('navigation', { name: 'Primary mobile navigation' })
+      .getByRole('button', { name: 'Library' });
+
+    if (await mobileLibraryButton.isVisible()) {
+      await mobileLibraryButton.click();
+    }
   }
   await expect(page.getByRole('heading', { name: 'Books', level: 1 })).toBeVisible();
 }

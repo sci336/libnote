@@ -2,6 +2,7 @@ import { InlineEditableText } from '../components/InlineEditableText';
 import { MoveTargetPanel } from '../components/MoveTargetPanel';
 import { ReorderableList } from '../components/ReorderableList';
 import type { Book, Chapter } from '../types/domain';
+import { getBookCoverTemplate } from '../utils/bookCovers';
 import { formatTimestamp } from '../utils/date';
 
 interface BookViewProps {
@@ -41,6 +42,8 @@ export function BookView({
   onCancelMoveChapter,
   onReorderChapters
 }: BookViewProps): JSX.Element {
+  const coverTemplate = getBookCoverTemplate(book);
+
   return (
     <section className="content-section">
       <div className="section-header">
@@ -65,6 +68,17 @@ export function BookView({
           >
             Move Book to Trash
           </button>
+        </div>
+      </div>
+
+      <div className="mobile-book-detail-summary">
+        <div className={`book-card-cover mobile-book-detail-cover ${coverTemplate.className}`} aria-hidden="true">
+          <span className="book-card-label">Book</span>
+          <span className="book-card-cover-spacer" />
+        </div>
+        <div className="mobile-book-detail-meta">
+          <strong>{chapters.length} {chapters.length === 1 ? 'chapter' : 'chapters'}</strong>
+          <span>Updated {formatTimestamp(book.updatedAt)}</span>
         </div>
       </div>
 
