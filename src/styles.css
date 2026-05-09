@@ -432,6 +432,7 @@ button {
   flex: 1;
   display: flex;
   min-height: 0;
+  position: relative;
 }
 
 .sidebar-backdrop {
@@ -3625,8 +3626,8 @@ mark {
 
 @media (max-width: 920px) {
   .sidebar {
-    position: fixed;
-    top: 73px;
+    position: absolute;
+    top: 0;
     bottom: 0;
     left: 0;
     z-index: 15;

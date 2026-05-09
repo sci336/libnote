@@ -604,13 +604,24 @@ function LexicalAutocompletePlugin({
 }): JSX.Element | null {
   const [editor] = useLexicalComposerContext();
   const [autocomplete, setAutocomplete] = useState<LexicalAutocompleteState | null>(null);
+  const dismissedAutocompleteKeyRef = useRef<string | null>(null);
 
   const updateAutocomplete = useCallback(() => {
     editor.getEditorState().read(() => {
       const next = getLexicalAutocompleteState(editor, pages, chapters, books, currentPageId, autocomplete);
+      if (next && getLexicalAutocompleteDismissKey(next) === dismissedAutocompleteKeyRef.current) {
+        setAutocomplete(null);
+        return;
+      }
+
       setAutocomplete(next);
     });
   }, [autocomplete, books, chapters, currentPageId, editor, pages]);
+
+  const dismissAutocomplete = useCallback((current: LexicalAutocompleteState) => {
+    dismissedAutocompleteKeyRef.current = getLexicalAutocompleteDismissKey(current);
+    setAutocomplete(null);
+  }, []);
 
   const applySuggestion = useCallback(
     (suggestion: LexicalAutocompleteSuggestion) => {
@@ -627,6 +638,7 @@ function LexicalAutocompletePlugin({
             : buildSlashTagReplacement(suggestion.tag, current.textNodeKey, current.end);
         replaceLexicalTextRange(current.textNodeKey, current.start, current.end, replacement);
       });
+      dismissedAutocompleteKeyRef.current = null;
       setAutocomplete(null);
     },
     [autocomplete, editor]
@@ -723,18 +735,19 @@ function LexicalAutocompletePlugin({
         }
 
         event.preventDefault();
-        setAutocomplete(null);
+        dismissAutocomplete(autocomplete);
         return true;
       },
       COMMAND_PRIORITY_HIGH
     );
-  }, [autocomplete, editor]);
+  }, [autocomplete, dismissAutocomplete, editor]);
 
   useEffect(() => {
     if (!autocomplete) {
       return undefined;
     }
 
+    const currentAutocomplete = autocomplete;
     function handlePointerDown(event: PointerEvent): void {
       const target = event.target;
       if (!(target instanceof Element)) {
@@ -745,7 +758,7 @@ function LexicalAutocompletePlugin({
         return;
       }
 
-      setAutocomplete(null);
+      dismissAutocomplete(currentAutocomplete);
     }
 
     document.addEventListener('pointerdown', handlePointerDown);
@@ -756,7 +769,7 @@ function LexicalAutocompletePlugin({
       window.removeEventListener('resize', updateAutocomplete);
       window.removeEventListener('scroll', updateAutocomplete, true);
     };
-  }, [autocomplete, updateAutocomplete]);
+  }, [autocomplete, dismissAutocomplete, updateAutocomplete]);
 
   if (!autocomplete || autocomplete.suggestions.length === 0) {
     return null;
@@ -943,6 +956,16 @@ function clamp(value: number, min: number, max: number): number {
 
 function getLexicalSuggestionKey(suggestion: LexicalAutocompleteSuggestion): string {
   return suggestion.kind === 'link' ? suggestion.pageId : suggestion.tag;
+}
+
+function getLexicalAutocompleteDismissKey(autocomplete: LexicalAutocompleteState): string {
+  return [
+    autocomplete.kind,
+    autocomplete.textNodeKey,
+    autocomplete.start,
+    autocomplete.end,
+    autocomplete.suggestions.map(getLexicalSuggestionKey).join('\n')
+  ].join(':');
 }
 
 function buildSlashTagReplacement(tag: string, textNodeKey: string, end: number): string {

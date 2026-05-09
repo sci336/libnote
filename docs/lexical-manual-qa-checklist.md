@@ -205,12 +205,14 @@ Use browser responsive mode and, if possible, an actual touch device.
 
 - [ ] Test a narrow viewport around 375 px wide.
 - [ ] Test a tablet-like viewport around 768 px wide.
+- [ ] Confirm the automated mobile Playwright flows still pass before manual touch QA: sidebar navigation, narrow Lexical editing/persistence, wikilink autocomplete, and slash-tag autocomplete.
 - [ ] Type `[[` near the top of a page and confirm autocomplete placement.
 - [ ] Type `[[` near the middle of a long scrolled page and confirm autocomplete placement.
 - [ ] Type `[[` near the bottom of a long scrolled page and confirm autocomplete placement.
 - [ ] Type `/` near the top, middle, and bottom of a long page and confirm tag menu placement.
 - [ ] Use keyboard selection in narrow layout.
 - [ ] Use touch selection on autocomplete suggestions if touch is available.
+- [ ] Press Escape and tap outside the editor with an autocomplete trigger still present; confirm suggestions stay dismissed until the trigger changes.
 - [ ] Scroll while the menu is open and confirm it remains usable or closes safely.
 - [ ] Resize the browser while the menu is open and confirm placement updates or fails harmlessly.
 - [ ] Confirm the toolbar remains usable and does not overlap important editor text.

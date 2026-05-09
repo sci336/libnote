@@ -15,6 +15,8 @@
 
 ### Sidebar
 - [ ] Nav button opens sidebar; sidebar sections are focusable
+- [ ] At narrow widths, the sidebar starts off-canvas and does not cover the app until Nav is opened
+- [ ] Selecting a book, chapter, page, Loose Pages action, or Recent Pages item closes the mobile sidebar after navigation
 - [ ] Section toggle buttons expand/collapse content
 - [ ] Sidebar items are reachable via Tab
 - [ ] Escape closes the sidebar (mobile/tablet only)
@@ -65,7 +67,8 @@
 - [ ] Typing "[[" in editor shows page link autocomplete
 - [ ] ArrowDown/ArrowUp cycles through suggestions
 - [ ] Enter or Tab selects the active suggestion
-- [ ] Escape dismisses autocomplete
+- [ ] Escape dismisses autocomplete without immediately reopening while the same trigger text remains under the caret
+- [ ] Clicking or tapping outside the editor dismisses autocomplete safely
 
 ### Search Result Navigation
 - [ ] Search result cards are focusable buttons

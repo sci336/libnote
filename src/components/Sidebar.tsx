@@ -136,12 +136,26 @@ export function Sidebar(props: SidebarProps): JSX.Element {
             </button>
           ) : null}
           {currentView.type === 'loosePages' ? null : (
-            <button type="button" className="sidebar-link-button" onClick={onNavigateLoosePages}>
+            <button
+              type="button"
+              className="sidebar-link-button"
+              onClick={() => {
+                onNavigateLoosePages();
+                onClose();
+              }}
+            >
               View All
             </button>
           )}
           {onCreateLoosePageInContext ? (
-            <button type="button" className="sidebar-link-button" onClick={onCreateLoosePageInContext}>
+            <button
+              type="button"
+              className="sidebar-link-button"
+              onClick={() => {
+                onCreateLoosePageInContext();
+                onClose();
+              }}
+            >
               + New
             </button>
           ) : null}
@@ -179,6 +193,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
       />
       <aside
         className={`sidebar ${isOpen ? 'is-open' : ''}`}
+        data-testid="library-sidebar"
         aria-label="Library navigation"
         onKeyDown={(event) => {
           if (event.key === 'Escape' && isOpen) {
@@ -207,6 +222,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
               }
             }))}
             onReorder={onReorderBooks}
+            onClose={onClose}
           />
         )}
 
@@ -232,6 +248,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
               }
             }))}
             onReorder={onReorderChapters}
+            onClose={onClose}
           />
         )}
 
@@ -254,6 +271,7 @@ export function Sidebar(props: SidebarProps): JSX.Element {
               }
             }))}
             onReorder={onReorderPages}
+            onClose={onClose}
           />
         )}
 
@@ -315,7 +333,8 @@ function SidebarSection({
   isCollapsed,
   onToggle,
   items,
-  onReorder
+  onReorder,
+  onClose
 }: {
   sectionId: SidebarSectionId;
   title: string;
@@ -330,6 +349,7 @@ function SidebarSection({
     onClick: () => void;
   }>;
   onReorder?: (orderedIds: string[]) => void;
+  onClose: () => void;
 }): JSX.Element {
   return (
     <CollapsibleSidebarSection
@@ -342,7 +362,10 @@ function SidebarSection({
           <button
             type="button"
             className="sidebar-link-button"
-            onClick={onAction}
+            onClick={() => {
+              onAction();
+              onClose();
+            }}
           >
             {actionLabel}
           </button>
