@@ -1,6 +1,6 @@
 # Lexical Manual QA Checklist
 
-Use this checklist to run real-world Lexical QA in normal browsers. Lexical is now the default desktop-first editor path, while the old `PageEditor` remains available by setting `USE_LEXICAL_EDITOR = false`.
+Use this checklist to run real-world Lexical QA in normal browsers. Lexical is now the default desktop-first editor path, while the legacy `PageEditor` remains available by setting `USE_LEXICAL_EDITOR = false`.
 
 ## A. Setup
 
@@ -11,7 +11,7 @@ Use this checklist to run real-world Lexical QA in normal browsers. Lexical is n
    export const USE_LEXICAL_EDITOR = true;
    ```
 
-2. To verify the old fallback path, temporarily set the flag off in a safe local run:
+2. To verify the legacy fallback path, temporarily set the flag off in a safe local run:
 
    ```ts
    export const USE_LEXICAL_EDITOR = false;
@@ -38,12 +38,12 @@ Use this checklist to run real-world Lexical QA in normal browsers. Lexical is n
    export const USE_LEXICAL_EDITOR = true;
    ```
 
-7. Reload the app with Lexical off before restoring the flag and confirm the old production editor still opens Lexical-created content.
+7. Reload the app with Lexical off before restoring the flag and confirm the legacy fallback editor still opens Lexical-created content.
 
 ## Current Default And Rollback
 
 - Lexical is default for desktop-first use with `USE_LEXICAL_EDITOR = true`.
-- The old `PageEditor` fallback remains in code and can be restored by setting `USE_LEXICAL_EDITOR = false`.
+- The legacy `PageEditor` fallback remains in code and can be restored by setting `USE_LEXICAL_EDITOR = false`.
 - Mobile, touch, and narrow viewport behavior remains incomplete and should be covered in a future QA pass.
 - The desktop QA evidence before defaulting covered creating/editing pages, save status/persistence, page switching, preview rendering, search, tags, wikilinks, duplicate-title pages, outside-source paste coverage, backup export, and backup restore in safe test data.
 
@@ -61,7 +61,7 @@ npm run typecheck
 npm run build
 ```
 
-This returns the app to the old production editor path while preserving saved content compatibility.
+This returns the app to the legacy editor fallback while preserving saved content compatibility.
 
 ## B. Seed Content
 

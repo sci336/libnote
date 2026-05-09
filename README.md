@@ -485,9 +485,29 @@ src/
     TrashView.tsx        Restore and permanent deletion
 
   hooks/
-    useLibraryApp.ts     Main application controller: routing, persistence, actions, search, tags, backup
+    useLibraryApp.ts     Coordinator for hydration, persistence, derived data, view navigation, and history
+    useLibrarySearchAndTags.ts
+                          Search state, tag routes, recent tags, and lazy search-index wiring
+    useLibraryPageActions.ts
+                          Page creation, editing, movement, tags, and recent-page tracking
+    useLibraryChapterActions.ts
+                          Chapter creation, rename, reorder, and move actions
+    useLibraryBookActions.ts
+                          Book creation, rename, reorder, and cover actions
+    useLibraryTagActions.ts
+                          Global tag rename, delete, merge, and recent-tag cleanup
+    useLibraryBackupActions.ts
+                          Backup export, restore preview/restore, recovery snapshots, page export
+    useLibraryTrashActions.ts
+                          Move-to-Trash, restore, delete-forever, empty-Trash, recent cleanup
+    useLibrarySettingsActions.ts
+                          Theme, shelf, books-per-row, and shortcut settings updates
+    useLibraryAppMenu.ts App Menu open/close and section state
+    useLibraryShortcuts.ts
+                          Global shortcut handling outside editable fields
     useDebouncedEffect.ts
                           Debounced persistence helper
+    useModalFocus.ts     Modal focus trap and focus-return helper
 
   store/
     libraryStore.ts      Library mutations, normalization, trash, reorder, move, tag management
@@ -523,27 +543,43 @@ public/
 docs/
   deploy-installable-pwa.md
                           Deployment notes for installable HTTPS hosting
+  github-pages-deployment.md
+                          GitHub Pages setup and deployment verification
+  backup-restore-manual-qa.md
+                          Manual QA for backup, restore, recovery, save failures, and Trash cleanup
   pwa-manual-qa.md       Manual QA for install, offline, update, and backup reminders
   search-manual-qa.md    Manual QA notes for text, tag, mixed, and loose-page search
+  large-library-manual-qa.md
+                          Manual QA for large libraries, long lists, and rich text responsiveness
+  accessibility-mobile-manual-qa.md
+                          Keyboard, focus, screen-reader label, and responsive layout checks
   lexical-manual-qa-checklist.md
                           Manual QA checklist for Lexical editor coverage
+  lexical-editor-history.md
+                          Historical Lexical rollout notes and rollback context
+  roadmap.md             Current roadmap, completed features, future hardening, and avoided ideas
 
 e2e/
   lexical-editor.spec.ts Browser coverage for key default Lexical editor flows
+  trash.spec.ts          Browser coverage for Trash restore/delete safety flows
+  mobile-responsive.spec.ts
+                          Browser coverage for mobile sidebar, editor, wikilink, and slash-tag flows
 ```
 
 ## Tests
 
-The current test suite covers core utility and store behavior:
+The current Vitest/jsdom suite covers core utility, store, hook, and component behavior:
 
 - Backup validation/export helpers.
-- Library store mutations, trash, restore, reorder, and move flows.
+- Library store mutations, Trash, restore, reorder, and move flows.
 - Library selectors and derived navigation/sidebar data.
+- `useLibraryApp` persistence, restore recovery, navigation/history, search/tag origin, and large-library behavior.
 - Page links and backlinks.
 - Search behavior.
 - Rich text conversion/sanitization.
 - Lexical rich-text import/export compatibility.
 - Tag parsing and filtering.
+- Save status, App Menu, PWA status, accessibility labels, reorder controls, move panels, and Trash views.
 
 Tests run with:
 
@@ -558,13 +594,13 @@ npm run typecheck
 npm run build
 ```
 
-There is also a focused Playwright browser test for key default Lexical editor behavior:
+Playwright covers browser-level default Lexical editor flows, Trash data-safety flows, and mobile/narrow viewport flows:
 
 ```bash
 npm run test:e2e
 ```
 
-`docs/search-manual-qa.md` contains manual QA notes for text, tag, mixed, and Loose Page search. `docs/lexical-manual-qa-checklist.md` contains broader manual QA coverage for Lexical, including fallback-editor checks and browser/device scenarios that are not fully automated.
+Manual QA docs cover the browser/device areas that are still better verified hands-on: backup/restore and failed saves, PWA install/offline/update behavior, search/tags/wikilinks, large-library responsiveness, accessibility/mobile layout, and broader Lexical paste/fallback checks.
 
 ## Current Limitations and Notes
 
@@ -579,5 +615,5 @@ npm run test:e2e
 - Large libraries use derived data and lazy search indexing, but there is no list virtualization or documented stress-test target for very large browser libraries.
 - Offline behavior depends on the production service worker cache and local browser storage.
 - The PWA shell is production-only; development mode unregisters service workers and clears matching app caches.
-- Automated coverage is mostly unit/jsdom plus focused Playwright checks for the default Lexical editor. Broader browser rendering, accessibility, mobile/touch editor behavior, and PWA behavior still need manual verification.
+- Automated coverage is mostly unit/jsdom plus focused Playwright checks for Lexical, Trash, and mobile/narrow flows. Broader browser rendering, full accessibility passes, real touch-device editor behavior, external paste sources, backup file-picker restore, and PWA behavior still need manual verification.
 - Ambiguous wiki links require the user to choose between duplicate page-title matches.

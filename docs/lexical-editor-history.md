@@ -256,7 +256,7 @@ npm run typecheck
 npm run build
 ```
 
-This returns the app to the old production editor path while preserving saved content compatibility because notes continue to save through the shared HTML content path.
+This returns the app to the legacy editor fallback while preserving saved content compatibility because notes continue to save through the shared HTML content path.
 
 ## Later Custom Nodes
 

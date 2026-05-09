@@ -21,7 +21,7 @@ Phase 4 targets realistic personal libraries rather than enterprise-scale data: 
 ## Search Checks
 
 1. Search a common term such as `research`.
-2. Confirm the view stays responsive and, if many matches exist, explains that the first capped set is shown.
+2. Confirm the view stays responsive and, if many matches exist, explains that the first 200 matches are shown.
 3. Search a rare term such as `needle`.
 4. Search `/research`.
 5. Search `needle /research`.

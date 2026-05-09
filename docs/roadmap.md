@@ -1,6 +1,6 @@
 # LibNote Updated Roadmap
 
-This roadmap reflects the current codebase as of May 8, 2026. It replaces older assumptions about editor prototypes or broad productivity features with a focused path for making LibNote a dependable local-first personal library app.
+This roadmap reflects the current codebase as of May 9, 2026. It replaces older assumptions about editor prototypes or broad productivity features with a focused path for making LibNote a dependable local-first personal library app.
 
 LibNote should keep the home/library shelf dominant. Future work should strengthen Books -> Chapters -> Pages, Loose Pages, reliable local storage, rich writing, search, tags, links, and recovery. It should not drift into a dashboard, database, or Notion-style workspace.
 
@@ -8,9 +8,9 @@ LibNote should keep the home/library shelf dominant. Future work should strength
 
 LibNote already has a coherent library-first product shape. The app organizes notes as books, chapters, pages, and loose pages; stores the library locally in IndexedDB; autosaves changes; supports Trash, restore, backup export/import preview, search, slash tags, wikilinks, backlinks, rich text editing, app settings, themes, book covers, and a production PWA shell.
 
-The main implementation is concentrated in `src/hooks/useLibraryApp.ts`, `src/store/libraryStore.ts`, `src/store/librarySelectors.ts`, `src/components/LexicalPageEditor.tsx`, and the utility modules under `src/utils/`. The README is mostly current and accurately describes Lexical as the default editor. The old contentEditable `PageEditor` remains as a fallback path behind `USE_LEXICAL_EDITOR = false`.
+The main implementation is concentrated in `src/hooks/useLibraryApp.ts`, the focused hooks under `src/hooks/`, `src/store/libraryStore.ts`, `src/store/librarySelectors.ts`, `src/components/LexicalPageEditor.tsx`, and the utility modules under `src/utils/`. `useLibraryApp` is now primarily the coordinator for hydration, persistence, derived data, view navigation, and history. Search/tags, tag actions, page actions, chapter actions, book actions, settings actions, App Menu state, shortcuts, backup actions, and trash helpers live in focused hooks. Navigation and history intentionally remain in `useLibraryApp`. The old contentEditable `PageEditor` remains as a fallback path behind `USE_LEXICAL_EDITOR = false`.
 
-The project also has useful regression coverage: store tests, selector tests, search/tag/link/backup/rich-text tests, Lexical compatibility tests, component accessibility tests, persistence failure tests, Trash tests, and focused Playwright coverage for the default Lexical editor.
+The project also has useful regression coverage: store tests, selector tests, search/tag/link/backup/rich-text tests, Lexical compatibility tests, component accessibility tests, persistence failure tests, navigation/history tests, Trash tests, PWA status tests, and Playwright coverage for the default Lexical editor, Trash data-safety flows, and mobile/narrow viewport behavior.
 
 ## Completed / Mostly Complete
 
@@ -19,14 +19,14 @@ The project also has useful regression coverage: store tests, selector tests, se
 - Autosave/save status: debounced library persistence, `pagehide` flush, failure state, retry, and before-unload warning are implemented.
 - Backup/export/import restore preview: backup payloads, validation, repair warnings, summary preview, restore, pre-restore safety backup, page `.txt` export, and last-backup reminder are implemented.
 - Trash system: soft delete, cascade trash, restore behavior, delete forever, empty trash, original-location labels, and destructive copy are implemented.
-- Search: live books, chapters, pages, loose pages, and separate trash results are indexed lazily and ranked with snippets.
+- Search: live books, chapters, pages, loose pages, and separate trash results are indexed lazily, ranked with snippets, and capped at 200 results with narrowing guidance.
 - Slash tags: page metadata tags, slash-tag search, multi-tag AND filtering, mixed text plus tags, suggestions, tag results, and tag management are implemented.
 - Wikilinks/backlinks: `[[Page Title]]` parsing, resolved/missing/ambiguous states, autocomplete, preview actions, outgoing links, backlinks, broken links, and duplicate-title awareness are implemented.
 - Rich text editing: Lexical is the default editor path, not a prototype. It supports common formatting, text-size spans, lists, checklist items, paste sanitization, preview, page info, wikilink autocomplete, slash-tag autocomplete, and HTML compatibility.
 - App menu/settings/help: Library Guide, shortcuts, settings, themes, tag management, backup/restore, credits, shortcut customization, storage stats, and focus management are implemented.
 - Themes and covers: app theme packs, shelf style options, books-per-row settings, built-in CSS book cover templates, and a cover picker are implemented.
 - PWA shell: manifest, app icon, production service worker install/activate/fetch behavior, visible offline/update status, and dev service worker cleanup are present.
-- Existing tests: Vitest and Playwright cover many current core behaviors.
+- Existing tests: Vitest and Playwright cover many current core behaviors, including navigation/history invariants after the hook refactor.
 
 ## Still Fragile / Needs Hardening
 
@@ -38,7 +38,7 @@ The project also has useful regression coverage: store tests, selector tests, se
 - `PageEditor.tsx` is still a legacy fallback. That is useful for rollback, but it doubles QA surface and should be treated as compatibility code, not the main editor.
 - Slash-tag input now rejects leading `#` in typed tag fields while preserving legacy saved prefixes through defensive normalization. Public UI and docs should continue keeping `/tag` as the only visible syntax.
 - Wikilinks resolve by normalized title. Duplicate page titles are marked ambiguous, but there is no stable page-id link syntax or rename assistance.
-- Derived selectors and lazy search indexing help scaling, but there is no virtualization, explicit search result cap, or documented stress-test size target.
+- Derived selectors, lazy search indexing, and 200-result caps help scaling, but there is no list virtualization or documented stress-test size target.
 - Accessibility is improving, but modals, cover picker, sidebar, autocomplete, keyboard reordering, Escape behavior, focus return, and mobile sidebar flows need wider regression coverage.
 - PWA behavior is basic. Visible offline and update-ready status exists, but install/offline/update QA still needs to be repeated before releases.
 
@@ -155,7 +155,7 @@ The project also has useful regression coverage: store tests, selector tests, se
 
 - Define stress targets, such as thousands of pages across hundreds of chapters.
 - Add generated-library performance tests for selectors, search indexing, tag summaries, backlinks, and Trash item derivation.
-- Add search result caps or progressive rendering if result lists become too large.
+- Revisit the current 200-result cap only if profiling shows broad searches still feel heavy or the limit copy becomes confusing.
 - Consider virtualization for long chapter/page/sidebar/search/tag lists only when profiling shows it is needed.
 - Avoid unnecessary re-renders in editor, sidebar, search, and root shelf views.
 

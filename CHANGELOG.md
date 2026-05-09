@@ -24,7 +24,10 @@ The current codebase reflects LibNote as a usable local-first library note app r
 - Search covers live book titles, chapter titles, page titles, page content, loose pages, and a separate Trash filter, with result types, context labels, snippets, and ranking.
 - Backup & Restore exports full-library JSON backups, validates imported files, repairs or skips recoverable issues with warnings, shows a restore preview, and replaces the current local library only after confirmation.
 - Production builds include a PWA manifest and service worker shell caching; development mode unregisters app service workers and clears matching caches.
-- Automated coverage includes Vitest unit/jsdom tests across store, selectors, backup, search, tags, page links, rich-text helpers, save status, and trash behavior, plus Playwright coverage for key default Lexical editor flows.
+- Large-library work added derived selector data, lazy search indexing, and capped search/tag result lists so bigger personal libraries stay more responsive.
+- `useLibraryApp` was split into focused hooks for search/tags, tag actions, page actions, chapter actions, book actions, settings actions, App Menu state, shortcuts, backup actions, and trash helpers. View navigation and history intentionally remain in `useLibraryApp`.
+- Navigation/history tests now protect book/chapter/page openings, Home, Back, Loose Pages, Trash, create flows, move flows, page trash fallback views, and search/tag result origin behavior.
+- Automated coverage includes Vitest unit/jsdom tests across store, selectors, backup, search, tags, page links, rich-text helpers, save status, navigation/history, accessibility, PWA status, App Menu, and trash behavior, plus Playwright coverage for Lexical editor, Trash data-safety, and mobile/narrow viewport flows.
 
 ### April 8, 2026: First App Foundation
 
@@ -137,6 +140,9 @@ The latest work focused on polish, correctness, and performance:
 - Ambiguous wiki-link destinations were handled.
 - Rich-text paste input was sanitized.
 - Large-library selectors and search were optimized.
+- Search and tag result lists gained a 200-result cap with guidance to narrow broad searches.
+- `useLibraryApp` was refactored into smaller focused hooks while keeping navigation/history in the coordinator.
+- Navigation/history regression tests were added for current Back/Home/search/tag/move/trash behavior.
 - The README was refreshed for current app behavior.
 
 This phase tightened the app around larger libraries and richer content. It reduced confusing wiki-link behavior, made pasted content safer, and improved derived library data/search performance.
