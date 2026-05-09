@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent as ReactFormEvent,
+  type KeyboardEvent as ReactKeyboardEvent
+} from 'react';
 import { AutoFocusPlugin } from '@lexical/react/LexicalAutoFocusPlugin';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
@@ -128,6 +137,7 @@ export function LexicalPageEditor({
   const [selectedBookId, setSelectedBookId] = useState(initialMoveBookId);
   const [selectedChapterId, setSelectedChapterId] = useState('');
   const [tagInput, setTagInput] = useState('');
+  const tagInputRef = useRef<HTMLInputElement | null>(null);
   const pageIsLoose = isLoosePage(page);
   const activeTextSize = getPresetForLegacyPx(page.textSize).id;
   const chaptersForSelectedBook = useMemo(
@@ -170,11 +180,37 @@ export function LexicalPageEditor({
     const tag = parseSingleTagInput(tagInput);
     if (!tag) {
       setTagInput('');
+      focusTagInput();
       return;
     }
 
     onChangeTags(normalizeTagList([...page.tags, tag]));
     setTagInput('');
+    focusTagInput();
+  }
+
+  function focusTagInput(): void {
+    window.setTimeout(() => tagInputRef.current?.focus(), 0);
+  }
+
+  function handleTagSubmit(event: ReactFormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    addTagFromInput();
+  }
+
+  function handleTagKeyDown(event: ReactKeyboardEvent<HTMLInputElement>): void {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      setTagInput('');
+      (event.target as HTMLInputElement).blur();
+      return;
+    }
+
+    if (isTagSubmitKey(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      addTagFromInput();
+    }
   }
 
   return (
@@ -215,25 +251,22 @@ export function LexicalPageEditor({
                 </span>
               ))}
             </div>
-            <input
-              type="text"
-              className="tag-input"
-              value={tagInput}
-              aria-label="Add tag"
-              onChange={(event) => setTagInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  addTagFromInput();
-                }
-                if (event.key === 'Escape') {
-                  event.stopPropagation();
-                  setTagInput('');
-                  (event.target as HTMLInputElement).blur();
-                }
-              }}
-              placeholder="Add /tag"
-            />
+            <form className="tag-input-form" onSubmit={handleTagSubmit}>
+              <input
+                ref={tagInputRef}
+                type="text"
+                className="tag-input"
+                value={tagInput}
+                aria-label="Add tag"
+                enterKeyHint="done"
+                onChange={(event) => setTagInput(event.target.value)}
+                onKeyDown={handleTagKeyDown}
+                placeholder="Add /tag"
+              />
+              <button type="submit" className="secondary-button tag-add-button" aria-label="Create tag from input">
+                Add
+              </button>
+            </form>
           </div>
         </div>
 
@@ -1011,6 +1044,29 @@ function getPresetForLegacyPx(size: number): (typeof TEXT_SIZE_PRESETS)[number] 
   return TEXT_SIZE_PRESETS.reduce((closest, preset) => {
     return Math.abs(preset.legacyPx - size) < Math.abs(closest.legacyPx - size) ? preset : closest;
   }, TEXT_SIZE_PRESETS[1]);
+}
+
+function isTagSubmitKey(event: ReactKeyboardEvent<HTMLInputElement>): boolean {
+  if (event.nativeEvent.isComposing) {
+    return false;
+  }
+
+  const key = event.key.toLowerCase();
+  const code = event.code.toLowerCase();
+  const hasInput = event.currentTarget.value.trim().length > 0;
+
+  if (key === 'enter' || key === 'return' || code === 'enter' || code === 'numpadenter') {
+    return true;
+  }
+
+  if (hasInput && ['done', 'go', 'send', 'search', 'submit'].includes(key)) {
+    return true;
+  }
+
+  // Some virtual keyboards, including browser keyboards on XR devices, can
+  // surface their submit action as focus navigation. Treat Tab as submission
+  // only when there is tag text waiting to be committed.
+  return hasInput && (key === 'tab' || code === 'tab');
 }
 
 function getNearestListNode(node: LexicalNode): ListNode | null {

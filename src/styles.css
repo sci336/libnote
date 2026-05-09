@@ -24,6 +24,10 @@
   --accent: #1f2937;
   --accent-soft: #d7e2f3;
   --danger: #8f3a2a;
+  --selection-bg: #b9d7ff;
+  --selection-text: #111827;
+  --mark-bg: #fff3a3;
+  --mark-text: #1f2937;
 }
 
 * {
@@ -115,6 +119,10 @@ button {
   --shadow: 0 24px 60px rgba(73, 54, 23, 0.08);
   --accent: #1f2937;
   --accent-soft: #d7e2f3;
+  --selection-bg: #b9d7ff;
+  --selection-text: #111827;
+  --mark-bg: #fff3a3;
+  --mark-text: #1f2937;
 }
 
 .app-shell[data-theme='modern-minimal'] {
@@ -134,6 +142,10 @@ button {
   --shadow: 0 24px 60px rgba(15, 23, 42, 0.07);
   --accent: #0f766e;
   --accent-soft: #d8f3ee;
+  --selection-bg: #b7efe5;
+  --selection-text: #062f2a;
+  --mark-bg: #fff3a3;
+  --mark-text: #1f2937;
 }
 
 .app-shell[data-theme='warm-study'] {
@@ -154,6 +166,10 @@ button {
   --accent: #7a5422;
   --accent-soft: #ead8ad;
   --danger: #8f3a2a;
+  --selection-bg: #f1d28f;
+  --selection-text: #2c2118;
+  --mark-bg: #fff1a8;
+  --mark-text: #2c2118;
 }
 
 .app-shell[data-theme='dark-archive'] {
@@ -175,6 +191,10 @@ button {
   --accent: #c69a46;
   --accent-soft: rgba(198, 154, 70, 0.2);
   --danger: #e08d76;
+  --selection-bg: #f2c563;
+  --selection-text: #151311;
+  --mark-bg: #f3d46b;
+  --mark-text: #151311;
 }
 
 .app-shell[data-theme='light-paper'] {
@@ -195,6 +215,15 @@ button {
   --accent: #5f6f84;
   --accent-soft: #e6e2d8;
   --danger: #8f3a2a;
+  --selection-bg: #c7d7ea;
+  --selection-text: #20242a;
+  --mark-bg: #fff3a3;
+  --mark-text: #20242a;
+}
+
+.app-shell ::selection {
+  background: var(--selection-bg);
+  color: var(--selection-text);
 }
 
 .app-shell[data-theme='dark-archive'] .primary-button,
@@ -2357,6 +2386,13 @@ h1 {
   font-size: 0.95rem;
 }
 
+.tag-input-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .page-tag-button {
   padding: 0;
   border: 0;
@@ -2402,6 +2438,16 @@ h1 {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.88);
   padding: 0.65rem 0.85rem;
+}
+
+.tag-input-form .tag-input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.tag-add-button {
+  min-height: 2.7rem;
+  padding: 0.65rem 0.9rem;
 }
 
 .tag-results-header {
@@ -3509,8 +3555,8 @@ mark {
 .editor-rich-text [style*='background-color'],
 .wiki-link-preview mark,
 .wiki-link-preview [style*='background-color'] {
-  background: #fff3a3;
-  color: inherit;
+  background: var(--mark-bg);
+  color: var(--mark-text);
   padding: 0 0.08em;
   border-radius: 0.16rem;
 }

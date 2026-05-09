@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type ClipboardEvent as ReactClipboardEvent,
+  type FormEvent as ReactFormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent
 } from 'react';
@@ -108,6 +109,7 @@ export function PageEditor({
   const [activeTagSuggestionIndex, setActiveTagSuggestionIndex] = useState(0);
   const [editorAutocomplete, setEditorAutocomplete] = useState<EditorAutocompleteState | null>(null);
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const tagInputRef = useRef<HTMLInputElement | null>(null);
   const savedSelectionRef = useRef<Range | null>(null);
   const pendingTextSizeRef = useRef<TextSizePresetId | null>(null);
   const lastAppliedContentRef = useRef<string | null>(null);
@@ -366,12 +368,14 @@ export function PageEditor({
     if (!normalizedTag || page.tags.includes(normalizedTag)) {
       setTagInput('');
       setTagSuggestionsVisible(false);
+      focusTagInput();
       return;
     }
 
     onChangeTags([...page.tags, normalizedTag]);
     setTagInput('');
     setTagSuggestionsVisible(false);
+    focusTagInput();
   }
 
   function applyPageTagSuggestion(tag: string): void {
@@ -382,6 +386,22 @@ export function PageEditor({
     setTagInput('');
     setTagSuggestionsVisible(false);
     setActiveTagSuggestionIndex(0);
+    focusTagInput();
+  }
+
+  function focusTagInput(): void {
+    window.setTimeout(() => tagInputRef.current?.focus(), 0);
+  }
+
+  function handleTagSubmit(event: ReactFormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    handleAddTagFromInput();
+  }
+
+  function submitTagFromKeyboard(event: ReactKeyboardEvent<HTMLInputElement>): void {
+    event.preventDefault();
+    event.stopPropagation();
+    handleAddTagFromInput();
   }
 
   function applyFormattingAction(action: EditorFormatAction): void {
@@ -698,60 +718,66 @@ export function PageEditor({
                 </span>
               ))}
             </div>
-            <input
-              type="text"
-              className="tag-input"
-              value={tagInput}
-              onChange={(event) => {
-                setTagInput(event.target.value);
-                setTagSuggestionsVisible(true);
-                setActiveTagSuggestionIndex(0);
-              }}
-              onFocus={() => setTagSuggestionsVisible(true)}
-              onBlur={() => {
-                window.setTimeout(() => setTagSuggestionsVisible(false), 120);
-              }}
-              onKeyDown={(event) => {
-                if (shouldShowPageTagSuggestions) {
-                  if (event.key === 'ArrowDown') {
-                    event.preventDefault();
-                    setActiveTagSuggestionIndex((current) => (current + 1) % pageTagSuggestions.length);
-                    return;
-                  }
-
-                  if (event.key === 'ArrowUp') {
-                    event.preventDefault();
-                    setActiveTagSuggestionIndex(
-                      (current) => (current - 1 + pageTagSuggestions.length) % pageTagSuggestions.length
-                    );
-                    return;
-                  }
-
-                  if (event.key === 'Enter' || event.key === 'Tab') {
-                    const suggestion = pageTagSuggestions[activeTagSuggestionIndex];
-                    if (suggestion) {
+            <form className="tag-input-form" onSubmit={handleTagSubmit}>
+              <input
+                ref={tagInputRef}
+                type="text"
+                className="tag-input"
+                value={tagInput}
+                aria-label="Add tag"
+                enterKeyHint="done"
+                onChange={(event) => {
+                  setTagInput(event.target.value);
+                  setTagSuggestionsVisible(true);
+                  setActiveTagSuggestionIndex(0);
+                }}
+                onFocus={() => setTagSuggestionsVisible(true)}
+                onBlur={() => {
+                  window.setTimeout(() => setTagSuggestionsVisible(false), 120);
+                }}
+                onKeyDown={(event) => {
+                  if (shouldShowPageTagSuggestions) {
+                    if (event.key === 'ArrowDown') {
                       event.preventDefault();
-                      applyPageTagSuggestion(suggestion);
+                      setActiveTagSuggestionIndex((current) => (current + 1) % pageTagSuggestions.length);
+                      return;
                     }
+
+                    if (event.key === 'ArrowUp') {
+                      event.preventDefault();
+                      setActiveTagSuggestionIndex(
+                        (current) => (current - 1 + pageTagSuggestions.length) % pageTagSuggestions.length
+                      );
+                      return;
+                    }
+
+                    if (isTagSubmitKey(event)) {
+                      const suggestion = pageTagSuggestions[activeTagSuggestionIndex];
+                      if (suggestion) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        applyPageTagSuggestion(suggestion);
+                      }
+                      return;
+                    }
+                  }
+
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    setTagSuggestionsVisible(false);
                     return;
                   }
-                }
 
-                if (event.key === 'Escape') {
-                  event.preventDefault();
-                  setTagSuggestionsVisible(false);
-                  return;
-                }
-
-                if (event.key !== 'Enter') {
-                  return;
-                }
-
-                event.preventDefault();
-                handleAddTagFromInput();
-              }}
-              placeholder="Add /tag"
-            />
+                  if (isTagSubmitKey(event)) {
+                    submitTagFromKeyboard(event);
+                  }
+                }}
+                placeholder="Add /tag"
+              />
+              <button type="submit" className="secondary-button tag-add-button" aria-label="Create tag from input">
+                Add
+              </button>
+            </form>
             <TagSuggestionsDropdown
               suggestions={shouldShowPageTagSuggestions ? pageTagSuggestions : []}
               activeIndex={activeTagSuggestionIndex}
@@ -1180,6 +1206,29 @@ function getPresetForLegacyPx(size: number): (typeof TEXT_SIZE_PRESETS)[number] 
   return TEXT_SIZE_PRESETS.reduce((closest, preset) => {
     return Math.abs(preset.legacyPx - size) < Math.abs(closest.legacyPx - size) ? preset : closest;
   }, TEXT_SIZE_PRESETS[1]);
+}
+
+function isTagSubmitKey(event: ReactKeyboardEvent<HTMLInputElement>): boolean {
+  if (event.nativeEvent.isComposing) {
+    return false;
+  }
+
+  const key = event.key.toLowerCase();
+  const code = event.code.toLowerCase();
+  const hasInput = event.currentTarget.value.trim().length > 0;
+
+  if (key === 'enter' || key === 'return' || code === 'enter' || code === 'numpadenter') {
+    return true;
+  }
+
+  if (hasInput && ['done', 'go', 'send', 'search', 'submit'].includes(key)) {
+    return true;
+  }
+
+  // Some virtual keyboards, including browser keyboards on XR devices, can
+  // surface their submit action as focus navigation. Treat Tab as submission
+  // only when there is tag text waiting to be committed.
+  return hasInput && (key === 'tab' || code === 'tab');
 }
 
 function getActiveTextSize(editor: HTMLElement, fallbackPx: number): TextSizePresetId {
