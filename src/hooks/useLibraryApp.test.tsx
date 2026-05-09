@@ -232,6 +232,273 @@ describe('useLibraryApp persistence', () => {
     expect(app?.saveStatus.state).toBe('failed');
   });
 
+  it('pushes book, chapter, and page openings into history and walks back in order', async () => {
+    dbMocks.loadLibraryDataMock.mockResolvedValue(buildNavigationLibraryData());
+    await renderHarness();
+
+    act(() => {
+      app?.handleOpenBook('book-a');
+    });
+
+    expect(app?.view).toEqual({ type: 'book', bookId: 'book-a' });
+    expect(app?.navigationHistory).toEqual([{ type: 'root' }]);
+
+    act(() => {
+      app?.handleOpenChapter('chapter-a');
+    });
+
+    expect(app?.view).toEqual({ type: 'chapter', chapterId: 'chapter-a' });
+    expect(app?.navigationHistory).toEqual([{ type: 'root' }, { type: 'book', bookId: 'book-a' }]);
+
+    act(() => {
+      app?.handleOpenPage('page-a');
+    });
+
+    expect(app?.view).toEqual({ type: 'page', pageId: 'page-a' });
+    expect(app?.navigationHistory).toEqual([
+      { type: 'root' },
+      { type: 'book', bookId: 'book-a' },
+      { type: 'chapter', chapterId: 'chapter-a' }
+    ]);
+
+    act(() => {
+      app?.navigateBack();
+    });
+
+    expect(app?.view).toEqual({ type: 'chapter', chapterId: 'chapter-a' });
+    expect(app?.navigationHistory).toEqual([{ type: 'root' }, { type: 'book', bookId: 'book-a' }]);
+
+    act(() => {
+      app?.navigateBack();
+    });
+
+    expect(app?.view).toEqual({ type: 'book', bookId: 'book-a' });
+    expect(app?.navigationHistory).toEqual([{ type: 'root' }]);
+
+    act(() => {
+      app?.navigateBack();
+    });
+
+    expect(app?.view).toEqual({ type: 'root' });
+    expect(app?.navigationHistory).toEqual([]);
+  });
+
+  it('keeps home, loose pages, and trash navigation behavior unchanged', async () => {
+    dbMocks.loadLibraryDataMock.mockResolvedValue(buildNavigationLibraryData());
+    await renderHarness();
+
+    act(() => {
+      app?.handleOpenLoosePages();
+    });
+
+    expect(app?.view).toEqual({ type: 'loosePages' });
+    expect(app?.navigationHistory).toEqual([{ type: 'root' }]);
+
+    act(() => {
+      app?.handleOpenTrash();
+    });
+
+    expect(app?.view).toEqual({ type: 'trash' });
+    expect(app?.navigationHistory).toEqual([{ type: 'root' }, { type: 'loosePages' }]);
+
+    act(() => {
+      app?.navigateHome();
+    });
+
+    expect(app?.view).toEqual({ type: 'root' });
+    expect(app?.navigationHistory).toEqual([{ type: 'root' }, { type: 'loosePages' }, { type: 'trash' }]);
+
+    act(() => {
+      app?.navigateBack();
+    });
+
+    expect(app?.view).toEqual({ type: 'trash' });
+    expect(app?.navigationHistory).toEqual([{ type: 'root' }, { type: 'loosePages' }]);
+  });
+
+  it('navigates after creating books, chapters, and pages with the current history behavior', async () => {
+    dbMocks.loadLibraryDataMock.mockResolvedValue(buildNavigationLibraryData());
+    await renderHarness();
+
+    act(() => {
+      app?.handleCreateBook();
+    });
+
+    const createdBookId = app?.data?.books.find((book) => book.title === 'Untitled Book')?.id;
+    expect(app?.view).toEqual({ type: 'book', bookId: createdBookId });
+    expect(app?.navigationHistory).toEqual([{ type: 'root' }]);
+
+    act(() => {
+      app?.handleCreateChapter('book-a');
+    });
+
+    const createdChapterId = app?.data?.chapters.find((chapter) => chapter.title === 'Untitled Chapter')?.id;
+    expect(app?.view).toEqual({ type: 'chapter', chapterId: createdChapterId });
+    expect(app?.navigationHistory).toEqual([{ type: 'root' }, { type: 'book', bookId: createdBookId }]);
+
+    act(() => {
+      app?.handleCreatePage('chapter-a');
+    });
+
+    const createdPageId = app?.data?.pages.find((page) => page.title === 'Untitled Page')?.id;
+    expect(app?.view).toEqual({ type: 'page', pageId: createdPageId });
+    expect(app?.navigationHistory).toEqual([
+      { type: 'root' },
+      { type: 'book', bookId: createdBookId },
+      { type: 'chapter', chapterId: createdChapterId }
+    ]);
+    expect(app?.shouldAutoFocusEditor).toBe(false);
+  });
+
+  it('moves a loose page into a chapter with replaceView and does not add a history entry', async () => {
+    dbMocks.loadLibraryDataMock.mockResolvedValue(buildNavigationLibraryData());
+    await renderHarness();
+
+    act(() => {
+      app?.handleOpenLoosePages();
+      app?.handleOpenPage('loose-page');
+    });
+
+    expect(app?.view).toEqual({ type: 'page', pageId: 'loose-page' });
+    expect(app?.navigationHistory).toEqual([{ type: 'root' }, { type: 'loosePages' }]);
+
+    act(() => {
+      app?.handleMoveLoosePage('loose-page', { chapterId: 'chapter-b' });
+    });
+
+    expect(app?.view).toEqual({ type: 'chapter', chapterId: 'chapter-b' });
+    expect(app?.navigationHistory).toEqual([{ type: 'root' }, { type: 'loosePages' }]);
+
+    act(() => {
+      app?.navigateBack();
+    });
+
+    expect(app?.view).toEqual({ type: 'loosePages' });
+    expect(app?.navigationHistory).toEqual([{ type: 'root' }]);
+  });
+
+  it('trashing active pages uses current fallback views without adding history', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    dbMocks.loadLibraryDataMock.mockResolvedValue(buildNavigationLibraryData());
+    await renderHarness();
+
+    act(() => {
+      app?.handleOpenBook('book-a');
+      app?.handleOpenChapter('chapter-a');
+      app?.handleOpenPage('page-a');
+    });
+
+    const chapterPageHistory = app?.navigationHistory;
+
+    act(() => {
+      const page = app?.activePage;
+      if (page) {
+        app?.handleDeletePage(page);
+      }
+    });
+
+    expect(app?.view).toEqual({ type: 'chapter', chapterId: 'chapter-a' });
+    expect(app?.navigationHistory).toEqual(chapterPageHistory);
+
+    act(() => {
+      app?.handleOpenLoosePages();
+      app?.handleOpenPage('loose-page');
+    });
+
+    const loosePageHistory = app?.navigationHistory;
+
+    act(() => {
+      const page = app?.activePage;
+      if (page) {
+        app?.handleDeletePage(page);
+      }
+    });
+
+    expect(app?.view).toEqual({ type: 'loosePages' });
+    expect(app?.navigationHistory).toEqual(loosePageHistory);
+
+    confirmSpy.mockRestore();
+  });
+
+  it('preserves search and tag origin history when opening results and going back', async () => {
+    dbMocks.loadLibraryDataMock.mockResolvedValue(buildNavigationLibraryData());
+    await renderHarness();
+
+    act(() => {
+      app?.handleOpenBook('book-a');
+    });
+
+    act(() => {
+      app?.handleOpenChapter('chapter-a');
+    });
+
+    act(() => {
+      app?.handleSearchFocus();
+    });
+
+    act(() => {
+      app?.handleSearchChange('Page A');
+    });
+
+    expect(app?.view).toEqual({ type: 'search', query: 'Page A' });
+    expect(app?.searchOriginView).toEqual({ type: 'chapter', chapterId: 'chapter-a' });
+    expect(app?.navigationHistory).toEqual([
+      { type: 'root' },
+      { type: 'book', bookId: 'book-a' },
+      { type: 'chapter', chapterId: 'chapter-a' }
+    ]);
+
+    act(() => {
+      app?.handleOpenPage('page-a');
+    });
+
+    expect(app?.view).toEqual({ type: 'page', pageId: 'page-a' });
+    expect(app?.navigationHistory).toEqual([
+      { type: 'root' },
+      { type: 'book', bookId: 'book-a' },
+      { type: 'chapter', chapterId: 'chapter-a' },
+      { type: 'search', query: 'Page A' }
+    ]);
+
+    act(() => {
+      app?.navigateBack();
+      app?.navigateBack();
+    });
+
+    expect(app?.view).toEqual({ type: 'chapter', chapterId: 'chapter-a' });
+    expect(app?.navigationHistory).toEqual([{ type: 'root' }, { type: 'book', bookId: 'book-a' }]);
+
+    act(() => {
+      app?.handleOpenPage('page-a');
+    });
+
+    act(() => {
+      app?.handleOpenTag('history');
+    });
+
+    expect(app?.view).toEqual({ type: 'tag', tags: ['history'] });
+    expect(app?.tagOriginView).toEqual({ type: 'page', pageId: 'page-a' });
+    expect(app?.navigationHistory).toEqual([
+      { type: 'root' },
+      { type: 'book', bookId: 'book-a' },
+      { type: 'chapter', chapterId: 'chapter-a' },
+      { type: 'page', pageId: 'page-a' }
+    ]);
+
+    act(() => {
+      app?.handleOpenPage('page-b');
+      app?.navigateBack();
+    });
+
+    expect(app?.view).toEqual({ type: 'tag', tags: ['history'] });
+    expect(app?.navigationHistory).toEqual([
+      { type: 'root' },
+      { type: 'book', bookId: 'book-a' },
+      { type: 'chapter', chapterId: 'chapter-a' },
+      { type: 'page', pageId: 'page-a' }
+    ]);
+  });
+
   it('warns before unload while dirty changes are waiting for autosave', async () => {
     await renderHarness();
 
@@ -743,6 +1010,97 @@ function buildLibraryData(idPrefix: string, bookTitle: string): LibraryData {
         tags: ['restore'],
         textSize: 16,
         isLoose: false,
+        sortOrder: 0,
+        createdAt: '2026-05-04T12:00:00.000Z',
+        updatedAt: '2026-05-04T12:00:00.000Z',
+        deletedAt: null,
+        deletedFrom: null
+      }
+    ]
+  };
+}
+
+function buildNavigationLibraryData(): LibraryData {
+  return {
+    books: [
+      {
+        id: 'book-a',
+        title: 'Book A',
+        sortOrder: 0,
+        createdAt: '2026-05-04T12:00:00.000Z',
+        updatedAt: '2026-05-04T12:00:00.000Z',
+        deletedAt: null,
+        deletedFrom: null
+      },
+      {
+        id: 'book-b',
+        title: 'Book B',
+        sortOrder: 1,
+        createdAt: '2026-05-04T12:00:00.000Z',
+        updatedAt: '2026-05-04T12:00:00.000Z',
+        deletedAt: null,
+        deletedFrom: null
+      }
+    ],
+    chapters: [
+      {
+        id: 'chapter-a',
+        bookId: 'book-a',
+        title: 'Chapter A',
+        sortOrder: 0,
+        createdAt: '2026-05-04T12:00:00.000Z',
+        updatedAt: '2026-05-04T12:00:00.000Z',
+        deletedAt: null,
+        deletedFrom: null
+      },
+      {
+        id: 'chapter-b',
+        bookId: 'book-b',
+        title: 'Chapter B',
+        sortOrder: 0,
+        createdAt: '2026-05-04T12:00:00.000Z',
+        updatedAt: '2026-05-04T12:00:00.000Z',
+        deletedAt: null,
+        deletedFrom: null
+      }
+    ],
+    pages: [
+      {
+        id: 'page-a',
+        chapterId: 'chapter-a',
+        title: 'Page A',
+        content: 'Searchable page A content',
+        tags: ['history'],
+        textSize: 16,
+        isLoose: false,
+        sortOrder: 0,
+        createdAt: '2026-05-04T12:00:00.000Z',
+        updatedAt: '2026-05-04T12:00:00.000Z',
+        deletedAt: null,
+        deletedFrom: null
+      },
+      {
+        id: 'page-b',
+        chapterId: 'chapter-b',
+        title: 'Page B',
+        content: 'Second page content',
+        tags: ['history'],
+        textSize: 16,
+        isLoose: false,
+        sortOrder: 0,
+        createdAt: '2026-05-04T12:00:00.000Z',
+        updatedAt: '2026-05-04T12:00:00.000Z',
+        deletedAt: null,
+        deletedFrom: null
+      },
+      {
+        id: 'loose-page',
+        chapterId: null,
+        title: 'Loose Page',
+        content: 'Loose content',
+        tags: ['inbox'],
+        textSize: 16,
+        isLoose: true,
         sortOrder: 0,
         createdAt: '2026-05-04T12:00:00.000Z',
         updatedAt: '2026-05-04T12:00:00.000Z',
