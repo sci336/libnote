@@ -2445,11 +2445,6 @@ h1 {
   min-width: 0;
 }
 
-.tag-add-button {
-  min-height: 2.7rem;
-  padding: 0.65rem 0.9rem;
-}
-
 .tag-results-header {
   width: 100%;
   display: flex;

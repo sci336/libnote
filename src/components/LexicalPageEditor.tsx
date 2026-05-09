@@ -263,9 +263,6 @@ export function LexicalPageEditor({
                 onKeyDown={handleTagKeyDown}
                 placeholder="Add /tag"
               />
-              <button type="submit" className="secondary-button tag-add-button" aria-label="Create tag from input">
-                Add
-              </button>
             </form>
           </div>
         </div>

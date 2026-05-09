@@ -35,10 +35,12 @@ test.describe('default Lexical editor', () => {
     await expect(page.getByRole('button', { name: /Durable plain phrase/ })).toBeVisible();
   });
 
-  test('adds slash tags from keyboard submit paths and the Add button without moving focus away', async ({ page }) => {
+  test('adds slash tags from keyboard submit paths without moving focus away', async ({ page }) => {
     await createLoosePage(page);
 
     const tagInput = page.getByLabel('Add tag');
+    await expect(page.getByRole('button', { name: 'Create tag from input' })).toHaveCount(0);
+
     await tagInput.fill('school');
     await tagInput.press('Enter');
     await expect(page.getByRole('button', { name: 'Open tag filter for school' })).toBeVisible();
@@ -51,11 +53,11 @@ test.describe('default Lexical editor', () => {
     await expect(tagInput).toBeFocused();
     await expect(page.getByLabel('Text size')).not.toBeFocused();
 
-    await tagInput.fill('ideas');
-    await page.getByRole('button', { name: 'Create tag from input' }).click();
-    await expect(page.getByRole('button', { name: 'Open tag filter for ideas' })).toBeVisible();
+    await tagInput.fill('   ');
+    await tagInput.press('Enter');
     await expect(tagInput).toHaveValue('');
     await expect(tagInput).toBeFocused();
+    await expect(page.getByRole('button', { name: /^Open tag filter for / })).toHaveCount(2);
 
     await tagInput.fill('school');
     await tagInput.press('Enter');

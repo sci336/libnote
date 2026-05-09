@@ -774,9 +774,6 @@ export function PageEditor({
                 }}
                 placeholder="Add /tag"
               />
-              <button type="submit" className="secondary-button tag-add-button" aria-label="Create tag from input">
-                Add
-              </button>
             </form>
             <TagSuggestionsDropdown
               suggestions={shouldShowPageTagSuggestions ? pageTagSuggestions : []}
