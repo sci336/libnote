@@ -21,23 +21,15 @@ import {
 import {
   createBook,
   createChapter,
-  createPage,
-  deleteTagEverywhere,
   hydrateLibraryData,
-  mergeTags,
   moveChapterToBook,
-  moveLoosePageToChapter,
-  movePageToChapter,
   emptyLibraryData,
   persistLibraryData,
   reorderBooks,
   reorderChaptersInBook,
-  reorderPagesInChapter,
-  renameTagEverywhere,
   updateBook,
   updateBookCover,
-  updateChapter,
-  updatePage
+  updateChapter
 } from '../store/libraryStore';
 import {
   buildLibraryDerivedData,
@@ -59,17 +51,17 @@ import {
 } from '../store/librarySelectors';
 import { useDebouncedEffect } from './useDebouncedEffect';
 import { useLibraryBackupActions } from './useLibraryBackupActions';
+import { useLibraryPageActions } from './useLibraryPageActions';
 import { useLibrarySearchAndTags } from './useLibrarySearchAndTags';
+import { useLibraryTagActions } from './useLibraryTagActions';
 import { useLibraryTrashActions } from './useLibraryTrashActions';
-import { isLoosePage } from '../utils/pageState';
 import {
   DEFAULT_SHORTCUTS,
   eventMatchesShortcut,
   isTypingInEditableTarget,
   normalizeShortcutSettings
 } from '../utils/shortcuts';
-import { parseSingleTagInput } from '../utils/tags';
-import { DEFAULT_APP_SETTINGS, normalizeAppSettings, RECENT_PAGES_LIMIT } from '../utils/appSettings';
+import { DEFAULT_APP_SETTINGS, normalizeAppSettings } from '../utils/appSettings';
 import { getStorageFailureDetails } from '../utils/storageError';
 
 const DESKTOP_WIDTH = 920;
@@ -386,34 +378,41 @@ export function useLibraryApp() {
     handleDeleteTrashItemForever,
     handleEmptyTrash
   } = useLibraryTrashActions({ data, updateData, replaceView, setSettings });
-
-  useEffect(() => {
-    if (!activePage) {
-      return;
-    }
-
-    recordRecentPage(activePage.id);
-  }, [activePage?.id]);
-
-  useEffect(() => {
-    if (!data || !settingsHydrated) {
-      return;
-    }
-
-    const livePageById = derivedData?.livePageById;
-    if (!livePageById) {
-      return;
-    }
-
-    const cleanedRecentPageIds = settings.recentPageIds.filter((pageId) => livePageById.has(pageId));
-
-    if (!areStringArraysEqual(cleanedRecentPageIds, settings.recentPageIds)) {
-      setSettings((currentSettings) => ({
-        ...currentSettings,
-        recentPageIds: currentSettings.recentPageIds.filter((pageId) => livePageById.has(pageId))
-      }));
-    }
-  }, [data, derivedData, settings.recentPageIds, settingsHydrated]);
+  const {
+    handleRenameTagEverywhere,
+    handleDeleteTagEverywhere,
+    handleMergeTags
+  } = useLibraryTagActions({
+    data,
+    updateData,
+    renameRecentTag,
+    deleteRecentTag,
+    mergeRecentTags
+  });
+  const {
+    handleCreatePage,
+    handleCreateLoosePage,
+    handleCreatePageFromLink,
+    handleReorderPages,
+    handleMovePage,
+    handleMoveLoosePage,
+    handleRenamePage,
+    handleUpdatePageContent,
+    handleUpdatePageTextSize,
+    handleUpdatePageTags
+  } = useLibraryPageActions({
+    data,
+    activePageId: activePage?.id,
+    livePageById: derivedData?.livePageById,
+    recentPageIds: settings.recentPageIds,
+    settingsHydrated,
+    updateData,
+    navigateToView,
+    replaceView,
+    setSettings,
+    setShouldAutoFocusEditor,
+    setMovingPageId
+  });
 
   function runIfDataLoaded(callback: (currentData: LibraryData) => void): void {
     if (!data) {
@@ -518,24 +517,6 @@ export function useLibraryApp() {
     }
   }
 
-  function recordRecentPage(pageId: string): void {
-    setSettings((currentSettings) => {
-      const nextRecentPageIds = [
-        pageId,
-        ...currentSettings.recentPageIds.filter((recentPageId) => recentPageId !== pageId)
-      ].slice(0, RECENT_PAGES_LIMIT);
-
-      if (areStringArraysEqual(nextRecentPageIds, currentSettings.recentPageIds)) {
-        return currentSettings;
-      }
-
-      return {
-        ...currentSettings,
-        recentPageIds: nextRecentPageIds
-      };
-    });
-  }
-
   function getParentNavigationTarget(currentView: ViewState = currentViewRef.current): ViewState {
     if (!data) {
       return { type: 'root' };
@@ -598,53 +579,12 @@ export function useLibraryApp() {
     });
   }
 
-  function handleCreatePage(chapterId: string): void {
-    runIfDataLoaded((currentData) => {
-      const result = createPage(currentData, { chapterId, isLoose: false });
-      updateData(result.data);
-      setShouldAutoFocusEditor(true);
-      navigateToView({ type: 'page', pageId: result.page.id }, { shouldCloseSidebar: true });
-    });
-  }
-
-  function handleCreateLoosePage(): void {
-    runIfDataLoaded((currentData) => {
-      const result = createPage(currentData, { chapterId: null, isLoose: true });
-      updateData(result.data);
-      setShouldAutoFocusEditor(true);
-      navigateToView({ type: 'page', pageId: result.page.id }, { shouldCloseSidebar: true });
-    });
-  }
-
-  function handleCreatePageFromLink(sourcePage: Page, title: string): void {
-    runIfDataLoaded((currentData) => {
-      const isLoose = isLoosePage(sourcePage);
-      const result = createPage(currentData, {
-        chapterId: isLoose ? null : sourcePage.chapterId,
-        isLoose,
-        title
-      });
-
-      updateData(result.data);
-      setShouldAutoFocusEditor(true);
-      navigateToView({ type: 'page', pageId: result.page.id }, { shouldCloseSidebar: true });
-    });
-  }
-
   function handleReorderChapters(bookId: string, orderedChapterIds: string[]): void {
     if (!data) {
       return;
     }
 
     updateData(reorderChaptersInBook(data, bookId, orderedChapterIds));
-  }
-
-  function handleReorderPages(chapterId: string, orderedPageIds: string[]): void {
-    if (!data) {
-      return;
-    }
-
-    updateData(reorderPagesInChapter(data, chapterId, orderedPageIds));
   }
 
   function handleReorderBooks(orderedBookIds: string[]): void {
@@ -662,15 +602,6 @@ export function useLibraryApp() {
 
     updateData(moveChapterToBook(data, chapterId, destinationBookId));
     setMovingChapterId(null);
-  }
-
-  function handleMovePage(pageId: string, destinationChapterId: string): void {
-    if (!data) {
-      return;
-    }
-
-    updateData(movePageToChapter(data, pageId, destinationChapterId));
-    setMovingPageId(null);
   }
 
   function handleOpenBook(bookId: string): void {
@@ -691,22 +622,6 @@ export function useLibraryApp() {
 
   function handleOpenTrash(): void {
     navigateToView({ type: 'trash' }, { shouldCloseSidebar: true });
-  }
-
-  function handleMoveLoosePage(
-    pageId: string,
-    payload: { chapterId: string }
-  ): void {
-    if (!data) {
-      return;
-    }
-
-    const result = moveLoosePageToChapter(data, pageId, payload.chapterId);
-
-    updateData(result.data);
-    if (result.chapterId) {
-      replaceView({ type: 'chapter', chapterId: result.chapterId });
-    }
   }
 
   function handleRenameBook(bookId: string, title: string): void {
@@ -731,79 +646,6 @@ export function useLibraryApp() {
     }
 
     updateData(updateChapter(data, chapterId, title));
-  }
-
-  function handleRenamePage(pageId: string, title: string): void {
-    if (!data) {
-      return;
-    }
-
-    updateData(updatePage(data, pageId, { title }));
-  }
-
-  function handleUpdatePageContent(pageId: string, content: string): void {
-    if (!data) {
-      return;
-    }
-
-    updateData(updatePage(data, pageId, { content }));
-  }
-
-  function handleUpdatePageTextSize(pageId: string, textSize: number): void {
-    if (!data) {
-      return;
-    }
-
-    updateData(updatePage(data, pageId, { textSize }));
-  }
-
-  function handleUpdatePageTags(pageId: string, tags: string[]): void {
-    if (!data) {
-      return;
-    }
-
-    updateData(updatePage(data, pageId, { tags }));
-  }
-
-  function handleRenameTagEverywhere(oldTag: string, newTag: string): void {
-    if (!data) {
-      return;
-    }
-
-    const normalizedOldTag = parseSingleTagInput(oldTag);
-    const normalizedNewTag = parseSingleTagInput(newTag);
-
-    updateData(renameTagEverywhere(data, oldTag, newTag));
-    if (normalizedOldTag && normalizedNewTag) {
-      renameRecentTag(normalizedOldTag, normalizedNewTag);
-    }
-  }
-
-  function handleDeleteTagEverywhere(tag: string): void {
-    if (!data) {
-      return;
-    }
-
-    const normalizedTag = parseSingleTagInput(tag);
-
-    updateData(deleteTagEverywhere(data, tag));
-    if (normalizedTag) {
-      deleteRecentTag(normalizedTag);
-    }
-  }
-
-  function handleMergeTags(sourceTag: string, targetTag: string): void {
-    if (!data) {
-      return;
-    }
-
-    const normalizedSourceTag = parseSingleTagInput(sourceTag);
-    const normalizedTargetTag = parseSingleTagInput(targetTag);
-
-    updateData(mergeTags(data, sourceTag, targetTag));
-    if (normalizedSourceTag && normalizedTargetTag) {
-      mergeRecentTags(normalizedSourceTag, normalizedTargetTag);
-    }
   }
 
   function handleUpdateLibraryBooksPerRow(booksPerRow: LibraryBooksPerRow): void {
@@ -1046,8 +888,4 @@ function shouldWarnBeforeLeaving(saveStatus: SaveStatus): boolean {
     saveStatus.state === 'retrying' ||
     saveStatus.state === 'failed'
   );
-}
-
-function areStringArraysEqual(left: string[], right: string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
