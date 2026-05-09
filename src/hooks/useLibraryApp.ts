@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
-  AppMenuSection,
   AppSettings,
   LibraryData,
   Page,
@@ -33,6 +32,7 @@ import {
   getSortedBooksFromDerived
 } from '../store/librarySelectors';
 import { useDebouncedEffect } from './useDebouncedEffect';
+import { useLibraryAppMenu } from './useLibraryAppMenu';
 import { useLibraryBackupActions } from './useLibraryBackupActions';
 import { useLibraryBookActions } from './useLibraryBookActions';
 import { useLibraryChapterActions } from './useLibraryChapterActions';
@@ -60,8 +60,6 @@ export function useLibraryApp() {
   const [view, setView] = useState<ViewState>({ type: 'root' });
   const [navigationHistory, setNavigationHistory] = useState<ViewState[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [appMenuOpen, setAppMenuOpen] = useState(false);
-  const [appMenuSection, setAppMenuSection] = useState<AppMenuSection>('help');
   const [shouldAutoFocusEditor, setShouldAutoFocusEditor] = useState(false);
   const [movingChapterId, setMovingChapterId] = useState<string | null>(null);
   const [movingPageId, setMovingPageId] = useState<string | null>(null);
@@ -74,6 +72,15 @@ export function useLibraryApp() {
   const saveRequestIdRef = useRef(0);
   const saveStatusRef = useRef<SaveStatus>({ state: 'idle' });
   const shouldAutosaveDataRef = useRef(false);
+  const {
+    appMenuOpen,
+    appMenuSection,
+    setAppMenuOpen,
+    setAppMenuSection,
+    openAppMenu,
+    closeAppMenu,
+    navigateAppMenu
+  } = useLibraryAppMenu({ closeSidebarOnMobile });
   const {
     searchQuery,
     searchOriginView,
@@ -548,21 +555,6 @@ export function useLibraryApp() {
 
   function goToParentView(): void {
     navigateToView(getParentNavigationTarget(), { shouldCloseSidebar: true });
-  }
-
-  function openAppMenu(section: AppMenuSection = 'help'): void {
-    setAppMenuSection(section);
-    setAppMenuOpen(true);
-    closeSidebarOnMobile();
-  }
-
-  function closeAppMenu(): void {
-    setAppMenuOpen(false);
-  }
-
-  function navigateAppMenu(section: AppMenuSection): void {
-    setAppMenuSection(section);
-    setAppMenuOpen(true);
   }
 
   function handleOpenBook(bookId: string): void {
