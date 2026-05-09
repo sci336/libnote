@@ -13,11 +13,9 @@ import type {
   ViewState
 } from '../types/domain';
 import {
-  clearRestoreRecoverySnapshot,
   loadAppSettings,
   loadRestoreRecoverySnapshot,
   saveAppSettings,
-  saveRestoreRecoverySnapshot,
   type RestoreRecoverySnapshot
 } from '../db/indexedDb';
 import {
@@ -60,8 +58,9 @@ import {
   getSortedBooksFromDerived
 } from '../store/librarySelectors';
 import { useDebouncedEffect } from './useDebouncedEffect';
+import { useLibraryBackupActions } from './useLibraryBackupActions';
+import { useLibrarySearchAndTags } from './useLibrarySearchAndTags';
 import { useLibraryTrashActions } from './useLibraryTrashActions';
-import { buildSearchIndex, normalizeSearchQuery, parseSearchInput, searchPages, searchTrashedEntities } from '../utils/search';
 import { isLoosePage } from '../utils/pageState';
 import {
   DEFAULT_SHORTCUTS,
@@ -69,32 +68,12 @@ import {
   isTypingInEditableTarget,
   normalizeShortcutSettings
 } from '../utils/shortcuts';
-import { formatTagQuery, normalizeTag, normalizeTagList, parseSingleTagInput, parseTagQuery } from '../utils/tags';
-import { DEFAULT_APP_SETTINGS, filterRecentPageIdsForLibrary, normalizeAppSettings, RECENT_PAGES_LIMIT } from '../utils/appSettings';
-import {
-  createBackupFileName,
-  createBackupPayload,
-  createBackupSummary,
-  createSafetyBackupSnapshot,
-  createPageExportFile,
-  downloadJsonFile,
-  downloadPlainTextFile,
-  readBackupFile,
-  validateBackupPayload,
-  type BackupImportPreview,
-  type BackupSafetySnapshot,
-  type ValidatedBackupPayload
-} from '../utils/backup';
+import { parseSingleTagInput } from '../utils/tags';
+import { DEFAULT_APP_SETTINGS, normalizeAppSettings, RECENT_PAGES_LIMIT } from '../utils/appSettings';
 import { getStorageFailureDetails } from '../utils/storageError';
 
 const DESKTOP_WIDTH = 920;
 const PERSISTENCE_DELAY_MS = 300;
-
-interface BackupStatus {
-  tone: 'success' | 'error' | 'info' | 'warning';
-  message: string;
-  warnings?: string[];
-}
 
 /**
  * Central application controller for the note library.
@@ -113,13 +92,6 @@ export function useLibraryApp() {
   const [shouldAutoFocusEditor, setShouldAutoFocusEditor] = useState(false);
   const [movingChapterId, setMovingChapterId] = useState<string | null>(null);
   const [movingPageId, setMovingPageId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchOriginView, setSearchOriginView] = useState<ViewState>({ type: 'root' });
-  const [tagOriginView, setTagOriginView] = useState<ViewState>({ type: 'root' });
-  const [recentTags, setRecentTags] = useState<string[]>([]);
-  const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null);
-  const [restoreSafetySnapshot, setRestoreSafetySnapshot] = useState<BackupSafetySnapshot | null>(null);
-  const [restoreRecoverySnapshot, setRestoreRecoverySnapshot] = useState<RestoreRecoverySnapshot | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>({ state: 'idle' });
   const latestDataRef = useRef<LibraryData | null>(null);
   const latestSettingsRef = useRef<AppSettings>(DEFAULT_APP_SETTINGS);
@@ -129,6 +101,54 @@ export function useLibraryApp() {
   const saveRequestIdRef = useRef(0);
   const saveStatusRef = useRef<SaveStatus>({ state: 'idle' });
   const shouldAutosaveDataRef = useRef(false);
+  const {
+    searchQuery,
+    searchOriginView,
+    tagOriginView,
+    recentTags,
+    searchResults,
+    trashSearchResults,
+    searchMode,
+    resetSearchAndTags,
+    handleSearchChange,
+    handleSearchFocus,
+    handleOpenTag,
+    handleRemoveActiveTag,
+    renameRecentTag,
+    deleteRecentTag,
+    mergeRecentTags
+  } = useLibrarySearchAndTags({
+    data,
+    view,
+    navigateToView,
+    replaceView,
+    closeSidebarOnMobile
+  });
+  const {
+    backupStatus,
+    restoreSafetySnapshot,
+    restoreRecoverySnapshot,
+    setBackupStatus,
+    setRestoreRecoverySnapshot,
+    handleExportLibrary,
+    handleDownloadRestoreSafetySnapshot,
+    handleRecoverRestoreSnapshot,
+    handleDismissRestoreRecoverySnapshot,
+    handlePreviewBackupImport,
+    handleRestoreBackupImport,
+    handleCancelBackupImport,
+    handleExportPage
+  } = useLibraryBackupActions({
+    data,
+    latestDataRef,
+    latestSettingsRef,
+    shouldAutosaveDataRef,
+    setData,
+    setSettings,
+    setSaveStatus,
+    getPageById: getExportablePageById,
+    resetAfterLibraryReplacement
+  });
 
   useEffect(() => {
     let canceled = false;
@@ -355,23 +375,6 @@ export function useLibraryApp() {
     },
     [data, navigationHistory.length, view]
   );
-  const normalizedSearchQuery = useMemo(() => normalizeSearchQuery(searchQuery), [searchQuery]);
-  // Building the search index is the expensive part of search, so keep it lazy
-  // until the user is actively searching or has typed something meaningful.
-  const shouldBuildSearchIndex = view.type === 'search' || normalizedSearchQuery.length > 0;
-  const searchIndex = useMemo(
-    () => (data && shouldBuildSearchIndex ? buildSearchIndex(data) : null),
-    [data, shouldBuildSearchIndex]
-  );
-  const searchResults = useMemo(
-    () => (searchIndex ? searchPages(searchQuery, searchIndex) : []),
-    [searchIndex, searchQuery]
-  );
-  const trashSearchResults = useMemo(
-    () => (searchIndex ? searchTrashedEntities(searchQuery, searchIndex) : []),
-    [searchIndex, searchQuery]
-  );
-  const searchMode = useMemo(() => parseSearchInput(searchQuery), [searchQuery]);
   const allChapters = useMemo(() => (derivedData ? getAllChaptersFromDerived(derivedData) : []), [derivedData]);
   const initialMoveBookId = books[0]?.id ?? '';
   const trashItems = derivedData?.trashItems ?? [];
@@ -475,6 +478,24 @@ export function useLibraryApp() {
     }
   }
 
+  function resetAfterLibraryReplacement(nextData: LibraryData, nextSettings: AppSettings): void {
+    latestDataRef.current = nextData;
+    latestSettingsRef.current = nextSettings;
+    shouldAutosaveDataRef.current = false;
+    setData(nextData);
+    setSettings(nextSettings);
+    resetSearchAndTags();
+    setNavigationHistory([]);
+    navigationHistoryRef.current = [];
+    setMovingChapterId(null);
+    setMovingPageId(null);
+    replaceView({ type: 'root' });
+  }
+
+  function getExportablePageById(pageId: string): Page | undefined {
+    return derivedData?.pageById.get(pageId);
+  }
+
   function navigateToView(
     nextView: ViewState,
     options?: { pushHistory?: boolean; shouldCloseSidebar?: boolean }
@@ -497,28 +518,6 @@ export function useLibraryApp() {
     }
   }
 
-  function rememberRecentTags(tags: string[]): void {
-    const normalizedTags = normalizeTagList(tags);
-    if (normalizedTags.length === 0) {
-      return;
-    }
-
-    setRecentTags((currentTags) => {
-      const nextTags = [...currentTags];
-
-      for (const tag of [...normalizedTags].reverse()) {
-        const existingIndex = nextTags.indexOf(tag);
-        if (existingIndex !== -1) {
-          nextTags.splice(existingIndex, 1);
-        }
-
-        nextTags.unshift(tag);
-      }
-
-      return nextTags;
-    });
-  }
-
   function recordRecentPage(pageId: string): void {
     setSettings((currentSettings) => {
       const nextRecentPageIds = [
@@ -535,10 +534,6 @@ export function useLibraryApp() {
         recentPageIds: nextRecentPageIds
       };
     });
-  }
-
-  function getTagViewExitTarget(): ViewState {
-    return tagOriginView.type === 'tag' ? { type: 'root' } : tagOriginView;
   }
 
   function getParentNavigationTarget(currentView: ViewState = currentViewRef.current): ViewState {
@@ -570,35 +565,6 @@ export function useLibraryApp() {
 
   function goToParentView(): void {
     navigateToView(getParentNavigationTarget(), { shouldCloseSidebar: true });
-  }
-
-  function applyTagView(nextRawTags: string[], options?: { shouldCloseSidebar?: boolean }): void {
-    const nextTags = normalizeTagList(nextRawTags);
-
-    if (nextTags.length === 0) {
-      setSearchQuery('');
-      replaceView(getTagViewExitTarget());
-      if (options?.shouldCloseSidebar) {
-        closeSidebarOnMobile();
-      }
-      return;
-    }
-
-    if (view.type !== 'tag') {
-      setTagOriginView(view.type === 'search' ? searchOriginView : view);
-    }
-
-    rememberRecentTags(nextTags);
-    setSearchQuery(formatTagQuery(nextTags));
-    if (view.type === 'tag') {
-      replaceView({ type: 'tag', tags: nextTags });
-    } else {
-      navigateToView({ type: 'tag', tags: nextTags }, { pushHistory: true });
-    }
-
-    if (options?.shouldCloseSidebar) {
-      closeSidebarOnMobile();
-    }
   }
 
   function openAppMenu(section: AppMenuSection = 'help'): void {
@@ -707,49 +673,6 @@ export function useLibraryApp() {
     setMovingPageId(null);
   }
 
-  function handleSearchChange(value: string): void {
-    setSearchQuery(value);
-    const parsedTags = parseTagQuery(value);
-    if (parsedTags && parsedTags.length > 0) {
-      // Route tag-only queries into the dedicated tag view so typed filters,
-      // clicked tags, and tag removal all operate on the same source of truth.
-      applyTagView(parsedTags);
-      return;
-    }
-
-    const normalizedQuery = normalizeSearchQuery(value);
-
-    if (normalizedQuery) {
-      // Remember where search started so "back" returns to the prior context
-      // instead of treating search like a dead-end screen.
-      if (view.type !== 'search') {
-        setSearchOriginView(view);
-      }
-
-      if (view.type === 'search') {
-        replaceView({ type: 'search', query: value });
-      } else {
-        navigateToView({ type: 'search', query: value }, { pushHistory: true });
-      }
-      return;
-    }
-
-    if (view.type === 'tag') {
-      replaceView(getTagViewExitTarget());
-    }
-
-    if (view.type === 'search') {
-      replaceView({ type: 'search', query: '' });
-    }
-  }
-
-  function handleSearchFocus(): void {
-    if (view.type !== 'search') {
-      setSearchOriginView(view);
-      navigateToView({ type: 'search', query: searchQuery }, { pushHistory: true });
-    }
-  }
-
   function handleOpenBook(bookId: string): void {
     navigateToView({ type: 'book', bookId }, { shouldCloseSidebar: true });
   }
@@ -768,40 +691,6 @@ export function useLibraryApp() {
 
   function handleOpenTrash(): void {
     navigateToView({ type: 'trash' }, { shouldCloseSidebar: true });
-  }
-
-  function handleOpenTag(tag: string): void {
-    const normalizedTag = normalizeTag(tag);
-    if (!normalizedTag) {
-      return;
-    }
-
-    if (view.type === 'tag') {
-      // Clicking an additional tag refines the current intersection instead of
-      // throwing away the active tag route.
-      applyTagView([...view.tags, normalizedTag], { shouldCloseSidebar: true });
-      return;
-    }
-
-    applyTagView([normalizedTag], { shouldCloseSidebar: true });
-  }
-
-  function handleRemoveActiveTag(tag: string): void {
-    if (view.type !== 'tag') {
-      return;
-    }
-
-    const normalizedTag = normalizeTag(tag);
-    const nextTags = view.tags.filter((activeTag) => activeTag !== normalizedTag);
-
-    if (nextTags.length === 0) {
-      // Clearing the last tag exits tag mode entirely so the search bar and
-      // visible route do not drift out of sync.
-      applyTagView([], { shouldCloseSidebar: true });
-      return;
-    }
-
-    applyTagView(nextTags);
   }
 
   function handleMoveLoosePage(
@@ -886,9 +775,7 @@ export function useLibraryApp() {
 
     updateData(renameTagEverywhere(data, oldTag, newTag));
     if (normalizedOldTag && normalizedNewTag) {
-      setRecentTags((currentTags) =>
-        normalizeTagList(currentTags.map((tag) => (tag === normalizedOldTag ? normalizedNewTag : tag)))
-      );
+      renameRecentTag(normalizedOldTag, normalizedNewTag);
     }
   }
 
@@ -901,7 +788,7 @@ export function useLibraryApp() {
 
     updateData(deleteTagEverywhere(data, tag));
     if (normalizedTag) {
-      setRecentTags((currentTags) => currentTags.filter((currentTag) => currentTag !== normalizedTag));
+      deleteRecentTag(normalizedTag);
     }
   }
 
@@ -915,9 +802,7 @@ export function useLibraryApp() {
 
     updateData(mergeTags(data, sourceTag, targetTag));
     if (normalizedSourceTag && normalizedTargetTag) {
-      setRecentTags((currentTags) =>
-        normalizeTagList(currentTags.map((tag) => (tag === normalizedSourceTag ? normalizedTargetTag : tag)))
-      );
+      mergeRecentTags(normalizedSourceTag, normalizedTargetTag);
     }
   }
 
@@ -967,301 +852,6 @@ export function useLibraryApp() {
       ...currentSettings,
       shortcuts: normalizeShortcutSettings(DEFAULT_SHORTCUTS)
     }));
-  }
-
-  function handleExportLibrary(): void {
-    if (!data) {
-      setBackupStatus({ tone: 'error', message: 'Library data is still loading. Please try export again in a moment.' });
-      return;
-    }
-
-    const payload = createBackupPayload(data, latestSettingsRef.current);
-    const nextSettings = {
-      ...latestSettingsRef.current,
-      lastBackupExportedAt: payload.exportedAt
-    };
-    const payloadWithBackupTimestamp = {
-      ...payload,
-      settings: nextSettings
-    };
-
-    downloadJsonFile(createBackupFileName(payload.exportedAt), payloadWithBackupTimestamp);
-    latestSettingsRef.current = nextSettings;
-    setSettings(nextSettings);
-    saveAppSettings(nextSettings).catch(console.error);
-    setBackupStatus({
-      tone: 'success',
-      message: 'Backup created successfully. Check your browser downloads or Downloads folder.'
-    });
-  }
-
-  function handleDownloadRestoreSafetySnapshot(): void {
-    if (!restoreSafetySnapshot) {
-      setBackupStatus({
-        tone: 'info',
-        message: 'No restore safety backup is available yet. Export the current library before restoring if you want a copy.'
-      });
-      return;
-    }
-
-    downloadJsonFile(restoreSafetySnapshot.filename, restoreSafetySnapshot.payload);
-    setBackupStatus({
-      tone: 'success',
-      message: 'Safety backup downloaded. This is a copy of the library that was active before the restore attempt.'
-    });
-  }
-
-  async function handlePreviewBackupImport(file: File | null): Promise<BackupImportPreview | null> {
-    if (!file) {
-      setBackupStatus({ tone: 'info', message: 'No file selected.' });
-      return null;
-    }
-
-    try {
-      const rawPayload = await readBackupFile(file);
-      const validated = validateBackupPayload(rawPayload);
-      const preview = {
-        fileName: file.name,
-        summary: createBackupSummary(validated),
-        validated,
-        warnings: validated.warnings
-      };
-
-      setBackupStatus({
-        tone: validated.warnings.length > 0 ? 'warning' : 'info',
-        message:
-          validated.warnings.length > 0
-            ? 'Backup parsed with warnings. Review the preview before restoring.'
-            : 'Backup parsed successfully. Review the preview before restoring.',
-        warnings: validated.warnings
-      });
-      setRestoreSafetySnapshot(null);
-
-      return preview;
-    } catch (error) {
-      setBackupStatus({
-        tone: 'error',
-        message: `Backup import failed: ${error instanceof Error ? error.message : 'invalid backup file.'}`
-      });
-      return null;
-    }
-  }
-
-  async function handleRestoreBackupImport(validated: ValidatedBackupPayload): Promise<boolean> {
-    const previousData = latestDataRef.current;
-    const previousSettings = latestSettingsRef.current;
-    const safetySnapshot = previousData ? createSafetyBackupSnapshot(previousData, previousSettings) : null;
-    const recoverySnapshot: RestoreRecoverySnapshot | null = previousData
-      ? {
-          kind: 'restore-recovery-snapshot',
-          createdAt: new Date().toISOString(),
-          data: previousData,
-          settings: previousSettings
-        }
-      : null;
-
-    setRestoreSafetySnapshot(safetySnapshot);
-
-    try {
-      const nextData = validated.data;
-      const nextSettings =
-        validated.settingsStatus === 'restored'
-          ? validated.settings
-          : filterRecentPageIdsForLibrary(DEFAULT_APP_SETTINGS, nextData.pages.map((page) => page.id));
-
-      if (recoverySnapshot) {
-        await saveRestoreRecoverySnapshot(recoverySnapshot);
-        setRestoreRecoverySnapshot(recoverySnapshot);
-      }
-
-      try {
-        await persistLibraryData(nextData);
-      } catch (error) {
-        throw createRestoreStageError('library', error);
-      }
-
-      try {
-        await saveAppSettings(nextSettings);
-      } catch (error) {
-        throw createRestoreStageError('settings', error);
-      }
-
-      if (recoverySnapshot) {
-        try {
-          await clearRestoreRecoverySnapshot();
-        } catch (error) {
-          throw createRestoreStageError('cleanup', error);
-        }
-      }
-
-      latestDataRef.current = nextData;
-      latestSettingsRef.current = nextSettings;
-      shouldAutosaveDataRef.current = false;
-      setSaveStatus({ state: 'saved', lastSavedAt: Date.now() });
-      setData(nextData);
-      setSettings(nextSettings);
-      setSearchQuery('');
-      setRecentTags([]);
-      setSearchOriginView({ type: 'root' });
-      setTagOriginView({ type: 'root' });
-      setNavigationHistory([]);
-      navigationHistoryRef.current = [];
-      setMovingChapterId(null);
-      setMovingPageId(null);
-      setRestoreSafetySnapshot(null);
-      setRestoreRecoverySnapshot(null);
-      replaceView({ type: 'root' });
-      setBackupStatus({
-        tone: validated.warnings.length > 0 ? 'warning' : 'success',
-        message:
-          validated.warnings.length > 0
-            ? 'Restore completed with warnings.'
-            : 'Restore completed successfully.',
-        warnings: validated.warnings
-      });
-      return true;
-    } catch (error) {
-      if (previousData) {
-        latestDataRef.current = previousData;
-        shouldAutosaveDataRef.current = false;
-        setData(previousData);
-      }
-
-      latestSettingsRef.current = previousSettings;
-      setSettings(previousSettings);
-      setSaveStatus({
-        state: 'failed',
-        error: getStorageFailureDetails(getRestoreStageCause(error))
-      });
-      setBackupStatus({
-        tone: 'error',
-        message:
-          `${getRestoreFailureMessage(error)} ` +
-          'A restore recovery snapshot is saved in this browser so you can recover the previous library after refresh.'
-      });
-      return false;
-    }
-  }
-
-  async function handleRecoverRestoreSnapshot(): Promise<boolean> {
-    const snapshot = restoreRecoverySnapshot;
-    if (!snapshot) {
-      setBackupStatus({ tone: 'info', message: 'No restore recovery snapshot is available.' });
-      return false;
-    }
-
-    if (
-      !window.confirm(
-        'Recover the previous library from the restore recovery snapshot? This will replace the library currently open in this browser.'
-      )
-    ) {
-      return false;
-    }
-
-    try {
-      const recoverySettings = filterRecentPageIdsForLibrary(
-        normalizeAppSettings(snapshot.settings),
-        snapshot.data.pages.map((page) => page.id)
-      );
-
-      try {
-        await persistLibraryData(snapshot.data);
-      } catch (error) {
-        throw createRestoreStageError('library', error);
-      }
-
-      try {
-        await saveAppSettings(recoverySettings);
-      } catch (error) {
-        throw createRestoreStageError('settings', error);
-      }
-
-      await clearRestoreRecoverySnapshot();
-
-      latestDataRef.current = snapshot.data;
-      latestSettingsRef.current = recoverySettings;
-      shouldAutosaveDataRef.current = false;
-      setData(snapshot.data);
-      setSettings(recoverySettings);
-      setSearchQuery('');
-      setRecentTags([]);
-      setSearchOriginView({ type: 'root' });
-      setTagOriginView({ type: 'root' });
-      setNavigationHistory([]);
-      navigationHistoryRef.current = [];
-      setMovingChapterId(null);
-      setMovingPageId(null);
-      setRestoreRecoverySnapshot(null);
-      setRestoreSafetySnapshot(null);
-      setSaveStatus({ state: 'saved', lastSavedAt: Date.now() });
-      replaceView({ type: 'root' });
-      setBackupStatus({ tone: 'success', message: 'Previous library recovered from the restore recovery snapshot.' });
-      return true;
-    } catch (error) {
-      setSaveStatus({
-        state: 'failed',
-        error: getStorageFailureDetails(getRestoreStageCause(error))
-      });
-      setBackupStatus({
-        tone: 'error',
-        message: `${getRestoreRecoveryFailureMessage(error)} The recovery snapshot was kept so you can try again.`
-      });
-      return false;
-    }
-  }
-
-  async function handleDismissRestoreRecoverySnapshot(): Promise<boolean> {
-    const snapshot = restoreRecoverySnapshot;
-    if (!snapshot) {
-      setBackupStatus({ tone: 'info', message: 'No restore recovery snapshot is available.' });
-      return false;
-    }
-
-    if (
-      !window.confirm(
-        'Delete the restore recovery snapshot? This only removes the saved recovery copy; it will not change your current library.'
-      )
-    ) {
-      return false;
-    }
-
-    try {
-      await clearRestoreRecoverySnapshot();
-      setRestoreRecoverySnapshot(null);
-      setBackupStatus({ tone: 'info', message: 'Restore recovery snapshot dismissed. Your current library was not changed.' });
-      return true;
-    } catch (error) {
-      setSaveStatus({
-        state: 'failed',
-        error: getStorageFailureDetails(error)
-      });
-      setBackupStatus({
-        tone: 'error',
-        message: `Could not delete the restore recovery snapshot: ${error instanceof Error ? error.message : 'unknown storage error.'}`
-      });
-      return false;
-    }
-  }
-
-  function handleCancelBackupImport(): void {
-    setRestoreSafetySnapshot(null);
-    setBackupStatus({ tone: 'info', message: 'Restore canceled. Your current library was not changed.' });
-  }
-
-  function handleExportPage(pageId: string): void {
-    if (!data) {
-      return;
-    }
-
-    const page = derivedData?.pageById.get(pageId);
-    if (!page) {
-      setBackupStatus({ tone: 'error', message: 'Could not export that page because it is no longer available.' });
-      return;
-    }
-
-    const exportFile = createPageExportFile(page);
-    downloadPlainTextFile(exportFile.filename, exportFile.content);
-    setBackupStatus({ tone: 'success', message: `Exported "${page.title || 'Untitled Page'}" as a text file.` });
   }
 
   useEffect(() => {
@@ -1442,71 +1032,6 @@ function areViewsEqual(left: ViewState, right: ViewState): boolean {
     default:
       return false;
   }
-}
-
-type RestoreStage = 'library' | 'settings' | 'cleanup';
-
-interface RestoreStageError extends Error {
-  stage: RestoreStage;
-  cause: unknown;
-}
-
-function createRestoreStageError(stage: RestoreStage, cause: unknown): RestoreStageError {
-  const stageLabel =
-    stage === 'library'
-      ? 'library data'
-      : stage === 'settings'
-        ? 'settings'
-        : 'restore recovery cleanup';
-  const causeMessage = cause instanceof Error ? cause.message : 'unknown storage error';
-  const error = new Error(`Restore failed while saving ${stageLabel}: ${causeMessage}`) as RestoreStageError;
-  error.stage = stage;
-  error.cause = cause;
-  return error;
-}
-
-function isRestoreStageError(error: unknown): error is RestoreStageError {
-  return error instanceof Error && 'stage' in error && 'cause' in error;
-}
-
-function getRestoreStageCause(error: unknown): unknown {
-  return isRestoreStageError(error) ? error.cause : error;
-}
-
-function getRestoreFailureMessage(error: unknown): string {
-  if (!isRestoreStageError(error)) {
-    return `Restore failed while saving: ${error instanceof Error ? error.message : 'unknown storage error.'}`;
-  }
-
-  if (error.stage === 'library') {
-    return `Restore failed before the library replacement was saved: ${getCauseMessage(error.cause)}`;
-  }
-
-  if (error.stage === 'settings') {
-    return `Restore saved the library data but failed before settings were saved: ${getCauseMessage(error.cause)}`;
-  }
-
-  return `Restore saved the library and settings, but could not clear the recovery snapshot: ${getCauseMessage(error.cause)}`;
-}
-
-function getRestoreRecoveryFailureMessage(error: unknown): string {
-  if (!isRestoreStageError(error)) {
-    return `Recovery failed: ${error instanceof Error ? error.message : 'unknown storage error.'}`;
-  }
-
-  if (error.stage === 'library') {
-    return `Recovery failed before the previous library was saved: ${getCauseMessage(error.cause)}`;
-  }
-
-  if (error.stage === 'settings') {
-    return `Recovery saved the previous library but failed before settings were saved: ${getCauseMessage(error.cause)}`;
-  }
-
-  return `Recovery restored the previous library but could not delete the recovery snapshot: ${getCauseMessage(error.cause)}`;
-}
-
-function getCauseMessage(cause: unknown): string {
-  return cause instanceof Error ? cause.message : 'unknown storage error.';
 }
 
 async function hydrateAppSettings(): Promise<AppSettings> {
