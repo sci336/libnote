@@ -623,6 +623,30 @@ describe('useLibraryApp persistence', () => {
     });
   });
 
+  it('restores only live recent pages from backup settings', async () => {
+    const currentData = buildLibraryData('current', 'Current Library');
+    const restoreData = buildLibraryData('restored', 'Restored Library');
+    const restoreSettings = {
+      ...DEFAULT_APP_SETTINGS,
+      recentPageIds: ['restored-page', 'missing-page']
+    };
+    const validatedRestore = validateBackupPayload(createBackupPayload(restoreData, restoreSettings));
+    dbMocks.loadLibraryDataMock.mockResolvedValue(currentData);
+    await renderHarness();
+
+    await act(async () => {
+      const restored = await app?.handleRestoreBackupImport(validatedRestore);
+      expect(restored).toBe(true);
+      await Promise.resolve();
+    });
+
+    expect(dbMocks.saveAppSettingsMock).toHaveBeenCalledWith({
+      ...restoreSettings,
+      recentPageIds: ['restored-page']
+    });
+    expect(app?.recentPageIds).toEqual(['restored-page']);
+  });
+
   it('keeps the previous library active and exposes a safety snapshot when restore persistence fails', async () => {
     const currentData = buildLibraryData('current', 'Current Library');
     const restoreData = buildLibraryData('restored', 'Restored Library');
@@ -680,6 +704,28 @@ describe('useLibraryApp persistence', () => {
     expect(app?.data).toEqual(activeCurrentData);
     expect(app?.restoreRecoverySnapshot?.data).toEqual(activeCurrentData);
     expect(app?.backupStatus?.message).toContain('Restore saved the library data but failed before settings were saved');
+  });
+
+  it('keeps the recovery snapshot available when restore cleanup fails after writes', async () => {
+    const currentData = buildLibraryData('current', 'Current Library');
+    const restoreData = buildLibraryData('restored', 'Restored Library');
+    const validatedRestore = validateBackupPayload(createBackupPayload(restoreData, DEFAULT_APP_SETTINGS));
+    dbMocks.loadLibraryDataMock.mockResolvedValue(currentData);
+    dbMocks.clearRestoreRecoverySnapshotMock.mockRejectedValueOnce(new Error('Cleanup failed'));
+    await renderHarness();
+    const activeCurrentData = app?.data;
+
+    await act(async () => {
+      const restored = await app?.handleRestoreBackupImport(validatedRestore);
+      expect(restored).toBe(false);
+      await Promise.resolve();
+    });
+
+    expect(dbMocks.saveLibraryDataMock).toHaveBeenCalledWith(validatedRestore.data);
+    expect(dbMocks.saveAppSettingsMock).toHaveBeenCalledWith(validatedRestore.settings);
+    expect(app?.data).toEqual(activeCurrentData);
+    expect(app?.restoreRecoverySnapshot?.data).toEqual(activeCurrentData);
+    expect(app?.backupStatus?.message).toContain('could not clear the recovery snapshot');
   });
 
   it('loads a durable restore recovery snapshot after refresh', async () => {
@@ -744,6 +790,36 @@ describe('useLibraryApp persistence', () => {
     confirmSpy.mockRestore();
   });
 
+  it('keeps the durable snapshot when recovery settings fail after the library write', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const currentData = buildLibraryData('current', 'Current Library');
+    const recoveryData = buildLibraryData('previous', 'Previous Library');
+    dbMocks.loadLibraryDataMock.mockResolvedValue(currentData);
+    dbMocks.loadRestoreRecoverySnapshotMock.mockResolvedValue({
+      kind: 'restore-recovery-snapshot',
+      createdAt: '2026-05-06T12:00:00.000Z',
+      data: recoveryData,
+      settings: DEFAULT_APP_SETTINGS
+    });
+    dbMocks.saveAppSettingsMock.mockRejectedValueOnce(new Error('Recovery settings failed'));
+    await renderHarness();
+
+    await act(async () => {
+      const recovered = await app?.handleRecoverRestoreSnapshot();
+      expect(recovered).toBe(false);
+      await Promise.resolve();
+    });
+
+    expect(dbMocks.saveLibraryDataMock).toHaveBeenCalledWith(recoveryData);
+    expect(dbMocks.clearRestoreRecoverySnapshotMock).not.toHaveBeenCalled();
+    expect(app?.data?.books[0].title).toBe('Current Library');
+    expect(app?.restoreRecoverySnapshot?.data).toEqual(recoveryData);
+    expect(app?.saveStatus.state).toBe('failed');
+    expect(app?.backupStatus?.message).toContain('Recovery saved the previous library but failed before settings were saved');
+
+    confirmSpy.mockRestore();
+  });
+
   it('dismisses a stale restore recovery snapshot without changing the current library', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const currentData = buildLibraryData('current', 'Current Library');
@@ -769,6 +845,34 @@ describe('useLibraryApp persistence', () => {
     expect(app?.data).toEqual(activeCurrentData);
     expect(app?.restoreRecoverySnapshot).toBeNull();
     expect(app?.backupStatus?.message).toContain('dismissed');
+
+    confirmSpy.mockRestore();
+  });
+
+  it('keeps a stale recovery snapshot when dismiss cleanup fails', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const currentData = buildLibraryData('current', 'Current Library');
+    const recoveryData = buildLibraryData('previous', 'Previous Library');
+    dbMocks.loadLibraryDataMock.mockResolvedValue(currentData);
+    dbMocks.loadRestoreRecoverySnapshotMock.mockResolvedValue({
+      kind: 'restore-recovery-snapshot',
+      createdAt: '2026-05-06T12:00:00.000Z',
+      data: recoveryData,
+      settings: DEFAULT_APP_SETTINGS
+    });
+    dbMocks.clearRestoreRecoverySnapshotMock.mockRejectedValueOnce(new Error('Delete failed'));
+    await renderHarness();
+
+    await act(async () => {
+      const dismissed = await app?.handleDismissRestoreRecoverySnapshot();
+      expect(dismissed).toBe(false);
+      await Promise.resolve();
+    });
+
+    expect(app?.data?.books[0].title).toBe('Current Library');
+    expect(app?.restoreRecoverySnapshot?.data).toEqual(recoveryData);
+    expect(app?.saveStatus.state).toBe('failed');
+    expect(app?.backupStatus?.message).toContain('Could not delete the restore recovery snapshot');
 
     confirmSpy.mockRestore();
   });

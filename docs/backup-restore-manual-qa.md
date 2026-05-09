@@ -2,6 +2,10 @@
 
 Use a disposable browser profile when possible. LibNote is local-first, and restore replaces the current local library.
 
+Automation note: the full browser download/file-picker restore path remains manual QA because the Playwright
+file-restore interaction has been brittle in this app shell. Unit coverage still exercises backup validation and
+restore failure/recovery behavior.
+
 ## Export Current Library
 
 1. Open App Menu -> Backup & Restore.

@@ -1,4 +1,5 @@
-const CACHE_NAME = 'libnote-app-shell-v3';
+const CACHE_PREFIX = 'libnote-app-shell-';
+const CACHE_NAME = `${CACHE_PREFIX}v3`;
 const SCOPE_PATH = new URL(self.registration.scope).pathname;
 const INDEX_URL = `${SCOPE_PATH}index.html`;
 const APP_SHELL = [
@@ -20,7 +21,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((key) => key !== CACHE_NAME)
+          .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
           .map((key) => caches.delete(key))
       )
     )
