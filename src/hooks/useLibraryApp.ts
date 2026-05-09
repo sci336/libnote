@@ -2,14 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   AppMenuSection,
   AppSettings,
-  AppThemeId,
-  LibraryBooksPerRow,
-  LibraryShelfStyle,
   LibraryData,
   Page,
   SaveStatus,
-  ShortcutAction,
-  ShortcutBinding,
   ViewState
 } from '../types/domain';
 import {
@@ -18,15 +13,7 @@ import {
   saveAppSettings,
   type RestoreRecoverySnapshot
 } from '../db/indexedDb';
-import {
-  createBook,
-  hydrateLibraryData,
-  emptyLibraryData,
-  persistLibraryData,
-  reorderBooks,
-  updateBook,
-  updateBookCover
-} from '../store/libraryStore';
+import { hydrateLibraryData, emptyLibraryData, persistLibraryData } from '../store/libraryStore';
 import {
   buildLibraryDerivedData,
   getActiveBookFromDerived,
@@ -47,17 +34,14 @@ import {
 } from '../store/librarySelectors';
 import { useDebouncedEffect } from './useDebouncedEffect';
 import { useLibraryBackupActions } from './useLibraryBackupActions';
+import { useLibraryBookActions } from './useLibraryBookActions';
 import { useLibraryChapterActions } from './useLibraryChapterActions';
 import { useLibraryPageActions } from './useLibraryPageActions';
 import { useLibrarySearchAndTags } from './useLibrarySearchAndTags';
+import { useLibrarySettingsActions } from './useLibrarySettingsActions';
 import { useLibraryTagActions } from './useLibraryTagActions';
 import { useLibraryTrashActions } from './useLibraryTrashActions';
-import {
-  DEFAULT_SHORTCUTS,
-  eventMatchesShortcut,
-  isTypingInEditableTarget,
-  normalizeShortcutSettings
-} from '../utils/shortcuts';
+import { eventMatchesShortcut, isTypingInEditableTarget } from '../utils/shortcuts';
 import { DEFAULT_APP_SETTINGS, normalizeAppSettings } from '../utils/appSettings';
 import { getStorageFailureDetails } from '../utils/storageError';
 
@@ -421,14 +405,24 @@ export function useLibraryApp() {
     navigateToView,
     setMovingChapterId
   });
-
-  function runIfDataLoaded(callback: (currentData: LibraryData) => void): void {
-    if (!data) {
-      return;
-    }
-
-    callback(data);
-  }
+  const {
+    handleCreateBook,
+    handleReorderBooks,
+    handleRenameBook,
+    handleUpdateBookCover
+  } = useLibraryBookActions({
+    data,
+    updateData,
+    navigateToView
+  });
+  const {
+    handleUpdateLibraryBooksPerRow,
+    handleUpdateLibraryShelfStyle,
+    handleUpdateTheme,
+    handleUpdateShortcut,
+    handleResetShortcut,
+    handleResetAllShortcuts
+  } = useLibrarySettingsActions({ setSettings });
 
   function updateData(nextData: LibraryData): void {
     shouldAutosaveDataRef.current = true;
@@ -571,22 +565,6 @@ export function useLibraryApp() {
     setAppMenuOpen(true);
   }
 
-  function handleCreateBook(): void {
-    runIfDataLoaded((currentData) => {
-      const result = createBook(currentData);
-      updateData(result.data);
-      navigateToView({ type: 'book', bookId: result.book.id }, { shouldCloseSidebar: true });
-    });
-  }
-
-  function handleReorderBooks(orderedBookIds: string[]): void {
-    if (!data) {
-      return;
-    }
-
-    updateData(reorderBooks(data, orderedBookIds));
-  }
-
   function handleOpenBook(bookId: string): void {
     navigateToView({ type: 'book', bookId }, { shouldCloseSidebar: true });
   }
@@ -605,70 +583,6 @@ export function useLibraryApp() {
 
   function handleOpenTrash(): void {
     navigateToView({ type: 'trash' }, { shouldCloseSidebar: true });
-  }
-
-  function handleRenameBook(bookId: string, title: string): void {
-    if (!data) {
-      return;
-    }
-
-    updateData(updateBook(data, bookId, title));
-  }
-
-  function handleUpdateBookCover(bookId: string, coverId: string): void {
-    if (!data) {
-      return;
-    }
-
-    updateData(updateBookCover(data, bookId, coverId));
-  }
-
-  function handleUpdateLibraryBooksPerRow(booksPerRow: LibraryBooksPerRow): void {
-    setSettings((currentSettings) => ({
-      ...currentSettings,
-      libraryView: {
-        ...currentSettings.libraryView,
-        booksPerRow
-      }
-    }));
-  }
-
-  function handleUpdateLibraryShelfStyle(shelfStyle: LibraryShelfStyle): void {
-    setSettings((currentSettings) => ({
-      ...currentSettings,
-      libraryView: {
-        ...currentSettings.libraryView,
-        shelfStyle
-      }
-    }));
-  }
-
-  function handleUpdateTheme(theme: AppThemeId): void {
-    setSettings((currentSettings) => ({
-      ...currentSettings,
-      theme
-    }));
-  }
-
-  function handleUpdateShortcut(action: ShortcutAction, binding: ShortcutBinding | null): void {
-    setSettings((currentSettings) => ({
-      ...currentSettings,
-      shortcuts: {
-        ...currentSettings.shortcuts,
-        [action]: binding
-      }
-    }));
-  }
-
-  function handleResetShortcut(action: ShortcutAction): void {
-    handleUpdateShortcut(action, DEFAULT_SHORTCUTS[action]);
-  }
-
-  function handleResetAllShortcuts(): void {
-    setSettings((currentSettings) => ({
-      ...currentSettings,
-      shortcuts: normalizeShortcutSettings(DEFAULT_SHORTCUTS)
-    }));
   }
 
   useEffect(() => {
