@@ -46,6 +46,46 @@ test.describe('mobile and narrow viewport flows', () => {
 
   test('edits Lexical content with toolbar formatting and persists it after mobile reload', async ({ page }) => {
     const editor = await createNamedLoosePage(page, 'Mobile Editor Scratch');
+    const toolbar = page.getByRole('toolbar', { name: 'Text formatting' });
+
+    await expect(toolbar).toBeVisible();
+    await expect(toolbar.getByRole('button', { name: 'Bold' })).toBeVisible();
+    await expect(toolbar.getByRole('button', { name: 'Italic' })).toBeVisible();
+    await expect(toolbar.getByRole('button', { name: 'Underline' })).toBeVisible();
+    await expect(toolbar.getByRole('button', { name: 'Highlight' })).toBeVisible();
+    await expect(toolbar.getByRole('button', { name: 'Heading' })).toBeVisible();
+    await expect(toolbar.getByRole('button', { name: 'Bullet list' })).toBeVisible();
+    await expect(toolbar.getByRole('button', { name: 'Checkbox list' })).toBeVisible();
+
+    const mobileEditorMetrics = await page.evaluate(() => {
+      const surface = document.querySelector<HTMLElement>('.lexical-editor-shell .editor-content-surface');
+      const toolbarElement = document.querySelector<HTMLElement>('.lexical-editor-shell .editor-toolbar');
+      const editorElement = document.querySelector<HTMLElement>('.lexical-editor-shell .editor-rich-text');
+
+      if (!surface || !toolbarElement || !editorElement) {
+        throw new Error('Expected mobile editor elements to be present');
+      }
+
+      const toolbarRect = toolbarElement.getBoundingClientRect();
+      const editorRect = editorElement.getBoundingClientRect();
+      const surfaceStyles = window.getComputedStyle(surface);
+
+      return {
+        editorTop: editorRect.top,
+        editorWidth: editorRect.width,
+        surfaceBorderTopWidth: surfaceStyles.borderTopWidth,
+        toolbarBottom: toolbarRect.bottom
+      };
+    });
+
+    expect(mobileEditorMetrics.toolbarBottom).toBeLessThan(mobileEditorMetrics.editorTop + 1);
+    expect(mobileEditorMetrics.editorWidth).toBeGreaterThan(360);
+    expect(mobileEditorMetrics.surfaceBorderTopWidth).toBe('0px');
+
+    await page.getByLabel('More formatting options').click();
+    await expect(page.getByRole('button', { name: 'Numbered list' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button', { name: 'Numbered list' })).toBeHidden();
 
     await editor.pressSequentially('Mobile persisted text ');
     await page.getByRole('button', { name: 'Bold' }).click();

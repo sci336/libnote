@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+
 export type EditorFormatAction =
   | 'undo'
   | 'redo'
@@ -53,6 +55,7 @@ export function EditorToolbar({
   onBeforeTextSizeChange,
   activeFormats = {}
 }: EditorToolbarProps): JSX.Element {
+  const moreSummaryRef = useRef<HTMLElement | null>(null);
   const primaryMobileActions: EditorFormatAction[] = [
     'bold',
     'italic',
@@ -108,10 +111,11 @@ export function EditorToolbar({
           if (event.key === 'Escape') {
             event.preventDefault();
             event.currentTarget.removeAttribute('open');
+            moreSummaryRef.current?.focus();
           }
         }}
       >
-        <summary aria-label="More formatting options" title="More formatting options">
+        <summary ref={moreSummaryRef} aria-label="More formatting options" title="More formatting options">
           ...
         </summary>
         <div className="editor-toolbar-more-menu">

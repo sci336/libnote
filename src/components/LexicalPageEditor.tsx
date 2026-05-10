@@ -139,6 +139,7 @@ export function LexicalPageEditor({
   const [selectedChapterId, setSelectedChapterId] = useState('');
   const [tagInput, setTagInput] = useState('');
   const tagInputRef = useRef<HTMLInputElement | null>(null);
+  const pageActionsButtonRef = useRef<HTMLButtonElement | null>(null);
   const pageIsLoose = isLoosePage(page);
   const activeTextSize = getPresetForLegacyPx(page.textSize).id;
   const chaptersForSelectedBook = useMemo(
@@ -218,8 +219,11 @@ export function LexicalPageEditor({
     }
   }
 
-  function closePageActionsMenu(): void {
+  function closePageActionsMenu(restoreFocus = false): void {
     setShowPageActionsMenu(false);
+    if (restoreFocus) {
+      window.setTimeout(() => pageActionsButtonRef.current?.focus(), 0);
+    }
   }
 
   return (
@@ -284,11 +288,12 @@ export function LexicalPageEditor({
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
                   event.preventDefault();
-                  closePageActionsMenu();
+                  closePageActionsMenu(true);
                 }
               }}
             >
               <button
+                ref={pageActionsButtonRef}
                 type="button"
                 className="secondary-button mobile-page-actions-button"
                 aria-label="Page actions"
@@ -447,27 +452,6 @@ export function LexicalPageEditor({
 
       <div className={`editor-workspace${showMetadataPanel ? ' has-metadata-panel' : ''}`}>
         <div className={`editor-content-surface ${editorMode === 'preview' ? 'is-preview' : 'is-editing'}`}>
-          <div className="editor-mode-bar">
-            <div className="editor-mode-toggle" role="group" aria-label="Editor mode">
-              <button
-                type="button"
-                className={editorMode === 'edit' ? 'is-active' : ''}
-                aria-pressed={editorMode === 'edit'}
-                onClick={() => setEditorMode('edit')}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                className={editorMode === 'preview' ? 'is-active' : ''}
-                aria-pressed={editorMode === 'preview'}
-                onClick={() => setEditorMode('preview')}
-              >
-                Preview
-              </button>
-            </div>
-          </div>
-
           {editorMode === 'edit' ? (
             <LexicalComposer key={page.id} initialConfig={initialConfig}>
               <LexicalToolbar activeTextSize={activeTextSize} onChangeTextSize={onChangeTextSize} />
@@ -508,6 +492,27 @@ export function LexicalPageEditor({
               onCreatePageFromLink={onCreatePageFromLink}
             />
           )}
+
+          <div className="editor-mode-bar">
+            <div className="editor-mode-toggle" role="group" aria-label="Editor mode">
+              <button
+                type="button"
+                className={editorMode === 'edit' ? 'is-active' : ''}
+                aria-pressed={editorMode === 'edit'}
+                onClick={() => setEditorMode('edit')}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className={editorMode === 'preview' ? 'is-active' : ''}
+                aria-pressed={editorMode === 'preview'}
+                onClick={() => setEditorMode('preview')}
+              >
+                Preview
+              </button>
+            </div>
+          </div>
         </div>
 
         {showMetadataPanel ? (
