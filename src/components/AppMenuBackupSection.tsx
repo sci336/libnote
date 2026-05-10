@@ -21,6 +21,7 @@ interface AppMenuBackupSectionProps {
   onDismissRestoreRecoverySnapshot: () => Promise<boolean>;
   onPreviewBackupImport: (file: File | null) => Promise<BackupImportPreview | null>;
   onRestoreBackupImport: (validated: BackupImportPreview['validated']) => Promise<boolean>;
+  onMergeBackupImport: (validated: BackupImportPreview['validated']) => Promise<boolean>;
   onCancelBackupImport: () => void;
 }
 
@@ -35,6 +36,7 @@ export function AppMenuBackupSection({
   onDismissRestoreRecoverySnapshot,
   onPreviewBackupImport,
   onRestoreBackupImport,
+  onMergeBackupImport,
   onCancelBackupImport
 }: AppMenuBackupSectionProps): JSX.Element {
   const [isImporting, setIsImporting] = useState(false);
@@ -76,6 +78,23 @@ export function AppMenuBackupSection({
     try {
       const restored = await onRestoreBackupImport(importPreview.validated);
       if (restored) {
+        setImportPreview(null);
+      }
+    } finally {
+      setIsRestoring(false);
+    }
+  }
+
+  async function mergePreview(): Promise<void> {
+    if (!importPreview) {
+      return;
+    }
+
+    setIsRestoring(true);
+
+    try {
+      const merged = await onMergeBackupImport(importPreview.validated);
+      if (merged) {
         setImportPreview(null);
       }
     } finally {
@@ -169,13 +188,13 @@ export function AppMenuBackupSection({
 
         <article className="settings-placeholder-card settings-control-card">
           <div className="settings-placeholder-head">
-            <strong>Restore from Backup</strong>
-            <span className="search-result-badge">Replaces current library</span>
+            <strong>Import from Backup</strong>
+            <span className="search-result-badge">Merge or replace</span>
           </div>
           <p>
-            Import a previously exported JSON backup. Restore replaces the current library and saved settings in this
-            browser with the contents of the backup; it does not merge the two libraries. Export a backup first if you
-            want to keep a copy of the current library.
+            Import a previously exported JSON backup, then choose whether to merge it into the current library or
+            replace the current library and saved settings. Export a backup first if you want an extra copy before
+            making changes.
           </p>
           <label className="backup-import-label">
             <input
@@ -194,16 +213,16 @@ export function AppMenuBackupSection({
       {importPreview ? (
         <section className="menu-card backup-preview-card" aria-live="polite">
           <div className="settings-placeholder-head">
-            <h2>Restore Preview</h2>
+            <h2>Import Preview</h2>
             <span className="search-result-badge">{importPreview.summary.backupType}</span>
           </div>
           <p>
-            Review <strong>{importPreview.fileName}</strong> before restoring. Restoring will replace the current
-            local library in this browser. A safety backup of the current library should be created before continuing.
+            Review <strong>{importPreview.fileName}</strong> before importing. Merge adds missing books, chapters,
+            and pages without replacing settings. Replace current library performs a full restore and overwrites the
+            current library and settings.
           </p>
           <p className="settings-warning">
-            Restore does not merge libraries. Export the current library first so you have a copy of the notes that are
-            active right now.
+            A safety snapshot of the current library is created before either import mode is applied.
           </p>
           <dl className="backup-preview-grid">
             <div>
@@ -243,6 +262,53 @@ export function AppMenuBackupSection({
               <dd>{formatBackupCount(importPreview.summary.tagCount, 'tag')}</dd>
             </div>
           </dl>
+          {importPreview.mergeReport ? (
+            <>
+              <h3 className="settings-subsection-heading">Merge Preview</h3>
+              <dl className="backup-preview-grid">
+                <div>
+                  <dt>Books to add</dt>
+                  <dd>{formatBackupCount(importPreview.mergeReport.booksAdded, 'book')}</dd>
+                </div>
+                <div>
+                  <dt>Chapters to add</dt>
+                  <dd>{formatBackupCount(importPreview.mergeReport.chaptersAdded, 'chapter')}</dd>
+                </div>
+                <div>
+                  <dt>Pages to add</dt>
+                  <dd>{formatBackupCount(importPreview.mergeReport.pagesAdded, 'page')}</dd>
+                </div>
+                <div>
+                  <dt>Loose pages to add</dt>
+                  <dd>{formatBackupCount(importPreview.mergeReport.loosePagesAdded, 'loose page')}</dd>
+                </div>
+                <div>
+                  <dt>Existing skipped</dt>
+                  <dd>{formatBackupCount(importPreview.mergeReport.skippedExisting, 'item')}</dd>
+                </div>
+                <div>
+                  <dt>Conflicts duplicated</dt>
+                  <dd>{formatBackupCount(importPreview.mergeReport.conflictsDuplicated, 'conflict')}</dd>
+                </div>
+                <div>
+                  <dt>Ambiguous names</dt>
+                  <dd>{formatBackupCount(importPreview.mergeReport.ambiguousItems, 'item')}</dd>
+                </div>
+                <div>
+                  <dt>Trash</dt>
+                  <dd>{formatBackupCount(importPreview.mergeReport.trashItemsSkipped, 'trashed item')} skipped</dd>
+                </div>
+                <div>
+                  <dt>Settings</dt>
+                  <dd>{importPreview.mergeReport.settingsIgnored ? 'Ignored for merge' : 'Merged'}</dd>
+                </div>
+                <div>
+                  <dt>Recent pages</dt>
+                  <dd>{importPreview.mergeReport.recentPagesUnchanged ? 'Unchanged' : 'Updated'}</dd>
+                </div>
+              </dl>
+            </>
+          ) : null}
           {importPreview.warnings.length > 0 ? (
             <ul className="menu-list backup-warning-list">
               {importPreview.warnings.map((warning) => (
@@ -254,8 +320,11 @@ export function AppMenuBackupSection({
             <button type="button" className="secondary-button" onClick={onExportLibrary} disabled={isRestoring}>
               Export Current Library First
             </button>
+            <button type="button" className="primary-button" onClick={() => void mergePreview()} disabled={isRestoring}>
+              {isRestoring ? 'Importing…' : 'Merge into Current Library'}
+            </button>
             <button type="button" className="danger-button" onClick={() => void restorePreview()} disabled={isRestoring}>
-              {isRestoring ? 'Restoring…' : 'Restore Backup'}
+              {isRestoring ? 'Importing…' : 'Replace Current Library'}
             </button>
             <button type="button" className="secondary-button" onClick={cancelPreview} disabled={isRestoring}>
               Cancel

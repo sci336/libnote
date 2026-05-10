@@ -647,6 +647,47 @@ describe('useLibraryApp persistence', () => {
     expect(app?.recentPageIds).toEqual(['restored-page']);
   });
 
+  it('merges a backup into the current library without replacing settings or recent pages', async () => {
+    const currentData = buildLibraryData('current', 'Math');
+    const importData = buildLibraryData('import', 'Photography');
+    const currentSettings = {
+      ...DEFAULT_APP_SETTINGS,
+      recentPageIds: ['current-page'],
+      theme: 'dark-archive' as const
+    };
+    const importSettings = {
+      ...DEFAULT_APP_SETTINGS,
+      recentPageIds: ['import-page'],
+      theme: 'warm-study' as const
+    };
+    const validatedImport = validateBackupPayload(createBackupPayload(importData, importSettings));
+    dbMocks.loadLibraryDataMock.mockResolvedValue(currentData);
+    dbMocks.loadAppSettingsMock.mockResolvedValue(currentSettings);
+    await renderHarness();
+    const activeCurrentData = app?.data;
+
+    await act(async () => {
+      const merged = await app?.handleMergeBackupImport(validatedImport);
+      expect(merged).toBe(true);
+      await Promise.resolve();
+    });
+
+    expect(dbMocks.saveRestoreRecoverySnapshotMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'restore-recovery-snapshot',
+        data: activeCurrentData,
+        settings: currentSettings
+      })
+    );
+    expect(dbMocks.saveAppSettingsMock).not.toHaveBeenCalledWith(validatedImport.settings);
+    expect(app?.data?.books.map((book) => book.title).sort()).toEqual(['Math', 'Photography']);
+    expect(app?.settings).toMatchObject({
+      theme: 'dark-archive',
+      recentPageIds: ['current-page']
+    });
+    expect(app?.backupStatus?.message).toContain('Merge completed.');
+  });
+
   it('keeps the previous library active and exposes a safety snapshot when restore persistence fails', async () => {
     const currentData = buildLibraryData('current', 'Current Library');
     const restoreData = buildLibraryData('restored', 'Restored Library');

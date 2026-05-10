@@ -116,6 +116,7 @@ export function useLibraryApp() {
     handleDismissRestoreRecoverySnapshot,
     handlePreviewBackupImport,
     handleRestoreBackupImport,
+    handleMergeBackupImport,
     handleCancelBackupImport,
     handleExportPage
   } = useLibraryBackupActions({
@@ -692,6 +693,7 @@ export function useLibraryApp() {
     handleDismissRestoreRecoverySnapshot,
     handlePreviewBackupImport,
     handleRestoreBackupImport,
+    handleMergeBackupImport,
     handleCancelBackupImport,
     handleExportPage
   };

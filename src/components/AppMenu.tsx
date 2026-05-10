@@ -56,6 +56,7 @@ interface AppMenuProps {
   onDismissRestoreRecoverySnapshot: () => Promise<boolean>;
   onPreviewBackupImport: (file: File | null) => Promise<BackupImportPreview | null>;
   onRestoreBackupImport: (validated: BackupImportPreview['validated']) => Promise<boolean>;
+  onMergeBackupImport: (validated: BackupImportPreview['validated']) => Promise<boolean>;
   onCancelBackupImport: () => void;
   onClose: () => void;
   onSelectSection: (section: AppMenuSection) => void;
@@ -99,6 +100,7 @@ export function AppMenu({
   onDismissRestoreRecoverySnapshot,
   onPreviewBackupImport,
   onRestoreBackupImport,
+  onMergeBackupImport,
   onCancelBackupImport,
   onClose,
   onSelectSection,
@@ -161,6 +163,7 @@ export function AppMenu({
     onDismissRestoreRecoverySnapshot,
     onPreviewBackupImport,
     onRestoreBackupImport,
+    onMergeBackupImport,
     onCancelBackupImport,
     onSelectSection
   };
@@ -309,6 +312,7 @@ function renderSection(
     | 'onDismissRestoreRecoverySnapshot'
     | 'onPreviewBackupImport'
     | 'onRestoreBackupImport'
+    | 'onMergeBackupImport'
     | 'onCancelBackupImport'
     | 'onSelectSection'
   >

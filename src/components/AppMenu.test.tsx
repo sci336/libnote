@@ -80,12 +80,13 @@ describe('AppMenu accessibility behavior', () => {
     expect(container.querySelector('button[aria-label="Close app menu"]')).not.toBeNull();
   });
 
-  it('makes restore replacement and current-library export copy clear', () => {
+  it('makes merge and replace import options clear', () => {
     renderAppMenu({ isOpen: true, activeSection: 'backup' });
 
-    expect(container.textContent).toContain('Restore from Backup');
-    expect(container.textContent).toContain('Restore replaces the current library');
-    expect(container.textContent).toContain('it does not merge the two libraries');
+    expect(container.textContent).toContain('Import from Backup');
+    expect(container.textContent).toContain('Merge or replace');
+    expect(container.textContent).toContain('merge it into the current library');
+    expect(container.textContent).toContain('replace the current library and saved settings');
     expect(container.textContent).toContain('Export a backup first');
   });
 
@@ -201,6 +202,7 @@ describe('AppMenu accessibility behavior', () => {
           onDismissRestoreRecoverySnapshot={overrides.onDismissRestoreRecoverySnapshot ?? vi.fn()}
           onPreviewBackupImport={overrides.onPreviewBackupImport ?? vi.fn()}
           onRestoreBackupImport={overrides.onRestoreBackupImport ?? vi.fn()}
+          onMergeBackupImport={overrides.onMergeBackupImport ?? vi.fn()}
           onCancelBackupImport={overrides.onCancelBackupImport ?? vi.fn()}
           onClose={overrides.onClose ?? vi.fn()}
           onSelectSection={overrides.onSelectSection ?? vi.fn()}

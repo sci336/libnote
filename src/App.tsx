@@ -283,6 +283,7 @@ export default function App(): JSX.Element {
         onDismissRestoreRecoverySnapshot={app.handleDismissRestoreRecoverySnapshot}
         onPreviewBackupImport={app.handlePreviewBackupImport}
         onRestoreBackupImport={app.handleRestoreBackupImport}
+        onMergeBackupImport={app.handleMergeBackupImport}
         onCancelBackupImport={app.handleCancelBackupImport}
         onClose={app.closeAppMenu}
         onSelectSection={app.navigateAppMenu}

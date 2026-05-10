@@ -1,10 +1,10 @@
 # Backup & Restore Manual QA
 
-Use a disposable browser profile when possible. LibNote is local-first, and restore replaces the current local library.
+Use a disposable browser profile when possible. LibNote is local-first. Replace import restores over the current local library; merge import adds missing content into it.
 
 Automation note: the full browser download/file-picker restore path remains manual QA because the Playwright
 file-restore interaction has been brittle in this app shell. Unit coverage still exercises backup validation and
-restore failure/recovery behavior.
+restore failure/recovery behavior and merge rules.
 
 ## Export Current Library
 
@@ -12,35 +12,52 @@ restore failure/recovery behavior.
 2. Choose Export Library.
 3. Confirm the downloaded JSON contains books, chapters, pages, loose pages, tags, settings, wikilinks in page content, and trashed items when present.
 
-## Restore Valid Backup
+## Import Preview
 
 1. Select a known-good LibNote backup JSON.
-2. Confirm Restore Preview appears with backup date, version, counts, loose pages, Trash, and tags.
-3. Confirm the preview copy says restore replaces the current local library and offers Export Current Library First.
+2. Confirm Import Preview appears with backup date, version, counts, loose pages, Trash, and tags.
+3. Confirm Merge Preview shows books, chapters, pages, loose pages, existing skipped, conflicts duplicated, ambiguous names, Trash skipped, settings ignored, and recent pages unchanged.
+4. Confirm the preview offers Export Current Library First, Merge into Current Library, Replace Current Library, and Cancel.
+
+## Merge Valid Backup
+
+1. Start with a current library that has a `Math` book with `Algebra` and `Geometry` chapters.
+2. Select a backup with a `Math` book containing the same chapters plus `English` and `Photography`.
+3. Choose Merge into Current Library.
+4. Confirm there is still one `Math` book and the missing chapters were added after the existing chapters.
+5. Confirm current settings and recent pages were not replaced.
+6. Confirm imported Trash did not delete or override active current items.
+7. Confirm same-title pages with different content are kept as duplicates named like `(Imported)`.
+
+## Replace Valid Backup
+
+1. Select a known-good LibNote backup JSON.
+2. Confirm Import Preview appears with backup date, version, counts, loose pages, Trash, and tags.
+3. Confirm the preview copy explains Replace Current Library overwrites the current local library and settings.
 4. Choose Export Current Library First.
-5. Choose Restore Backup.
+5. Choose Replace Current Library.
 6. Confirm the restored library is active and the success status is shown.
 7. Confirm restored content, tags, settings, wikilinks, backlinks, text sizes, book covers, recent-page cleanup, and Trash contents.
 
 ## Restore Malformed or Repairable Backup
 
 1. Select a backup with repairable missing metadata, timestamps, invalid tags, or unavailable page parents.
-2. Confirm Restore Preview still appears.
+2. Confirm Import Preview still appears.
 3. Confirm repair warnings are visible.
 4. Restore the backup.
 5. Confirm repaired items are present as described by the warnings and the restore status says it completed with warnings.
 
-## Cancel Restore After Preview
+## Cancel Import After Preview
 
 1. Select a valid backup.
-2. Confirm Restore Preview appears.
+2. Confirm Import Preview appears.
 3. Choose Cancel.
-4. Confirm the current library remains active and Backup Status says restore was canceled.
+4. Confirm the current library remains active and Backup Status says import was canceled.
 
 ## Simulate Failed Restore Write
 
 1. In a development browser, open DevTools and temporarily make IndexedDB writes fail if possible, such as by blocking storage, using a private/storage-restricted context, or injecting a failing `indexedDB` wrapper before restore.
-2. Select a valid backup and proceed to Restore Backup.
+2. Select a valid backup and proceed to Replace Current Library.
 3. Confirm Backup Status names whether restore failed before the library write or after the library data write but before settings were saved.
 4. Confirm a Restore Recovery Snapshot appears in Backup & Restore and offers Recover Previous Library and Dismiss Snapshot.
 5. Refresh the tab and confirm the Restore Recovery Snapshot is still available.
@@ -50,8 +67,8 @@ restore failure/recovery behavior.
 
 ## Successful Restore Recovery Cleanup
 
-1. Select a valid backup and proceed through Restore Preview.
-2. Choose Restore Backup.
+1. Select a valid backup and proceed through Import Preview.
+2. Choose Replace Current Library.
 3. Confirm the restored library is active and the success status is shown.
 4. Refresh the tab.
 5. Confirm Backup & Restore does not show a Restore Recovery Snapshot warning after the successful restore.

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { LibraryData } from '../types/domain';
+import type { AppSettings, Book, Chapter, LibraryData, Page } from '../types/domain';
 import { DEFAULT_APP_SETTINGS } from './appSettings';
-import { createBackupPayload, createBackupSummary, createSafetyBackupSnapshot, validateBackupPayload } from './backup';
+import {
+  createBackupPayload,
+  createBackupSummary,
+  createSafetyBackupSnapshot,
+  mergeBackupIntoLibrary,
+  validateBackupPayload
+} from './backup';
 
 const data: LibraryData = {
   books: [
@@ -242,7 +248,317 @@ describe('backup', () => {
       })
     ).toThrow('This backup does not contain any restorable books, chapters, or pages.');
   });
+
+  it('merges a backup with a new book into an existing library', () => {
+    const current = buildMergeLibrary({ bookTitle: 'Current', chapterTitle: 'Notes', pageTitle: 'Home' });
+    const imported = buildMergeLibrary({
+      idPrefix: 'import',
+      bookTitle: 'Imported',
+      chapterTitle: 'Ideas',
+      pageTitle: 'Draft'
+    });
+
+    const result = mergeBackupIntoLibrary(current, imported);
+
+    expect(result.data.books.map((book) => book.title)).toEqual(['Current', 'Imported']);
+    expect(result.report).toMatchObject({
+      booksAdded: 1,
+      chaptersAdded: 1,
+      pagesAdded: 1,
+      skippedExisting: 0
+    });
+  });
+
+  it('merges same-title books by adding missing chapters under the current book', () => {
+    const current = buildMergeLibrary({ bookTitle: 'Math', chapterTitle: 'Algebra', pageTitle: 'Variables' });
+    const imported = buildMergeLibrary({
+      idPrefix: 'import',
+      bookTitle: 'Math',
+      chapterTitle: 'Photography',
+      pageTitle: 'Light'
+    });
+
+    const result = mergeBackupIntoLibrary(current, imported);
+
+    expect(result.data.books.filter((book) => book.title === 'Math')).toHaveLength(1);
+    expect(result.data.chapters.map((chapter) => chapter.title).sort()).toEqual(['Algebra', 'Photography']);
+    expect(result.data.chapters.find((chapter) => chapter.title === 'Photography')?.bookId).toBe('current-book');
+    expect(result.report).toMatchObject({
+      booksAdded: 0,
+      chaptersAdded: 1,
+      pagesAdded: 1,
+      skippedExisting: 1
+    });
+  });
+
+  it('merges same-title chapters by adding missing pages under the current chapter', () => {
+    const current = buildMergeLibrary({ bookTitle: 'Math', chapterTitle: 'Algebra', pageTitle: 'Variables' });
+    const imported = buildMergeLibrary({
+      idPrefix: 'import',
+      bookTitle: 'Math',
+      chapterTitle: 'Algebra',
+      pageTitle: 'Equations'
+    });
+
+    const result = mergeBackupIntoLibrary(current, imported);
+
+    expect(result.data.chapters.filter((chapter) => chapter.title === 'Algebra')).toHaveLength(1);
+    expect(result.data.pages.map((page) => page.title).sort()).toEqual(['Equations', 'Variables']);
+    expect(result.data.pages.find((page) => page.title === 'Equations')?.chapterId).toBe('current-chapter');
+    expect(result.report).toMatchObject({
+      booksAdded: 0,
+      chaptersAdded: 0,
+      pagesAdded: 1,
+      skippedExisting: 2
+    });
+  });
+
+  it('merges loose pages additively', () => {
+    const current = buildMergeLibrary({
+      bookTitle: 'Current',
+      chapterTitle: 'Notes',
+      pageTitle: 'Home',
+      loosePages: [page('current-loose', null, 'Inbox', 'keep', { isLoose: true, sortOrder: 0 })]
+    });
+    const imported = buildMergeLibrary({
+      idPrefix: 'import',
+      bookTitle: 'Current',
+      chapterTitle: 'Notes',
+      pageTitle: 'Home',
+      loosePages: [page('import-loose', null, 'Scratch', 'new loose', { isLoose: true, sortOrder: 0 })]
+    });
+
+    const result = mergeBackupIntoLibrary(current, imported);
+
+    expect(result.data.pages.filter((item) => item.isLoose).map((item) => item.title).sort()).toEqual(['Inbox', 'Scratch']);
+    expect(result.data.pages.find((item) => item.title === 'Scratch')?.sortOrder).toBe(1);
+    expect(result.report.loosePagesAdded).toBe(1);
+  });
+
+  it('does not duplicate imports when stable IDs and page content match', () => {
+    const current = buildMergeLibrary({ bookTitle: 'Math', chapterTitle: 'Algebra', pageTitle: 'Variables' });
+    const imported = buildMergeLibrary({ bookTitle: 'Math', chapterTitle: 'Algebra', pageTitle: 'Variables' });
+
+    const result = mergeBackupIntoLibrary(current, imported);
+
+    expect(result.data.books).toHaveLength(1);
+    expect(result.data.chapters).toHaveLength(1);
+    expect(result.data.pages).toHaveLength(1);
+    expect(result.report).toMatchObject({
+      skippedExisting: 3,
+      conflictsDuplicated: 0
+    });
+  });
+
+  it('keeps same-title different-content page conflicts as imported duplicates', () => {
+    const current = buildMergeLibrary({ bookTitle: 'Math', chapterTitle: 'Algebra', pageTitle: 'Variables', content: 'current' });
+    const imported = buildMergeLibrary({
+      idPrefix: 'import',
+      bookTitle: 'Math',
+      chapterTitle: 'Algebra',
+      pageTitle: 'Variables',
+      content: 'imported'
+    });
+
+    const result = mergeBackupIntoLibrary(current, imported);
+
+    expect(result.data.pages.map((item) => item.title).sort()).toEqual(['Variables', 'Variables (Imported)']);
+    expect(result.data.pages.find((item) => item.title === 'Variables')?.content).toBe('current');
+    expect(result.data.pages.find((item) => item.title === 'Variables (Imported)')?.content).toBe('imported');
+    expect(result.report).toMatchObject({
+      pagesAdded: 1,
+      conflictsDuplicated: 1
+    });
+  });
+
+  it('does not incorrectly merge ambiguous duplicate book, chapter, or page names', () => {
+    const current: LibraryData = {
+      books: [
+        book('math-1', 'Math', 0),
+        book('math-2', 'Math', 1),
+        book('science', 'Science', 2),
+        book('art', 'Art', 3)
+      ],
+      chapters: [
+        chapter('science-dup-1', 'science', 'Dup', 0),
+        chapter('science-dup-2', 'science', 'Dup', 1),
+        chapter('art-chapter', 'art', 'Sketch', 0)
+      ],
+      pages: [
+        page('art-topic-1', 'art-chapter', 'Topic', 'one', { sortOrder: 0 }),
+        page('art-topic-2', 'art-chapter', 'Topic', 'two', { sortOrder: 1 })
+      ]
+    };
+    const imported: LibraryData = {
+      books: [book('import-math', 'Math', 0), book('science', 'Science', 1), book('art', 'Art', 2)],
+      chapters: [
+        chapter('import-math-chapter', 'import-math', 'Algebra', 0),
+        chapter('import-science-dup', 'science', 'Dup', 0),
+        chapter('art-chapter', 'art', 'Sketch', 0)
+      ],
+      pages: [
+        page('import-math-page', 'import-math-chapter', 'Variables', 'imported'),
+        page('import-science-page', 'import-science-dup', 'Cell', 'imported'),
+        page('import-art-topic', 'art-chapter', 'Topic', 'imported')
+      ]
+    };
+
+    const result = mergeBackupIntoLibrary(current, imported);
+
+    expect(result.data.books.filter((item) => item.title === 'Math')).toHaveLength(3);
+    expect(result.data.chapters.filter((item) => item.bookId === 'science' && item.title === 'Dup')).toHaveLength(3);
+    expect(result.data.pages.filter((item) => item.chapterId === 'art-chapter' && item.title === 'Topic')).toHaveLength(3);
+    expect(result.report.ambiguousItems).toBe(3);
+  });
+
+  it('does not overwrite current settings or recent pages during merge', () => {
+    const currentSettings: AppSettings = { ...DEFAULT_APP_SETTINGS, recentPageIds: ['current-page'], theme: 'dark-archive' };
+    const importedSettings: AppSettings = { ...DEFAULT_APP_SETTINGS, recentPageIds: ['import-page'], theme: 'warm-study' };
+    const current = buildMergeLibrary({ bookTitle: 'Current', chapterTitle: 'Notes', pageTitle: 'Home' });
+    const imported = buildMergeLibrary({ idPrefix: 'import', bookTitle: 'Imported', chapterTitle: 'Notes', pageTitle: 'Home' });
+
+    const result = mergeBackupIntoLibrary(current, validateBackupPayload(createBackupPayload(imported, importedSettings)).data);
+
+    expect(currentSettings).toMatchObject({ recentPageIds: ['current-page'], theme: 'dark-archive' });
+    expect(result.report).toMatchObject({
+      settingsIgnored: true,
+      recentPagesUnchanged: true
+    });
+  });
+
+  it('skips imported Trash without deleting active current-library content', () => {
+    const current = buildMergeLibrary({ bookTitle: 'Math', chapterTitle: 'Algebra', pageTitle: 'Variables' });
+    const imported = buildMergeLibrary({
+      idPrefix: 'import',
+      bookTitle: 'Archive',
+      chapterTitle: 'Old',
+      pageTitle: 'Deleted',
+      deletedAt: '2026-01-03T00:00:00.000Z'
+    });
+
+    const result = mergeBackupIntoLibrary(current, imported);
+
+    expect(result.data.books.map((item) => item.title)).toEqual(['Math']);
+    expect(result.data.pages.map((item) => item.title)).toEqual(['Variables']);
+    expect(result.report).toMatchObject({
+      trashItemsSkipped: 3,
+      booksAdded: 0,
+      chaptersAdded: 0,
+      pagesAdded: 0
+    });
+  });
+
+  it('reports merge counts accurately for mixed additions, skips, conflicts, and trash', () => {
+    const current = buildMergeLibrary({
+      bookTitle: 'Math',
+      chapterTitle: 'Algebra',
+      pageTitle: 'Variables',
+      content: 'current',
+      loosePages: [page('loose-current', null, 'Inbox', 'same', { isLoose: true })]
+    });
+    const imported = {
+      books: [book('import-book', 'Math', 0)],
+      chapters: [
+        chapter('import-chapter-same', 'import-book', 'Algebra', 0),
+        chapter('import-chapter-new', 'import-book', 'Geometry', 1)
+      ],
+      pages: [
+        page('import-page-conflict', 'import-chapter-same', 'Variables', 'changed'),
+        page('import-page-new', 'import-chapter-new', 'Angles', 'new'),
+        page('loose-import-skip', null, 'Inbox', 'same', { isLoose: true }),
+        page('loose-import-new', null, 'Scratch', 'new loose', { isLoose: true }),
+        page('trash-import', null, 'Trashed', 'trash', { isLoose: true, deletedAt: '2026-01-03T00:00:00.000Z' })
+      ]
+    };
+
+    const result = mergeBackupIntoLibrary(current, imported);
+
+    expect(result.report).toMatchObject({
+      booksAdded: 0,
+      chaptersAdded: 1,
+      pagesAdded: 2,
+      loosePagesAdded: 1,
+      skippedExisting: 3,
+      conflictsDuplicated: 1,
+      ambiguousItems: 0,
+      trashItemsSkipped: 1
+    });
+  });
 });
+
+function buildMergeLibrary(options: {
+  idPrefix?: string;
+  bookTitle: string;
+  chapterTitle: string;
+  pageTitle: string;
+  content?: string;
+  deletedAt?: string;
+  loosePages?: Page[];
+  extraBooks?: Book[];
+  extraChapters?: Chapter[];
+  extraPages?: Page[];
+}): LibraryData {
+  const prefix = options.idPrefix ?? 'current';
+  const deletedAt = options.deletedAt;
+  const mainBook = book(`${prefix}-book`, options.bookTitle, 0, deletedAt);
+  const mainChapter = chapter(`${prefix}-chapter`, mainBook.id, options.chapterTitle, 0, deletedAt);
+  const mainPage = page(`${prefix}-page`, mainChapter.id, options.pageTitle, options.content ?? 'same content', {
+    sortOrder: 0,
+    deletedAt
+  });
+
+  return {
+    books: [mainBook, ...(options.extraBooks ?? [])],
+    chapters: [mainChapter, ...(options.extraChapters ?? [])],
+    pages: [mainPage, ...(options.loosePages ?? []), ...(options.extraPages ?? [])]
+  };
+}
+
+function book(id: string, title: string, sortOrder: number, deletedAt?: string): Book {
+  return {
+    id,
+    title,
+    sortOrder,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+    ...(deletedAt ? { deletedAt } : {})
+  };
+}
+
+function chapter(id: string, bookId: string, title: string, sortOrder: number, deletedAt?: string): Chapter {
+  return {
+    id,
+    bookId,
+    title,
+    sortOrder,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+    ...(deletedAt ? { deletedAt, deletedFrom: { bookId } } : {})
+  };
+}
+
+function page(
+  id: string,
+  chapterId: string | null,
+  title: string,
+  content: string,
+  options: { isLoose?: boolean; sortOrder?: number; deletedAt?: string } = {}
+): Page {
+  const isLoose = options.isLoose ?? chapterId === null;
+  return {
+    id,
+    chapterId: isLoose ? null : chapterId,
+    title,
+    content,
+    tags: ['study/unit'],
+    textSize: 16,
+    isLoose,
+    sortOrder: options.sortOrder ?? 0,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-02T00:00:00.000Z',
+    ...(options.deletedAt ? { deletedAt: options.deletedAt, deletedFrom: { chapterId: chapterId ?? undefined, wasLoose: isLoose } } : {})
+  };
+}
 
 function buildLargeBackupLibrary(): LibraryData {
   const books: LibraryData['books'] = [];

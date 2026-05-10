@@ -316,24 +316,31 @@ The backup includes:
 
 Individual pages can also be exported as plain `.txt` files. Page text export includes the page title and visible plain text converted from rich content.
 
-### Restore
+### Import and Restore
 
-Restore imports a selected JSON backup file, validates it, shows a Restore Preview, and asks for confirmation before changing the current library.
+Import reads a selected JSON backup file, validates it, shows an Import Preview, and asks which mode to use before changing the current library.
 
-Restore behavior:
+Import modes:
 
-- Restore replaces the current browser library and settings. It does not merge libraries.
+- **Replace current library** performs a full restore. It replaces the current browser library and settings with the backup.
+- **Merge into current library** performs an additive import. It keeps current data, adds missing books, chapters, pages, and loose pages, and leaves current settings and recent pages unchanged.
+- Merge matches by stable IDs first. When IDs differ, it only title-matches books globally, chapters inside a matched book, and pages inside a matched chapter or Loose Pages when the normalized title is unique on both sides.
+- Merge avoids fuzzy matching. Ambiguous names are imported as separate items instead of being merged into possibly wrong parents.
+- Merge page conflicts do not overwrite current content. Different imported page content with a matching location/title is kept as a duplicate named like `Title (Imported)`.
+- Merge skips imported Trash items so imported Trash cannot delete or override current active content.
 - Invalid JSON is rejected.
 - Unsupported backup versions are rejected.
-- LibNote creates an in-memory pre-restore safety backup before replacing the library. If the restore write fails, the previous library is kept active in the current tab and the safety backup can be downloaded.
-- The preview shows backup type, app metadata, backup date, version, and counts for books, chapters, pages, loose pages, trashed items, and unique tags.
+- LibNote creates an in-memory safety backup before applying merge or replace. If the write fails, the previous library is kept active in the current tab and the safety backup can be downloaded.
+- The preview shows backup type, app metadata, backup date, version, and counts for books, chapters, pages, loose pages, trashed items, and unique tags. Merge preview also reports items to add, existing items skipped, conflicts duplicated, settings ignored, and Trash skipped.
 - Missing or invalid metadata can be repaired with warnings.
 - Missing titles, timestamps, invalid tags, invalid settings, missing parent chapters, and similar recoverable issues are repaired or skipped with warnings where possible.
-- Validation and repair warnings are shown in the preview and again after restore if applicable.
+- Validation and repair warnings are shown in the preview and again after import if applicable.
 - Backups from legacy `iNote` metadata are recognized by the importer.
-- If backup settings are missing or invalid, safe default settings are used.
+- If backup settings are missing or invalid, safe default settings are used for replace mode. Merge mode ignores imported settings by design.
 
-Export a current backup before restoring another file if you want to keep the current browser library.
+Merge is not sync: it is a one-time additive import designed to avoid data loss. The merge engine can become a foundation for future cross-device sync, but the current app still has no cloud sync, account system, or server storage.
+
+Export a current backup before importing another file if you want an extra copy of the current browser library.
 
 ## Install LibNote as an App
 
@@ -607,8 +614,8 @@ Manual QA docs cover the browser/device areas that are still better verified han
 - Data is local to the browser profile unless exported and imported manually.
 - There is no cloud sync, account system, server storage, encryption layer, or collaboration.
 - Clearing browser storage can remove the local library.
-- Restore replaces the current library; it does not merge two libraries.
-- Restore creates a pre-restore safety backup for failed restore writes, but there is no durable persisted recovery journal or full last-known-good recovery layer.
+- Replace import restores over the current library. Merge import is additive but is not bidirectional sync.
+- Import creates a safety backup for failed merge/replace writes, but there is no durable persisted recovery journal or full last-known-good recovery layer.
 - Navigation does not use URL routes, so books, chapters, and pages do not have shareable deep links.
 - Recent Pages is fixed at 4 pages and is not currently configurable.
 - The page editor uses Lexical by default and saves compatible rich HTML for search, export, backlinks, backup, and restore. The older contentEditable editor remains as a code fallback behind `USE_LEXICAL_EDITOR = false`.

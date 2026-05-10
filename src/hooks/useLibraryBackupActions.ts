@@ -17,9 +17,11 @@ import {
   createPageExportFile,
   downloadJsonFile,
   downloadPlainTextFile,
+  mergeBackupIntoLibrary,
   readBackupFile,
   validateBackupPayload,
   type BackupImportPreview,
+  type BackupMergeReport,
   type BackupSafetySnapshot,
   type ValidatedBackupPayload
 } from '../utils/backup';
@@ -113,19 +115,23 @@ export function useLibraryBackupActions({
     try {
       const rawPayload = await readBackupFile(file);
       const validated = validateBackupPayload(rawPayload);
+      const mergeReport = latestDataRef.current
+        ? mergeBackupIntoLibrary(latestDataRef.current, validated.data).report
+        : undefined;
       const preview = {
         fileName: file.name,
         summary: createBackupSummary(validated),
         validated,
-        warnings: validated.warnings
+        warnings: validated.warnings,
+        mergeReport
       };
 
       setBackupStatus({
         tone: validated.warnings.length > 0 ? 'warning' : 'info',
         message:
           validated.warnings.length > 0
-            ? 'Backup parsed with warnings. Review the preview before restoring.'
-            : 'Backup parsed successfully. Review the preview before restoring.',
+            ? 'Backup parsed with warnings. Review the preview before importing.'
+            : 'Backup parsed successfully. Review the preview before importing.',
         warnings: validated.warnings
       });
       setRestoreSafetySnapshot(null);
@@ -223,6 +229,73 @@ export function useLibraryBackupActions({
     }
   }
 
+  async function handleMergeBackupImport(validated: ValidatedBackupPayload): Promise<boolean> {
+    const previousData = latestDataRef.current;
+    const previousSettings = latestSettingsRef.current;
+
+    if (!previousData) {
+      setBackupStatus({ tone: 'error', message: 'Library data is still loading. Please try merge again in a moment.' });
+      return false;
+    }
+
+    const safetySnapshot = createSafetyBackupSnapshot(previousData, previousSettings);
+    const recoverySnapshot: RestoreRecoverySnapshot = {
+      kind: 'restore-recovery-snapshot',
+      createdAt: new Date().toISOString(),
+      data: previousData,
+      settings: previousSettings
+    };
+    const mergeResult = mergeBackupIntoLibrary(previousData, validated.data);
+    const mergeWarnings = [...validated.warnings, ...mergeResult.report.warnings];
+
+    setRestoreSafetySnapshot(safetySnapshot);
+
+    try {
+      await saveRestoreRecoverySnapshot(recoverySnapshot);
+      setRestoreRecoverySnapshot(recoverySnapshot);
+
+      try {
+        await persistLibraryData(mergeResult.data);
+      } catch (error) {
+        throw createRestoreStageError('library', error);
+      }
+
+      try {
+        await clearRestoreRecoverySnapshot();
+      } catch (error) {
+        throw createRestoreStageError('cleanup', error);
+      }
+
+      resetAfterLibraryReplacement(mergeResult.data, previousSettings);
+      setRestoreSafetySnapshot(null);
+      setRestoreRecoverySnapshot(null);
+      setSaveStatus({ state: 'saved', lastSavedAt: Date.now() });
+      setBackupStatus({
+        tone: mergeWarnings.length > 0 ? 'warning' : 'success',
+        message: `Merge completed. ${formatMergeReportSummary(mergeResult.report)}`,
+        warnings: mergeWarnings
+      });
+      return true;
+    } catch (error) {
+      latestDataRef.current = previousData;
+      shouldAutosaveDataRef.current = false;
+      setData(previousData);
+      latestSettingsRef.current = previousSettings;
+      setSettings(previousSettings);
+      setSaveStatus({
+        state: 'failed',
+        error: getStorageFailureDetails(getRestoreStageCause(error))
+      });
+      setBackupStatus({
+        tone: 'error',
+        message:
+          `${getMergeFailureMessage(error)} ` +
+          'A restore recovery snapshot is saved in this browser so you can recover the previous library after refresh.'
+      });
+      return false;
+    }
+  }
+
   async function handleRecoverRestoreSnapshot(): Promise<boolean> {
     const snapshot = restoreRecoverySnapshot;
     if (!snapshot) {
@@ -312,7 +385,7 @@ export function useLibraryBackupActions({
 
   function handleCancelBackupImport(): void {
     setRestoreSafetySnapshot(null);
-    setBackupStatus({ tone: 'info', message: 'Restore canceled. Your current library was not changed.' });
+    setBackupStatus({ tone: 'info', message: 'Import canceled. Your current library was not changed.' });
   }
 
   function handleExportPage(pageId: string): void {
@@ -343,6 +416,7 @@ export function useLibraryBackupActions({
     handleDismissRestoreRecoverySnapshot,
     handlePreviewBackupImport,
     handleRestoreBackupImport,
+    handleMergeBackupImport,
     handleCancelBackupImport,
     handleExportPage
   };
@@ -407,6 +481,27 @@ function getRestoreRecoveryFailureMessage(error: unknown): string {
   }
 
   return `Recovery restored the previous library but could not delete the recovery snapshot: ${getCauseMessage(error.cause)}`;
+}
+
+function getMergeFailureMessage(error: unknown): string {
+  if (!isRestoreStageError(error)) {
+    return `Merge failed while saving: ${error instanceof Error ? error.message : 'unknown storage error.'}`;
+  }
+
+  if (error.stage === 'library') {
+    return `Merge failed before the merged library was saved: ${getCauseMessage(error.cause)}`;
+  }
+
+  if (error.stage === 'settings') {
+    return `Merge saved the library data but failed before settings were saved: ${getCauseMessage(error.cause)}`;
+  }
+
+  return `Merge saved the library, but could not clear the recovery snapshot: ${getCauseMessage(error.cause)}`;
+}
+
+function formatMergeReportSummary(report: BackupMergeReport): string {
+  const additions = report.booksAdded + report.chaptersAdded + report.pagesAdded + report.loosePagesAdded;
+  return `${additions} item${additions === 1 ? '' : 's'} added, ${report.skippedExisting} existing skipped, ${report.conflictsDuplicated} conflict${report.conflictsDuplicated === 1 ? '' : 's'} kept as imported duplicates.`;
 }
 
 function getCauseMessage(cause: unknown): string {
