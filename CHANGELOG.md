@@ -4,7 +4,7 @@ This document summarizes LibNote's progression from the Git history. It is writt
 
 ## Current Snapshot
 
-LibNote is now a coherent local-first browser note app organized around a personal library metaphor: Books contain Chapters, Chapters contain Pages, and Loose Pages hold quick notes before they are filed. The app includes IndexedDB persistence, a library bookshelf/home experience, book covers, themes/settings, Lexical rich text editing as the default editor path, slash tags, wiki links, backlinks, search filters, trash/restore, backup/export/import with restore preview, app-menu guide areas, recent pages, keyboard shortcuts, and PWA shell support.
+LibNote is now a coherent local-first browser note app organized around a personal library metaphor: Books contain Chapters, Chapters contain Pages, and Loose Pages hold quick notes before they are filed. The app includes IndexedDB persistence, a library bookshelf/home experience, book covers, themes/settings, Lexical rich text editing as the default editor path, slash tags, wiki links, backlinks, search filters, trash/restore, backup/export/import with merge-or-replace preview, app-menu guide areas, recent pages, keyboard shortcuts, and PWA shell support.
 
 ## Timeline
 
@@ -22,7 +22,8 @@ The current codebase reflects LibNote as a usable local-first library note app r
 - Tag search supports tag-only, multi-tag AND filtering, and mixed text-plus-tag page searches.
 - Wikilinks use `[[Page Title]]` syntax with editor autocomplete, preview rendering, missing-link page creation, backlink derivation, broken-link reporting, and ambiguous-link handling for duplicate page titles.
 - Search covers live book titles, chapter titles, page titles, page content, loose pages, and a separate Trash filter, with result types, context labels, snippets, and ranking.
-- Backup & Restore exports full-library JSON backups, validates imported files, repairs or skips recoverable issues with warnings, shows a restore preview, and replaces the current local library only after confirmation.
+- Backup & Restore exports full-library JSON backups, validates imported files, repairs or skips recoverable issues with warnings, shows an import preview, and lets users either replace the current library or merge a backup additively into the current library.
+- Merge import matches by stable IDs first, then by unique normalized titles in safe parent locations. It appends missing books, chapters, pages, and loose pages, skips exact existing items, keeps conflicts as imported duplicates, ignores imported settings/recent pages, and skips imported Trash so current active data is not deleted.
 - Production builds include a PWA manifest and service worker shell caching; development mode unregisters app service workers and clears matching caches.
 - Large-library work added derived selector data, lazy search indexing, and capped search/tag result lists so bigger personal libraries stay more responsive.
 - `useLibraryApp` was split into focused hooks for search/tags, tag actions, page actions, chapter actions, book actions, settings actions, App Menu state, shortcuts, backup actions, and trash helpers. View navigation and history intentionally remain in `useLibraryApp`.
@@ -133,7 +134,7 @@ This was a quality and trust pass. The app already had backup/restore, but this 
 
 ### May 3, 2026: Stabilization, Search Performance, and Documentation
 
-The latest work focused on polish, correctness, and performance:
+This round focused on polish, correctness, and performance:
 
 - Stale LibNote copy was updated.
 - Dead editor helpers were removed.
@@ -146,6 +147,77 @@ The latest work focused on polish, correctness, and performance:
 - The README was refreshed for current app behavior.
 
 This phase tightened the app around larger libraries and richer content. It reduced confusing wiki-link behavior, made pasted content safer, and improved derived library data/search performance.
+
+### May 6, 2026: Recovery, Persistence, Accessibility, Scale, and PWA Support
+
+May 6 was a broad reliability and platform pass:
+
+- Backup restore gained safer pre-restore snapshots, recovery snapshot handling, safety-backup download paths, and manual QA coverage for failed restore writes.
+- IndexedDB persistence was hardened with clearer storage exceptions, transaction error handling, settings/library read-write tests, and save-status recovery guidance.
+- Search, tags, and wikilink navigation were tightened with stricter tag normalization, safer search/tag origin handling, improved page metadata link summaries, and broader regression tests.
+- Large-library fixtures, scaling tests, capped result lists, and manual QA guidance were added for search, tag results, backlinks, and Trash result behavior at higher volumes.
+- Accessibility, keyboard, and mobile UX improvements landed across editable titles, reorderable lists, sidebar controls, top-bar controls, search/tag result affordances, focus states, and manual QA docs.
+- Sidebar reorder controls were simplified by removing visible arrow controls from normal sidebar rows.
+- PWA install/offline support improved with manifest/icon updates, service worker shell caching, a visible PWA status component, install/offline documentation, and manual QA coverage.
+- The old Lexical prototype doc was renamed into Lexical editor history, and deployment/install documentation was expanded.
+
+This was the point where LibNote's local-first safety story became more robust: failed writes were easier to understand, restore recovery became recoverable after refresh, and app installation/offline behavior became a first-class documented path.
+
+### May 7, 2026: GitHub Pages Deployment Setup
+
+Deployment support was added for publishing the static app:
+
+- GitHub Pages deployment workflow configuration was introduced.
+- Deployment documentation was added for the installable PWA build.
+- Custom-domain setup was exercised through CNAME changes.
+
+This made the browser-only app easier to ship and verify outside a local development server.
+
+### May 8, 2026: Browser Coverage, Autosave Hardening, and Tag Input Rules
+
+May 8 expanded end-to-end confidence and tightened several user-facing safety paths:
+
+- Autosave failure handling was hardened with retry warnings, before-unload protection, failed-save export guidance, and tests for recovery behavior.
+- Tag input was restricted to slash-only syntax so tag creation and filtering stay consistent with LibNote's `/tag` model.
+- Lexical editor Playwright coverage was expanded for core editor behavior, paste/formatting paths, wikilinks, slash tags, and mobile-relevant interactions.
+- Trash restore/delete flows gained Playwright coverage for safer browser-level regression testing.
+- Mobile sidebar and editor autocomplete flows gained Playwright coverage.
+- PWA, restore, Lexical, accessibility/mobile, and search manual QA docs were refreshed.
+- Local Codex worktree artifacts were removed from the repository.
+
+This day moved more of LibNote's risky local-first workflows from "works in unit tests" into browser-level verification.
+
+### May 9, 2026: Safe Backup Merge Import
+
+May 9 combined architecture cleanup, mobile shell work, editor/tag polish, and a new backup import mode.
+
+Architecture and regression coverage:
+
+- `useLibraryApp` was split further into dedicated hooks for trash actions, shortcut handling, search/tag routing, backup actions, page actions, tag actions, chapter actions, book actions, app settings, App Menu state, and global shortcuts.
+- App Menu backup/settings/shortcut sections moved into focused components to reduce the main menu component's responsibility.
+- Navigation history regression tests were added for book/chapter/page openings, Back/Home, Loose Pages, Trash, create flows, move flows, page trash fallback views, and search/tag result origin behavior.
+- Restore recovery tests were hardened, and service worker cache cleanup behavior was tightened.
+
+Mobile and editor polish:
+
+- The mobile app shell was redesigned with dedicated top and bottom mobile navigation, safe-area handling, responsive layout updates, and mobile-focused E2E adjustments.
+- Mobile page editor layout, toolbar spacing, icons, bottom navigation, and header spacing were refined.
+- Tag submission was fixed, dark selection contrast was improved, and the extra tag add button was removed to keep slash-tag entry cleaner.
+
+Backup import gained a second mode alongside full restore:
+
+- The existing destructive restore path was preserved as **Replace current library**.
+- A new **Merge into current library** path was added for additive imports.
+- Merge uses stable IDs first, then unique normalized title matches for books, chapters within matched books, and pages within matched chapters or Loose Pages.
+- Missing imported books, chapters, pages, and loose pages are appended after existing sibling items without disrupting current sort order.
+- Matching pages with different content are treated as conflicts and imported as suffixed duplicates such as `(Imported)` instead of overwriting current content.
+- Imported settings and recent pages are ignored during merge; replace remains the only mode that restores settings.
+- Imported Trash is skipped during merge so it cannot delete or override current active items.
+- Import preview now includes merge counts for additions, skipped existing items, duplicated conflicts, ambiguous names, Trash handling, settings, and recent pages.
+- Merge uses the same safety snapshot/recovery path as restore where practical, so failed writes keep the previous library available.
+- README and manual QA docs now explain merge vs. replace and call out that merge is not the same as sync.
+
+The overall result is a cleaner app-controller architecture, a more app-like mobile experience, and safer backup movement between browser libraries without forcing a full restore.
 
 ## Feature Evolution
 
@@ -180,6 +252,11 @@ Customization grew steadily. Users gained configurable shortcuts, collapsible si
 - **Settings center, wiki links, themes, covers, and advanced search:** May 1, 2026
 - **Backup validation:** May 2, 2026
 - **Paste safety, ambiguous links, and large-library performance:** May 3, 2026
+- **Restore recovery, IndexedDB hardening, accessibility, scale, and PWA install/offline:** May 6, 2026
+- **GitHub Pages deployment:** May 7, 2026
+- **E2E coverage, autosave recovery, and slash-only tag input:** May 8, 2026
+- **Hook/component architecture cleanup and mobile app shell:** May 9, 2026
+- **Safe backup merge import:** May 9, 2026
 
 ## Overall Arc
 
