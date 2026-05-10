@@ -22,6 +22,7 @@ import { parseSingleTagInput, type TagSummary } from '../utils/tags';
 import { useModalFocus } from '../hooks/useModalFocus';
 import { AppMenuBackupSection } from './AppMenuBackupSection';
 import { AppMenuSettingsSection } from './AppMenuSettingsSection';
+import { BookIcon, LibraryIcon, PageIcon, SearchIcon, TagIcon, TrashIcon } from './MobileIcons';
 
 interface StorageStats {
   bookCount: number;
@@ -199,7 +200,7 @@ export function AppMenu({
           ) : (
             <div className="mobile-app-menu-scroll">
               <div className="mobile-app-brand">
-                <span className="mobile-app-brand-mark" aria-hidden="true">▥</span>
+                <LibraryIcon className="mobile-app-brand-mark" />
                 <div>
                   <strong>LibNote</strong>
                   <span>Your ideas, organized.</span>
@@ -208,27 +209,27 @@ export function AppMenu({
 
               <div className="mobile-menu-list" role="list">
                 <button type="button" className="mobile-menu-row is-primary" onClick={() => navigateFromMobileMenu(onNavigateLibrary)}>
-                  <span aria-hidden="true">▥</span>
+                  <LibraryIcon className="mobile-menu-icon" />
                   <strong>Library</strong>
                 </button>
                 <button type="button" className="mobile-menu-row" onClick={() => navigateFromMobileMenu(onNavigateLoosePages)}>
-                  <span aria-hidden="true">□</span>
+                  <PageIcon className="mobile-menu-icon" />
                   <strong>Loose Pages</strong>
                 </button>
                 <button type="button" className="mobile-menu-row" onClick={() => navigateFromMobileMenu(onNavigateLibrary)}>
-                  <span aria-hidden="true">▭</span>
+                  <BookIcon className="mobile-menu-icon" />
                   <strong>All Books</strong>
                 </button>
                 <button type="button" className="mobile-menu-row" onClick={() => openMobileSection('tagManagement')}>
-                  <span aria-hidden="true">◇</span>
+                  <TagIcon className="mobile-menu-icon" />
                   <strong>Tags</strong>
                 </button>
                 <button type="button" className="mobile-menu-row" onClick={() => navigateFromMobileMenu(onNavigateSearch)}>
-                  <span aria-hidden="true">⌕</span>
+                  <SearchIcon className="mobile-menu-icon" />
                   <strong>Search</strong>
                 </button>
                 <button type="button" className="mobile-menu-row" onClick={() => navigateFromMobileMenu(onNavigateTrash)}>
-                  <span aria-hidden="true">♲</span>
+                  <TrashIcon className="mobile-menu-icon" />
                   <strong>Trash</strong>
                 </button>
               </div>

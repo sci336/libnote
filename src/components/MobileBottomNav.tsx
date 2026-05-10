@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { LibraryIcon, PlusIcon, SearchIcon, TagIcon, TrashIcon } from './MobileIcons';
 
 interface MobileBottomNavProps {
   canCreateChapter: boolean;
@@ -69,11 +70,11 @@ export function MobileBottomNav({
 
       <nav className="mobile-bottom-nav" aria-label="Primary mobile navigation">
         <button type="button" className="mobile-nav-item" onClick={onGoLibrary}>
-          <span aria-hidden="true">▥</span>
+          <LibraryIcon className="mobile-nav-icon" />
           <span>Library</span>
         </button>
         <button type="button" className="mobile-nav-item" onClick={onOpenSearch}>
-          <span aria-hidden="true">⌕</span>
+          <SearchIcon className="mobile-nav-icon mobile-nav-search-icon" />
           <span>Search</span>
         </button>
         <button
@@ -82,15 +83,17 @@ export function MobileBottomNav({
           aria-expanded={isNewMenuOpen}
           onClick={() => setIsNewMenuOpen((open) => !open)}
         >
-          <span aria-hidden="true">＋</span>
+          <span className="mobile-nav-new-icon" aria-hidden="true">
+            <PlusIcon />
+          </span>
           <span>New</span>
         </button>
         <button type="button" className="mobile-nav-item" onClick={onOpenTags}>
-          <span aria-hidden="true">◇</span>
+          <TagIcon className="mobile-nav-icon" />
           <span>Tags</span>
         </button>
         <button type="button" className="mobile-nav-item" onClick={onOpenTrash}>
-          <span aria-hidden="true">♲</span>
+          <TrashIcon className="mobile-nav-icon" />
           <span>Trash</span>
         </button>
       </nav>

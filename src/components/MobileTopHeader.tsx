@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { TagSuggestionsDropdown } from './TagSuggestionsDropdown';
+import { SearchIcon } from './MobileIcons';
 import type { BreadcrumbItem } from '../types/domain';
 import { getActiveSlashTagToken, getTagSuggestions, replaceSlashTagToken } from '../utils/tags';
 
@@ -108,8 +109,8 @@ export function MobileTopHeader({
             ←
           </button>
         ) : null}
-        <button type="button" className="mobile-icon-button" onClick={openSearch} aria-label="Open search">
-          ⌕
+        <button type="button" className="mobile-icon-button mobile-search-button" onClick={openSearch} aria-label="Open search">
+          <SearchIcon className="mobile-header-search-icon" />
         </button>
       </div>
 
