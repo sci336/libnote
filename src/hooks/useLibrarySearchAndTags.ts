@@ -169,6 +169,16 @@ export function useLibrarySearchAndTags({
     applyTagView([normalizedTag], { shouldCloseSidebar: true });
   }
 
+  function handleOpenTags(): void {
+    setSearchQuery('');
+
+    if (view.type !== 'tag') {
+      setTagOriginView(view.type === 'search' ? searchOriginView : view);
+    }
+
+    navigateToView({ type: 'tag', tags: [] }, { shouldCloseSidebar: true });
+  }
+
   function handleRemoveActiveTag(tag: string): void {
     if (view.type !== 'tag') {
       return;
@@ -214,6 +224,7 @@ export function useLibrarySearchAndTags({
     resetSearchAndTags,
     handleSearchChange,
     handleSearchFocus,
+    handleOpenTags,
     handleOpenTag,
     handleRemoveActiveTag,
     renameRecentTag,

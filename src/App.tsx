@@ -233,7 +233,7 @@ export default function App(): JSX.Element {
           canCreatePage={Boolean(app.sidebarChapterId)}
           onGoLibrary={app.navigateHome}
           onOpenSearch={app.handleSearchFocus}
-          onOpenTags={() => app.openAppMenu('tagManagement')}
+          onOpenTags={app.handleOpenTags}
           onOpenTrash={app.handleOpenTrash}
           onCreateBook={app.handleCreateBook}
           onCreateLoosePage={app.handleCreateLoosePage}

@@ -10,7 +10,7 @@ test.describe('mobile and narrow viewport flows', () => {
   });
 
   test('uses mobile app menu and bottom navigation for primary phone routes', async ({ page }) => {
-    await createNamedLoosePage(page, 'Mobile Menu Loose Page');
+    await createNamedLoosePage(page, 'Mobile Menu Loose Page', { tags: ['/mobile'] });
     await goToLibraryHome(page);
 
     const bottomNav = page.getByRole('navigation', { name: 'Primary mobile navigation' });
@@ -39,6 +39,17 @@ test.describe('mobile and narrow viewport flows', () => {
 
     await bottomNav.getByRole('button', { name: 'Search' }).click();
     await expect(page.getByRole('searchbox', { name: 'Mobile search books, chapters, pages, or slash tags' })).toBeVisible();
+
+    await bottomNav.getByRole('button', { name: 'Tags' }).click();
+    await expect(page.getByRole('heading', { name: 'Tagged Pages', level: 1 })).toBeVisible();
+    await expect(page.getByLabel('Add tag filter')).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Library Guide' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Open app menu' }).click();
+    await expect(appMenu).toBeVisible();
+    await appMenu.getByRole('button', { name: 'Settings', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Settings' }).first()).toBeVisible();
+    await page.getByRole('button', { name: 'Close app menu' }).click();
 
     await bottomNav.getByRole('button', { name: 'Trash' }).click();
     await expect(page.getByRole('heading', { name: 'Trash', level: 1 })).toBeVisible();
