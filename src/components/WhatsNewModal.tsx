@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { APP_VERSION, RELEASE_NOTES } from '../config/releaseNotes';
 import { useModalFocus } from '../hooks/useModalFocus';
 
@@ -47,21 +47,14 @@ export function WhatsNewModal(): JSX.Element | null {
     <div className="whats-new-layer" role="dialog" aria-modal="true" aria-labelledby="whats-new-title">
       <div className="whats-new-backdrop" aria-hidden="true" onClick={dismiss} />
       <section className="whats-new-panel" ref={panelRef} tabIndex={-1}>
-        <div className="whats-new-header">
-          <div>
-            <p className="eyebrow">Version {APP_VERSION}</p>
-            <h2 id="whats-new-title" ref={titleRef} tabIndex={-1}>What's New in LibNote</h2>
-          </div>
+        <div className="whats-new-modal-header">
+          <ReleaseNotesHeader titleId="whats-new-title" titleRef={titleRef} />
           <button type="button" className="icon-button" onClick={dismiss} aria-label="Dismiss what's new">
             ×
           </button>
         </div>
 
-        <ul className="whats-new-list">
-          {RELEASE_NOTES.map((note) => (
-            <li key={note}>{note}</li>
-          ))}
-        </ul>
+        <ReleaseNotesList />
 
         <div className="whats-new-actions">
           <button type="button" className="primary-button" onClick={dismiss}>
@@ -70,5 +63,29 @@ export function WhatsNewModal(): JSX.Element | null {
         </div>
       </section>
     </div>
+  );
+}
+
+interface ReleaseNotesHeaderProps {
+  titleId?: string;
+  titleRef?: RefObject<HTMLHeadingElement>;
+}
+
+export function ReleaseNotesHeader({ titleId, titleRef }: ReleaseNotesHeaderProps): JSX.Element {
+  return (
+    <div>
+      <p className="eyebrow">Version {APP_VERSION}</p>
+      <h2 id={titleId} ref={titleRef} tabIndex={titleRef ? -1 : undefined}>What's New in LibNote</h2>
+    </div>
+  );
+}
+
+export function ReleaseNotesList(): JSX.Element {
+  return (
+    <ul className="whats-new-list">
+      {RELEASE_NOTES.map((note) => (
+        <li key={note}>{note}</li>
+      ))}
+    </ul>
   );
 }

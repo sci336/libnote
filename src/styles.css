@@ -835,14 +835,15 @@ button {
   overflow: hidden;
 }
 
-.whats-new-header {
+.whats-new-modal-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
 }
 
-.whats-new-header h2 {
+.whats-new-modal-header h2,
+.whats-new-menu-card h2 {
   margin: 0.18rem 0 0;
   font-size: 1.45rem;
   line-height: 1.15;
@@ -865,6 +866,11 @@ button {
 .whats-new-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.whats-new-menu-card {
+  display: grid;
+  gap: 1rem;
 }
 
 .app-menu-layer {

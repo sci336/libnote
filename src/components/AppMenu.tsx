@@ -23,6 +23,7 @@ import { useModalFocus } from '../hooks/useModalFocus';
 import { AppMenuBackupSection } from './AppMenuBackupSection';
 import { AppMenuSettingsSection } from './AppMenuSettingsSection';
 import { LibraryIcon, PageIcon, TagIcon, TrashIcon } from './MobileIcons';
+import { ReleaseNotesHeader, ReleaseNotesList } from './WhatsNewModal';
 
 interface StorageStats {
   bookCount: number;
@@ -66,6 +67,7 @@ interface AppMenuProps {
 
 const MENU_SECTIONS: Array<{ id: AppMenuSection; label: string; summary: string }> = [
   { id: 'help', label: 'Help', summary: 'How the library, tags, search, and links work.' },
+  { id: 'whatsNew', label: "What's New", summary: 'Latest LibNote updates and fixes.' },
   { id: 'shortcuts', label: 'Shortcuts', summary: 'Current keyboard controls and customizable defaults.' },
   { id: 'settings', label: 'Settings', summary: 'Library density, shortcuts, and app behavior.' },
   { id: 'themes', label: 'Themes', summary: 'Choose the app-wide visual tone.' },
@@ -248,6 +250,10 @@ export function AppMenu({
                   <span aria-hidden="true">?</span>
                   <strong>Help / Library Guide</strong>
                 </button>
+                <button type="button" className="mobile-menu-row" onClick={() => openMobileSection('whatsNew')}>
+                  <span aria-hidden="true">!</span>
+                  <strong>What's New</strong>
+                </button>
               </div>
             </div>
           )}
@@ -315,6 +321,10 @@ function renderSection(
     return <HelpSection />;
   }
 
+  if (section === 'whatsNew') {
+    return <WhatsNewSection />;
+  }
+
   if (section === 'shortcuts') {
     return <ShortcutsSection settings={settingsProps.settings} />;
   }
@@ -336,6 +346,17 @@ function renderSection(
   }
 
   return <CreditsSection />;
+}
+
+function WhatsNewSection(): JSX.Element {
+  return (
+    <div className="menu-section-stack">
+      <section className="menu-card whats-new-menu-card" aria-labelledby="app-menu-whats-new-title">
+        <ReleaseNotesHeader titleId="app-menu-whats-new-title" />
+        <ReleaseNotesList />
+      </section>
+    </div>
+  );
 }
 
 function HelpSection(): JSX.Element {

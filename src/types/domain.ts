@@ -119,7 +119,15 @@ export type SaveStatus =
   | { state: 'saved'; lastSavedAt: number }
   | { state: 'failed'; error: StorageFailureDetails; canRetry?: boolean };
 
-export type AppMenuSection = 'help' | 'shortcuts' | 'settings' | 'themes' | 'tagManagement' | 'backup' | 'credits';
+export type AppMenuSection =
+  | 'help'
+  | 'whatsNew'
+  | 'shortcuts'
+  | 'settings'
+  | 'themes'
+  | 'tagManagement'
+  | 'backup'
+  | 'credits';
 
 /**
  * ViewState acts as the app's lightweight router.

@@ -2,6 +2,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppMenu } from './AppMenu';
+import { APP_VERSION, RELEASE_NOTES } from '../config/releaseNotes';
 import { DEFAULT_SHORTCUTS } from '../utils/shortcuts';
 import { DEFAULT_APP_SETTINGS } from '../utils/appSettings';
 import { createSafetyBackupSnapshot } from '../utils/backup';
@@ -93,7 +94,7 @@ describe('AppMenu accessibility behavior', () => {
     expect(mainMenuLabels).not.toContain('Library');
     expect(mainMenuLabels).not.toContain('All Books');
     expect(mainMenuLabels).not.toContain('Search');
-    expect(settingsMenuLabels).toEqual(['Settings', 'Appearance', 'Backups', 'Help / Library Guide']);
+    expect(settingsMenuLabels).toEqual(['Settings', 'Appearance', 'Backups', 'Help / Library Guide', "What's New"]);
 
     clickMobileMenuRow('Library View');
     expect(onSelectSection).toHaveBeenLastCalledWith('settings');
@@ -108,6 +109,24 @@ describe('AppMenu accessibility behavior', () => {
     clickMobileMenuRow('Backups');
     expect(onSelectSection).toHaveBeenLastCalledWith('backup');
     expect(container.querySelector('.mobile-app-menu-detail')?.textContent).toContain('Backup & Restore');
+
+    clickDialogButton('Back to app menu');
+    clickMobileMenuRow("What's New");
+    expect(onSelectSection).toHaveBeenLastCalledWith('whatsNew');
+    expect(container.querySelector('.mobile-app-menu-detail')?.textContent).toContain("What's New in LibNote");
+  });
+
+  it('exposes shared release notes from the app menu without changing seen update state', () => {
+    window.localStorage.setItem('libnote:lastSeenUpdateVersion', APP_VERSION);
+
+    renderAppMenu({ isOpen: true, activeSection: 'whatsNew' });
+
+    expect(container.textContent).toContain("What's New in LibNote");
+    expect(container.textContent).toContain(`Version ${APP_VERSION}`);
+    RELEASE_NOTES.forEach((note) => {
+      expect(container.textContent).toContain(note);
+    });
+    expect(window.localStorage.getItem('libnote:lastSeenUpdateVersion')).toBe(APP_VERSION);
   });
 
   it('makes merge and replace import options clear', () => {
