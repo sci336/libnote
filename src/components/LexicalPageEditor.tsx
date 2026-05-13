@@ -642,6 +642,9 @@ function LexicalToolbar({
     const preset = getPreset(size);
     editor.update(() => {
       const currentSelection = $getSelection();
+      // Opening the native select can move focus out of Lexical. Reuse the last
+      // real text selection so text-size changes still apply where the user
+      // selected text, not wherever focus happened to land.
       const selection = $isRangeSelection(currentSelection)
         ? currentSelection
         : lastRangeSelectionRef.current?.clone() ?? null;
@@ -691,6 +694,8 @@ function LexicalPasteSanitizerPlugin(): null {
             return false;
           }
 
+          // Sanitize pasted rich text before Lexical sees it so stored page HTML
+          // stays inside the formatting features LibNote supports.
           const sanitizedHtml = sanitizeClipboardToHtml(
             event.clipboardData.getData('text/html'),
             event.clipboardData.getData('text/plain')
@@ -733,6 +738,8 @@ function LexicalAutocompletePlugin({
     editor.getEditorState().read(() => {
       const next = getLexicalAutocompleteState(editor, pages, chapters, books, currentPageId, autocomplete);
       if (next && getLexicalAutocompleteDismissKey(next) === dismissedAutocompleteKeyRef.current) {
+        // Escape dismisses the current token only. Keep it hidden while the
+        // caret stays on that exact token, then allow suggestions for new input.
         setAutocomplete(null);
         return;
       }
@@ -978,6 +985,8 @@ function getLexicalAutocompleteState(
   const wikiTrigger = detectActiveWikiLinkTrigger(text, cursor);
 
   if (wikiTrigger) {
+    // Wiki-link suggestions are page-specific and exclude the current page to
+    // avoid encouraging accidental self-links.
     const suggestions = getPageTitleAutocompleteSuggestions(pages, chapters, books, wikiTrigger.query, currentPageId)
       .map((suggestion) => ({ ...suggestion, kind: 'link' as const }));
 
@@ -988,6 +997,8 @@ function getLexicalAutocompleteState(
 
   const tagTrigger = detectActiveSlashTagTrigger(text, cursor);
   if (tagTrigger) {
+    // Slash-tag suggestions reuse the library tag index so editor tags and
+    // search-bar tag filters stay in the same vocabulary.
     const suggestions = getAllTagSuggestions(pages, tagTrigger.query)
       .map((tag) => ({ kind: 'tag' as const, tag }));
 
@@ -1037,6 +1048,8 @@ function getLexicalAutocompletePosition(): LexicalAutocompletePosition {
     return fallback;
   }
 
+  // Position the menu relative to the scrollable editor pane so it tracks the
+  // caret during long-note scrolling instead of anchoring to the viewport.
   const range = selection.getRangeAt(0).cloneRange();
   const caretRect = getRangeClientRect(range);
   const paneRect = pane.getBoundingClientRect();

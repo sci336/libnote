@@ -102,6 +102,9 @@ export function getActiveSlashTagToken(raw: string, caret: number): TagTokenMatc
   let start = safeCaret;
   let end = safeCaret;
 
+  // Slash tags are token-scoped, not line-scoped. Walk only to whitespace so
+  // `/tag` suggestions work inside rich text and search input without parsing
+  // the rest of the note.
   while (start > 0 && !/\s/.test(raw[start - 1])) {
     start -= 1;
   }
@@ -156,6 +159,8 @@ export function getTagSuggestions(
   const ranked = allTags
     .filter((tag) => !excluded.has(tag))
     .map((tag) => {
+      // Ranking keeps exact and prefix matches ahead of contains matches, which
+      // makes short slash-tag queries predictable in compact suggestion menus.
       if (!query) {
         return { tag, score: 3, index: 0 };
       }

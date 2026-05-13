@@ -119,6 +119,8 @@ export function EditorToolbar({
 }: EditorToolbarProps): JSX.Element {
   const moreSummaryRef = useRef<HTMLElement | null>(null);
   const isCompactToolbar = useMediaQuery(COMPACT_TOOLBAR_MEDIA);
+  // Only render one text-size control per breakpoint so Playwright and screen
+  // readers do not see duplicate accessible controls.
   const primaryMobileActions: EditorFormatAction[] = [
     'bold',
     'italic',
@@ -165,6 +167,8 @@ export function EditorToolbar({
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             event.preventDefault();
+            // Native details has no managed focus behavior, so return focus to
+            // the trigger after keyboard dismissal.
             event.currentTarget.removeAttribute('open');
             moreSummaryRef.current?.focus();
           }

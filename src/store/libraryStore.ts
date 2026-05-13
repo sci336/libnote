@@ -14,6 +14,10 @@ export const emptyLibraryData: LibraryData = {
   pages: []
 };
 
+// LibNote stores a small normalized graph: Books contain Chapters, Chapters
+// contain Pages, and Loose Pages are pages with no chapter. Trash state is kept
+// on the same records so restore can preserve original ids and locations.
+
 /**
  * Loads persisted data and repairs fields that older snapshots may omit, such as
  * sort orders or normalized tags. Callers can treat the returned graph as the
@@ -131,6 +135,8 @@ export function moveBookToTrash(data: LibraryData, bookId: ID): LibraryData {
     data.chapters.filter((chapter) => chapter.bookId === bookId).map((chapter) => chapter.id)
   );
 
+  // Trashing a container cascades to descendants but does not remove records.
+  // `deletedFrom` keeps enough original path data for Trash labels and restore.
   return {
     ...data,
     books: data.books.map((item) =>
@@ -308,6 +314,8 @@ export function restoreBook(data: LibraryData, bookId: ID): LibraryData {
     data.chapters.filter((chapter) => chapter.bookId === bookId).map((chapter) => chapter.id)
   );
 
+  // Restoring a book brings back its chapters and pages together; otherwise the
+  // hierarchy could reappear with hidden descendants still stuck in Trash.
   return {
     ...data,
     books: data.books.map((item) => (item.id === bookId ? clearDeleted(item) : item)),
@@ -328,6 +336,8 @@ export function restoreChapter(data: LibraryData, chapterId: ID): LibraryData {
 
   const parentBook = getBook(data, chapter.bookId);
   if (parentBook?.deletedAt) {
+    // A chapter cannot be live inside a trashed book, so restoring the chapter
+    // escalates to the whole parent branch.
     return restoreBook(data, parentBook.id);
   }
 
@@ -353,6 +363,8 @@ export function restorePage(data: LibraryData, pageId: ID): LibraryData {
   const targetChapter = targetChapterId ? getChapter(data, targetChapterId) : undefined;
   const canRestoreToChapter = Boolean(targetChapter && isLiveRecord(targetChapter));
 
+  // If the original chapter is gone or still trashed, restore the page as loose
+  // instead of silently attaching it to a broken parent.
   return {
     ...data,
     pages: data.pages.map((item) =>
@@ -417,6 +429,8 @@ export function emptyTrash(data: LibraryData): LibraryData {
     pages: normalizePageOrders(
       data.pages.filter(
         (page) =>
+          // Pages under permanently removed containers must go too, even if the
+          // page row itself was not individually marked as trashed.
           isLiveRecord(page) &&
           !trashedChapterIds.has(page.chapterId ?? '') &&
           !trashedBookIds.has(page.deletedFrom?.bookId ?? '')
@@ -605,6 +619,8 @@ export function reorderBooks(
   const validIds = new Set(data.books.filter(isLiveRecord).map((book) => book.id));
   const normalizedIds = orderedBookIds.filter((id) => validIds.has(id));
 
+  // Reject partial reorder payloads so stale drag state cannot accidentally
+  // drop books from the stored order.
   if (normalizedIds.length !== validIds.size) {
     return data;
   }
@@ -642,6 +658,8 @@ export function reorderPagesInChapter(
   );
   const normalizedIds = orderedPageIds.filter((id) => validIds.has(id));
 
+  // Reorders are all-or-nothing because the incoming array represents the
+  // complete sibling order for one chapter.
   if (normalizedIds.length !== validIds.size) {
     return data;
   }

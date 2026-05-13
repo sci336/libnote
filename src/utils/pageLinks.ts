@@ -164,6 +164,8 @@ export function getPageTitleAutocompleteSuggestions(
   const limit = options?.limit ?? 6;
   const titleCounts = new Map<string, number>();
 
+  // Duplicate page titles are valid in the library. Suggestions keep the page
+  // id and path label so the UI can disambiguate without changing link syntax.
   for (const page of pages) {
     if (page.deletedAt || page.id === currentPageId) {
       continue;
@@ -245,6 +247,8 @@ export function detectActiveWikiLinkTrigger(text: string, cursorPosition: number
   }
 
   const query = safeText.slice(triggerIndex + 2, cursor);
+  // Autocomplete only opens for one unfinished bracket link in the current text
+  // node. Newlines or nested brackets usually mean the user is typing prose.
   if (/[\r\n]/.test(query) || query.includes('[') || query.includes(']')) {
     return null;
   }
@@ -319,6 +323,8 @@ export function parseContentIntoSegments(
 
     const matchingPages = getBracketLinkMatchesFromLookup(displayText, titleLookup);
     const targetPage = matchingPages.length === 1 ? matchingPages[0] : null;
+    // Ambiguous and missing links remain visible as link segments with no target
+    // id so the preview and Page Info can explain what needs attention.
     segments.push({
       type: 'link',
       raw,
@@ -448,6 +454,8 @@ function resolveUniqueBracketLinkFromLookup(
   titleLookup: PageTitleLookup
 ): Page | null {
   const matches = getBracketLinkMatchesFromLookup(linkText, titleLookup);
+  // A wiki link resolves only when the normalized title maps to one page.
+  // Duplicate titles are treated as ambiguous instead of guessed.
   return matches.length === 1 ? matches[0] : null;
 }
 

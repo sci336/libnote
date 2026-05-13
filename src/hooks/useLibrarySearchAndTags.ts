@@ -60,6 +60,8 @@ export function useLibrarySearchAndTags({
     setRecentTags((currentTags) => {
       const nextTags = [...currentTags];
 
+      // Reinsert tags at the front without duplicates so recent tag chips behave
+      // like a small MRU list across typed filters and clicked tags.
       for (const tag of [...normalizedTags].reverse()) {
         const existingIndex = nextTags.indexOf(tag);
         if (existingIndex !== -1) {
@@ -90,6 +92,8 @@ export function useLibrarySearchAndTags({
     }
 
     if (view.type !== 'tag') {
+      // Preserve the non-tag origin once, even when tag mode starts from search,
+      // so removing the last active tag exits to the place the user came from.
       setTagOriginView(view.type === 'search' ? searchOriginView : view);
     }
 

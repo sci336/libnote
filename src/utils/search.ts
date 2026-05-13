@@ -224,6 +224,8 @@ export function searchLibraryEntities(query: string, index: SearchIndex): Search
   }
 
   if (mode.type === 'tag') {
+    // Tag-only search is an intersection filter over page tags, not a full-text
+    // search for slash-prefixed words in note content.
     return index.pages
       .filter((record) => pageHasAllTags(record, mode.tags))
       .sort((left, right) => left.title.localeCompare(right.title))
@@ -240,6 +242,9 @@ export function searchLibraryEntities(query: string, index: SearchIndex): Search
   const results: SearchResult[] = [];
 
   if (mode.type === 'text') {
+    // In plain text mode, books and chapters can rank beside pages. Mixed
+    // text+tag mode intentionally limits results to pages because only pages
+    // carry tags.
     for (const book of index.books) {
       const score = scoreTitleMatch(book.normalizedTitle, normalizedQuery, tokens);
       if (!score) {
@@ -613,6 +618,8 @@ function scoreTitleMatch(
   }
 
   if (normalizedTitle === normalizedQuery) {
+    // Ranking favors navigation targets with exact titles, then title phrases,
+    // then content hits. Stable tie-breakers are handled after scoring.
     return { value: 5000, matchKind: 'title-exact' };
   }
 

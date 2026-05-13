@@ -123,6 +123,8 @@ export function AppMenu({
 
   useEffect(() => {
     if (!isOpen) {
+      // The mobile menu has a two-pane drill-in layout. Reset it on close so
+      // reopening always starts at the main menu, matching desktop navigation.
       setMobileDetailSection(null);
     }
   }, [isOpen]);
@@ -705,6 +707,8 @@ function TagManagementSection({
   const filteredTags = tagSummaries
     .filter((summary) => !normalizedSearch || summary.tag.includes(normalizedSearch))
     .sort((left, right) => {
+      // Tag management stays deterministic: usage count only affects the
+      // explicit "most used" view, then names break ties alphabetically.
       if (sortMode === 'mostUsed' && left.pageCount !== right.pageCount) {
         return right.pageCount - left.pageCount;
       }

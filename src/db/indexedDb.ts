@@ -32,6 +32,8 @@ function openDb(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => {
       try {
         const db = request.result;
+        // One key-value store is enough because LibNote persists whole
+        // snapshots rather than querying individual books, chapters, or pages.
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME);
         }
@@ -277,6 +279,8 @@ function createSettler<T>(
     db.close();
   }
 
+  // IndexedDB can report both request and transaction failures. Settle once and
+  // close the connection so duplicate events do not race callers.
   return {
     resolve(value) {
       if (settled) {

@@ -2,6 +2,9 @@ const CACHE_PREFIX = 'libnote-app-shell-';
 const CACHE_NAME = `${CACHE_PREFIX}v3`;
 const SCOPE_PATH = new URL(self.registration.scope).pathname;
 const INDEX_URL = `${SCOPE_PATH}index.html`;
+// Cache only the app shell and same-origin build assets. User notes live in
+// IndexedDB, not the service worker cache, so clearing caches should not remove
+// the library itself.
 const APP_SHELL = [
   SCOPE_PATH,
   INDEX_URL,
@@ -21,6 +24,8 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
+          // Keep one app-shell cache version so updates do not keep serving old
+          // bundled assets after a new service worker activates.
           .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
           .map((key) => caches.delete(key))
       )
@@ -56,6 +61,8 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (response.ok) {
             const clone = response.clone();
+            // Refresh cached index on successful navigations so the next offline
+            // launch uses the newest shell the browser has seen.
             void caches.open(CACHE_NAME).then((cache) => cache.put(INDEX_URL, clone));
           }
 
@@ -76,6 +83,8 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (
             response.ok &&
+            // Development-only Vite modules should not be cached into the
+            // production app shell cache.
             !url.pathname.startsWith(`${SCOPE_PATH}@vite`) &&
             !url.pathname.startsWith(`${SCOPE_PATH}src/`) &&
             url.pathname !== SCOPE_PATH &&

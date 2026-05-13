@@ -50,6 +50,8 @@ export function useLibraryPageActions({
       return;
     }
 
+    // Recent Pages is user-facing navigation, not durable history. Prune ids
+    // after deletes/restores/imports so the sidebar never links to missing pages.
     const cleanedRecentPageIds = recentPageIds.filter((pageId) => livePageById.has(pageId));
 
     if (!areStringArraysEqual(cleanedRecentPageIds, recentPageIds)) {
@@ -88,6 +90,8 @@ export function useLibraryPageActions({
     }
 
     const isLoose = isLoosePage(sourcePage);
+    // Wiki-link page creation inherits the source page's container. Loose notes
+    // stay loose, while chapter pages create siblings in the same chapter.
     const result = createPage(data, {
       chapterId: isLoose ? null : sourcePage.chapterId,
       isLoose,

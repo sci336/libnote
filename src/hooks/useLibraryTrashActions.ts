@@ -63,6 +63,8 @@ export function useLibraryTrashActions({
     updateData(movePageToTrash(data, page.id));
     setSettings((currentSettings) => ({
       ...currentSettings,
+      // Trashed pages should leave Recent Pages immediately; restore can make
+      // them navigable again, but the app should not surface trashed work there.
       recentPageIds: currentSettings.recentPageIds.filter((pageId) => pageId !== page.id)
     }));
     replaceView(getViewAfterPageTrash(page));
@@ -125,6 +127,8 @@ export function useLibraryTrashActions({
 }
 
 function getViewAfterPageTrash(page: Page): ViewState {
+  // After deleting the active page, move to the closest still-live parent so the
+  // editor is never left showing a trashed page as if it were editable.
   if (isLoosePage(page)) {
     return { type: 'loosePages' };
   }

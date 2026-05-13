@@ -150,6 +150,9 @@ export function useLibraryBackupActions({
     const previousData = latestDataRef.current;
     const previousSettings = latestSettingsRef.current;
     const safetySnapshot = previousData ? createSafetyBackupSnapshot(previousData, previousSettings) : null;
+    // A browser-local recovery snapshot is written before replacing IndexedDB.
+    // It is intentionally separate from the downloadable safety backup so a
+    // failed restore can still be recovered after refresh.
     const recoverySnapshot: RestoreRecoverySnapshot | null = previousData
       ? {
           kind: 'restore-recovery-snapshot',
@@ -187,6 +190,9 @@ export function useLibraryBackupActions({
 
       if (recoverySnapshot) {
         try {
+          // Cleanup is part of the restore transaction from the user's point of
+          // view; if it fails, keep the warning visible instead of silently
+          // leaving stale recovery state behind.
           await clearRestoreRecoverySnapshot();
         } catch (error) {
           throw createRestoreStageError('cleanup', error);
@@ -251,6 +257,8 @@ export function useLibraryBackupActions({
     setRestoreSafetySnapshot(safetySnapshot);
 
     try {
+      // Merge uses the same recovery path as full restore because it still
+      // overwrites the single IndexedDB library snapshot after composing data.
       await saveRestoreRecoverySnapshot(recoverySnapshot);
       setRestoreRecoverySnapshot(recoverySnapshot);
 
@@ -312,6 +320,8 @@ export function useLibraryBackupActions({
     }
 
     try {
+      // Recovery settings are normalized against the recovered page ids so the
+      // Recent Pages list cannot point at pages missing from the restored graph.
       const recoverySettings = filterRecentPageIdsForLibrary(
         normalizeAppSettings(snapshot.settings),
         snapshot.data.pages.map((page) => page.id)
@@ -443,6 +453,8 @@ function createRestoreStageError(stage: RestoreStage, cause: unknown): RestoreSt
   return error;
 }
 
+// Stage-specific errors let the UI tell users whether a restore failed before
+// data replacement, during settings save, or while clearing the recovery copy.
 function isRestoreStageError(error: unknown): error is RestoreStageError {
   return error instanceof Error && 'stage' in error && 'cause' in error;
 }

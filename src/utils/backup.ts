@@ -12,6 +12,9 @@ const LEGACY_BACKUP_APP_NAMES = new Set(['LibNote', 'iNote']);
 const BACKUP_VERSION = 2;
 const SUPPORTED_BACKUP_VERSIONS = new Set([1, 2]);
 
+// Backups keep both a modern `data` block and top-level arrays so older exports
+// can still be imported while new exports preserve settings and metadata.
+
 export interface LibraryBackupPayload {
   app: string;
   appName: string;
@@ -131,6 +134,8 @@ export function validateBackupPayload(input: unknown): ValidatedBackupPayload {
       throw new Error('This does not look like a LibNote backup file.');
     }
 
+    // Older LibNote-style backups may not have app metadata. Accept them only
+    // when the required library arrays are present and warn before import.
     warnings.push('Backup metadata was missing, so this was treated as an older LibNote backup.');
   }
 
@@ -274,6 +279,8 @@ export function mergeBackupIntoLibrary(
   const currentLiveChaptersById = new Map(workingData.chapters.filter(isLiveRecord).map((chapter) => [chapter.id, chapter]));
   const currentLivePagesById = new Map(workingData.pages.filter(isLiveRecord).map((page) => [page.id, page]));
 
+  // Backup merge is intentionally additive. It avoids deleting local data
+  // because imported files may be old, partial, or from another browser.
   for (const importedBook of importedData.books) {
     if (!isLiveRecord(importedBook)) {
       continue;
@@ -462,6 +469,8 @@ function findUniqueTitleMatch<T extends { title: string }>(
   const currentMatches = currentSiblings.filter((item) => normalizeMatchTitle(item.title) === normalizedTitle);
   const importedMatches = importedSiblings.filter((item) => normalizeMatchTitle(item.title) === normalizedTitle);
 
+  // Title matching is only trusted when both sides have a single candidate.
+  // Duplicate titles stay separate so imports do not guess the wrong parent.
   if (currentMatches.length === 1 && importedMatches.length === 1) {
     return { status: 'matched', item: currentMatches[0] };
   }
@@ -483,6 +492,8 @@ function addConflictPage(
 ): void {
   const siblings = data.pages.filter((page) => isLiveRecord(page) && pageLocationsMatch(page, targetChapterId, isLoose));
   const title = createImportedTitle(importedPage.title, siblings.map((page) => page.title));
+  // Same id/title with different content means both pages matter. Keep the
+  // imported copy with a visible suffix instead of overwriting local writing.
   const addedPage = clonePageForImport(
     importedPage,
     targetChapterId,
@@ -695,6 +706,8 @@ function parseLibraryData(input: unknown, warnings: string[]): LibraryData {
   const validPages = pages.map((page) => {
     if (page.chapterId !== null && !validChapterIds.has(page.chapterId)) {
       if (chapterIds.has(page.chapterId) || page.isLoose) {
+        // If a page references a chapter that existed in the file but could not
+        // be restored, preserve the page as loose instead of dropping content.
         warnings.push(`Page "${page.title}" was restored as a loose page because its chapter was unavailable.`);
         return { ...page, chapterId: null, isLoose: true };
       }

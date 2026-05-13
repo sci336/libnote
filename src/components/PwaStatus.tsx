@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { PWA_UPDATE_READY_EVENT, activateWaitingServiceWorker } from '../utils/pwa';
 
 export function PwaStatus(): JSX.Element | null {
+  // PWA status is advisory only. It reflects browser connectivity/update events
+  // without implying that local IndexedDB data is synced anywhere.
   const [isOffline, setIsOffline] = useState(() =>
     typeof navigator !== 'undefined' && 'onLine' in navigator ? !navigator.onLine : false
   );

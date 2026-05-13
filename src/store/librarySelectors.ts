@@ -29,6 +29,9 @@ export interface LibraryDerivedData {
 }
 
 export function buildLibraryDerivedData(data: LibraryData): LibraryDerivedData {
+  // Build all lookup maps in one pass per entity type. Most views need the same
+  // live/trashed splits, counts, and parent-child lists, so centralizing them
+  // keeps components from re-deriving inconsistent library shapes.
   const bookById = new Map<string, Book>();
   const chapterById = new Map<string, Chapter>();
   const pageById = new Map<string, Page>();
@@ -85,6 +88,8 @@ export function buildLibraryDerivedData(data: LibraryData): LibraryDerivedData {
     }
 
     if (isLoosePage(page)) {
+      // Loose Pages are first-class pages, but they do not participate in the
+      // Books -> Chapters -> Pages hierarchy or chapter-local ordering.
       loosePages.push(page);
       continue;
     }
@@ -556,6 +561,8 @@ function buildTrashItemsFromMaps(
 ): TrashItem[] {
   const items: TrashItem[] = [];
 
+  // Trash rows are presentation models built from deleted records plus their
+  // saved origin metadata. They are not persisted separately.
   for (const book of trashedBooks) {
     if (!book.deletedAt) {
       continue;
@@ -595,6 +602,8 @@ function buildTrashItemsFromMaps(
     const sourceBook = sourceBookId ? bookById.get(sourceBookId) : undefined;
     const wasLoose = page.deletedFrom?.wasLoose ?? page.isLoose;
 
+    // Pages can outlive their original parent in Trash, so labels fall back
+    // gracefully when the chapter or book has since been removed.
     items.push({
       id: page.id,
       type: wasLoose ? 'loosePage' : 'page',

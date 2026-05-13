@@ -171,6 +171,9 @@ export function useLibraryApp() {
       setRestoreRecoverySnapshot(recoverySnapshot);
 
       if (recoverySnapshot) {
+        // A restore may have replaced IndexedDB before the UI finished cleanup.
+        // Surface the recovery copy loudly so the user can roll back instead of
+        // discovering the snapshot only after another failed save.
         setBackupStatus({
           tone: 'warning',
           message:
@@ -434,6 +437,8 @@ export function useLibraryApp() {
 
   function updateData(nextData: LibraryData): void {
     shouldAutosaveDataRef.current = true;
+    // Keep failed save status visible until a current save succeeds, so users
+    // do not lose warning context after another edit.
     setSaveStatus((currentStatus) => (currentStatus.state === 'failed' ? currentStatus : { state: 'unsaved' }));
     setData(nextData);
   }
@@ -453,6 +458,8 @@ export function useLibraryApp() {
         await saveAppSettings(latestSettingsRef.current);
       }
 
+      // Older writes can finish after newer edits. Only the latest request for
+      // the current data version is allowed to clear the unsaved/failed state.
       if (requestId === saveRequestIdRef.current && dataVersion === latestDataVersionRef.current) {
         shouldAutosaveDataRef.current = false;
         setSaveStatus({ state: 'saved', lastSavedAt: Date.now() });
@@ -488,6 +495,8 @@ export function useLibraryApp() {
   }
 
   function resetAfterLibraryReplacement(nextData: LibraryData, nextSettings: AppSettings): void {
+    // Restore and recovery replace the whole library graph. Reset route-scoped
+    // UI state so stale page/chapter ids from the old graph cannot stay active.
     latestDataRef.current = nextData;
     latestSettingsRef.current = nextSettings;
     shouldAutosaveDataRef.current = false;
@@ -512,6 +521,8 @@ export function useLibraryApp() {
     const currentView = currentViewRef.current;
     const shouldPushHistory = options?.pushHistory ?? !areViewsEqual(currentView, nextView);
 
+    // The app uses lightweight view objects rather than a router. Keep an
+    // explicit stack so search/tag flows can still return to their entry point.
     if (shouldPushHistory && !areViewsEqual(currentView, nextView)) {
       const nextHistory = [...navigationHistoryRef.current, currentView];
       navigationHistoryRef.current = nextHistory;
