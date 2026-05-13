@@ -505,7 +505,6 @@ function HelpSection(): JSX.Element {
         <ul className="menu-list">
           <li>Tag search is exact-match and lowercase-based, so <code>/History</code> becomes <code>/history</code>.</li>
           <li>Links and backlinks resolve from <code>[[Page Title]]</code> links. Duplicate page titles are treated as ambiguous so you can choose the intended page.</li>
-          <li>Global shortcuts can be changed in Settings, but browser and system-reserved combinations are blocked.</li>
           <li>Recent Pages is limited to {RECENT_PAGES_LIMIT} pages and does not have a setting yet.</li>
         </ul>
       </GuideSection>

@@ -457,7 +457,6 @@ Exact npm scripts:
 - Lexical for the default rich text editor.
 - IndexedDB for local persistence.
 - Web App Manifest.
-- Production service worker for the PWA/offline shell.
 - Vitest with jsdom for tests.
 - Playwright for browser-level Lexical editor checks.
 

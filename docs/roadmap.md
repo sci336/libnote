@@ -6,7 +6,7 @@ LibNote should keep the home/library shelf dominant. Future work should strength
 
 ## Current State Summary
 
-LibNote already has a coherent library-first product shape. The app organizes notes as books, chapters, pages, and loose pages; stores the library locally in IndexedDB; autosaves changes; supports Trash, restore, backup export/import preview, search, slash tags, wikilinks, backlinks, rich text editing, app settings, themes, book covers, and a production PWA shell.
+LibNote already has a coherent library-first product shape. The app organizes notes as books, chapters, pages, and loose pages; stores the library locally in IndexedDB; autosaves changes; supports Trash, restore, backup export/import preview, additive backup merge, search, slash tags, wikilinks, backlinks, rich text editing, app settings, themes, book covers, and a production PWA shell.
 
 The main implementation is concentrated in `src/hooks/useLibraryApp.ts`, the focused hooks under `src/hooks/`, `src/store/libraryStore.ts`, `src/store/librarySelectors.ts`, `src/components/LexicalPageEditor.tsx`, and the utility modules under `src/utils/`. `useLibraryApp` is now primarily the coordinator for hydration, persistence, derived data, view navigation, and history. Search/tags, tag actions, page actions, chapter actions, book actions, settings actions, App Menu state, shortcuts, backup actions, and trash helpers live in focused hooks. Navigation and history intentionally remain in `useLibraryApp`. The old contentEditable `PageEditor` remains as a fallback path behind `USE_LEXICAL_EDITOR = false`.
 
@@ -56,11 +56,11 @@ The project also has useful regression coverage: store tests, selector tests, se
 - Keep the implemented pre-restore safety snapshot covered by tests and manual QA.
 - Improve backup restore confirmation copy and make restore failure states more recoverable.
 - Consider a durable persisted recovery journal or full last-known-good layer for failures that happen outside the current tab/session.
-- Add backup reminder and export/import manual QA to the release checklist.
+- Add backup reminder and export/replace/merge manual QA to the release checklist.
 - Confirm Trash restore behavior for nested trashed books/chapters/pages and missing parent cases.
 - Add tests for interrupted or failed restore writes and for recent-page cleanup after permanent deletion.
 
-**What not to build:** Cloud sync, accounts, collaboration, merge import, dashboard recovery widgets, or duplicate backup controls outside App Menu.
+**What not to build:** Cloud sync, accounts, collaboration, bidirectional conflict-resolution sync/merge, dashboard recovery widgets, or duplicate backup controls outside App Menu.
 
 **Why now:** This is the foundation for every future editor, search, and library workflow.
 
