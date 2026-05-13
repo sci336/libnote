@@ -11,6 +11,7 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { MobileTopHeader } from './components/MobileTopHeader';
 import { SaveStatusIndicator } from './components/SaveStatusIndicator';
 import { PwaStatus } from './components/PwaStatus';
+import { WhatsNewModal } from './components/WhatsNewModal';
 import { useLibraryApp } from './hooks/useLibraryApp';
 import { AppLayout } from './layouts/AppLayout';
 import { getChapterCountForBookFromDerived, getPageCountForChapterFromDerived } from './store/librarySelectors';
@@ -290,6 +291,7 @@ export default function App(): JSX.Element {
         onNavigateLoosePages={app.handleOpenLoosePages}
         onNavigateTrash={app.handleOpenTrash}
       />
+      <WhatsNewModal />
     </AppLayout>
   );
 }

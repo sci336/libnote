@@ -800,6 +800,73 @@ button {
   filter: brightness(1.04);
 }
 
+.whats-new-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: clamp(0.85rem, 2vw, 1.5rem);
+}
+
+.whats-new-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(17, 24, 39, 0.22);
+  backdrop-filter: blur(5px);
+}
+
+.whats-new-panel {
+  position: relative;
+  z-index: 1;
+  width: min(32rem, 100%);
+  max-height: min(34rem, calc(100dvh - 2rem));
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: clamp(1rem, 2.5vw, 1.25rem);
+  border: 1px solid var(--border);
+  border-radius: 1.1rem;
+  background: var(--menu-panel-bg);
+  color: var(--text-primary);
+  box-shadow: 0 24px 80px rgba(17, 24, 39, 0.18);
+  overflow: hidden;
+}
+
+.whats-new-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.whats-new-header h2 {
+  margin: 0.18rem 0 0;
+  font-size: 1.45rem;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.whats-new-list {
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0 0 0 1.15rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.whats-new-list li + li {
+  margin-top: 0.5rem;
+}
+
+.whats-new-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .app-menu-layer {
   position: fixed;
   inset: 0;
