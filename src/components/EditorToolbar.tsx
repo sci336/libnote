@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export type EditorFormatAction =
   | 'undo'
@@ -48,6 +48,68 @@ const TOOLBAR_BUTTONS: Array<{
   { action: 'checkbox', label: 'Checkbox list', title: 'Checkbox list', text: '[] Task' }
 ];
 
+const COMPACT_TOOLBAR_MEDIA = '(max-width: 640px)';
+
+function canMatchMedia(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function';
+}
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => (canMatchMedia() ? window.matchMedia(query).matches : false));
+
+  useEffect(() => {
+    if (!canMatchMedia()) {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia(query);
+    const handleChange = () => {
+      setMatches(mediaQuery.matches);
+    };
+
+    handleChange();
+    mediaQuery.addEventListener('change', handleChange);
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+    };
+  }, [query]);
+
+  return matches;
+}
+
+interface TextSizeControlProps {
+  activeTextSize: TextSizePresetId;
+  className: string;
+  onBeforeTextSizeChange: () => void;
+  onTextSizeChange: (size: TextSizePresetId) => void;
+}
+
+function TextSizeControl({
+  activeTextSize,
+  className,
+  onBeforeTextSizeChange,
+  onTextSizeChange
+}: TextSizeControlProps): JSX.Element {
+  return (
+    <label className={className}>
+      <span>Text size</span>
+      <select
+        value={activeTextSize}
+        aria-label="Text size"
+        onMouseDown={onBeforeTextSizeChange}
+        onFocus={onBeforeTextSizeChange}
+        onChange={(event) => onTextSizeChange(event.target.value as TextSizePresetId)}
+      >
+        {TEXT_SIZE_PRESETS.map((preset) => (
+          <option key={preset.id} value={preset.id}>
+            {preset.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export function EditorToolbar({
   onFormat,
   activeTextSize,
@@ -56,6 +118,7 @@ export function EditorToolbar({
   activeFormats = {}
 }: EditorToolbarProps): JSX.Element {
   const moreSummaryRef = useRef<HTMLElement | null>(null);
+  const isCompactToolbar = useMediaQuery(COMPACT_TOOLBAR_MEDIA);
   const primaryMobileActions: EditorFormatAction[] = [
     'bold',
     'italic',
@@ -71,22 +134,14 @@ export function EditorToolbar({
 
   return (
     <div className="editor-toolbar" role="toolbar" aria-label="Text formatting">
-      <label className="editor-text-size-control">
-        <span>Text size</span>
-        <select
-          value={activeTextSize}
-          aria-label="Text size"
-          onMouseDown={onBeforeTextSizeChange}
-          onFocus={onBeforeTextSizeChange}
-          onChange={(event) => onTextSizeChange(event.target.value as TextSizePresetId)}
-        >
-          {TEXT_SIZE_PRESETS.map((preset) => (
-            <option key={preset.id} value={preset.id}>
-              {preset.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      {!isCompactToolbar ? (
+        <TextSizeControl
+          activeTextSize={activeTextSize}
+          className="editor-text-size-control"
+          onBeforeTextSizeChange={onBeforeTextSizeChange}
+          onTextSizeChange={onTextSizeChange}
+        />
+      ) : null}
       {TOOLBAR_BUTTONS.map((button) => (
         <button
           key={button.action}
@@ -119,22 +174,14 @@ export function EditorToolbar({
           ...
         </summary>
         <div className="editor-toolbar-more-menu">
-          <label className="editor-toolbar-more-size">
-            <span>Text size</span>
-            <select
-              value={activeTextSize}
-              aria-label="Text size"
-              onMouseDown={onBeforeTextSizeChange}
-              onFocus={onBeforeTextSizeChange}
-              onChange={(event) => onTextSizeChange(event.target.value as TextSizePresetId)}
-            >
-              {TEXT_SIZE_PRESETS.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          {isCompactToolbar ? (
+            <TextSizeControl
+              activeTextSize={activeTextSize}
+              className="editor-toolbar-more-size"
+              onBeforeTextSizeChange={onBeforeTextSizeChange}
+              onTextSizeChange={onTextSizeChange}
+            />
+          ) : null}
           {overflowMobileActions.map((button) => (
             <button
               key={button.action}
