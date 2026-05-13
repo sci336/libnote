@@ -22,7 +22,7 @@ import { parseSingleTagInput, type TagSummary } from '../utils/tags';
 import { useModalFocus } from '../hooks/useModalFocus';
 import { AppMenuBackupSection } from './AppMenuBackupSection';
 import { AppMenuSettingsSection } from './AppMenuSettingsSection';
-import { BookIcon, LibraryIcon, PageIcon, SearchIcon, TagIcon, TrashIcon } from './MobileIcons';
+import { LibraryIcon, PageIcon, TagIcon, TrashIcon } from './MobileIcons';
 
 interface StorageStats {
   bookCount: number;
@@ -60,9 +60,7 @@ interface AppMenuProps {
   onCancelBackupImport: () => void;
   onClose: () => void;
   onSelectSection: (section: AppMenuSection) => void;
-  onNavigateLibrary?: () => void;
   onNavigateLoosePages?: () => void;
-  onNavigateSearch?: () => void;
   onNavigateTrash?: () => void;
 }
 
@@ -104,9 +102,7 @@ export function AppMenu({
   onCancelBackupImport,
   onClose,
   onSelectSection,
-  onNavigateLibrary = () => undefined,
   onNavigateLoosePages = () => undefined,
-  onNavigateSearch = () => undefined,
   onNavigateTrash = () => undefined
 }: AppMenuProps): JSX.Element | null {
   const panelRef = useRef<HTMLElement | null>(null);
@@ -213,29 +209,25 @@ export function AppMenu({
               </div>
 
               <div className="mobile-menu-list" role="list">
-                <button type="button" className="mobile-menu-row is-primary" onClick={() => navigateFromMobileMenu(onNavigateLibrary)}>
-                  <LibraryIcon className="mobile-menu-icon" />
-                  <strong>Library</strong>
-                </button>
                 <button type="button" className="mobile-menu-row" onClick={() => navigateFromMobileMenu(onNavigateLoosePages)}>
                   <PageIcon className="mobile-menu-icon" />
                   <strong>Loose Pages</strong>
-                </button>
-                <button type="button" className="mobile-menu-row" onClick={() => navigateFromMobileMenu(onNavigateLibrary)}>
-                  <BookIcon className="mobile-menu-icon" />
-                  <strong>All Books</strong>
                 </button>
                 <button type="button" className="mobile-menu-row" onClick={() => openMobileSection('tagManagement')}>
                   <TagIcon className="mobile-menu-icon" />
                   <strong>Tags</strong>
                 </button>
-                <button type="button" className="mobile-menu-row" onClick={() => navigateFromMobileMenu(onNavigateSearch)}>
-                  <SearchIcon className="mobile-menu-icon" />
-                  <strong>Search</strong>
-                </button>
                 <button type="button" className="mobile-menu-row" onClick={() => navigateFromMobileMenu(onNavigateTrash)}>
                   <TrashIcon className="mobile-menu-icon" />
                   <strong>Trash</strong>
+                </button>
+                <button type="button" className="mobile-menu-row" onClick={() => openMobileSection('settings')}>
+                  <LibraryIcon className="mobile-menu-icon" />
+                  <strong>Library View</strong>
+                </button>
+                <button type="button" className="mobile-menu-row" onClick={() => openMobileSection('shortcuts')}>
+                  <span aria-hidden="true">⌘</span>
+                  <strong>Shortcuts</strong>
                 </button>
               </div>
 

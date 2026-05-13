@@ -287,9 +287,7 @@ export default function App(): JSX.Element {
         onCancelBackupImport={app.handleCancelBackupImport}
         onClose={app.closeAppMenu}
         onSelectSection={app.navigateAppMenu}
-        onNavigateLibrary={app.navigateHome}
         onNavigateLoosePages={app.handleOpenLoosePages}
-        onNavigateSearch={app.handleSearchFocus}
         onNavigateTrash={app.handleOpenTrash}
       />
     </AppLayout>

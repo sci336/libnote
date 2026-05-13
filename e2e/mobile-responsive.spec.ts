@@ -23,10 +23,37 @@ test.describe('mobile and narrow viewport flows', () => {
     await page.getByRole('button', { name: 'Open app menu' }).click();
     const appMenu = page.getByRole('dialog', { name: 'Library Guide' });
     await expect(appMenu).toBeVisible();
-    await expect(appMenu.getByRole('button', { name: 'Library', exact: true })).toBeVisible();
-    await expect(appMenu.getByRole('button', { name: 'Loose Pages', exact: true })).toBeVisible();
-    await expect(appMenu.getByRole('button', { name: 'All Books', exact: true })).toBeVisible();
+    await expect(appMenu.getByRole('button', { name: 'Library', exact: true })).toHaveCount(0);
+    await expect(appMenu.getByRole('button', { name: 'All Books', exact: true })).toHaveCount(0);
+    await expect(appMenu.getByRole('button', { name: 'Search', exact: true })).toHaveCount(0);
+
+    const mainMenu = appMenu.locator('.mobile-menu-list').first();
+    const settingsMenu = appMenu.locator('.mobile-menu-list').nth(1);
+    await expect(mainMenu.getByRole('button', { name: 'Loose Pages', exact: true })).toBeVisible();
+    await expect(mainMenu.getByRole('button', { name: 'Tags', exact: true })).toBeVisible();
+    await expect(mainMenu.getByRole('button', { name: 'Trash', exact: true })).toBeVisible();
+    await expect(mainMenu.getByRole('button', { name: 'Library View', exact: true })).toBeVisible();
+    await expect(mainMenu.getByRole('button', { name: 'Shortcuts', exact: true })).toBeVisible();
     await expect(appMenu.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
+    await expect(settingsMenu.getByRole('button', { name: 'Appearance', exact: true })).toBeVisible();
+    await expect(settingsMenu.getByRole('button', { name: 'Backups', exact: true })).toBeVisible();
+    await expect(settingsMenu.getByRole('button', { name: 'Help / Library Guide', exact: true })).toBeVisible();
+
+    await mainMenu.getByRole('button', { name: 'Library View', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Settings' }).first()).toBeVisible();
+    await expect(
+      appMenu.locator('.mobile-app-menu-detail-body').getByText('Choose how the home library displays your books')
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Back to app menu' }).click();
+
+    await appMenu.locator('.mobile-menu-list').first().getByRole('button', { name: 'Shortcuts', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Shortcuts' })).toBeVisible();
+    await expect(appMenu.locator('.mobile-app-menu-detail-body').getByText('Keyboard controls')).toBeVisible();
+    await page.getByRole('button', { name: 'Back to app menu' }).click();
+
+    await appMenu.locator('.mobile-menu-list').nth(1).getByRole('button', { name: 'Backups', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Backup & Restore' }).first()).toBeVisible();
+    await page.getByRole('button', { name: 'Back to app menu' }).click();
 
     await appMenu.getByRole('button', { name: 'Settings', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Settings' }).first()).toBeVisible();

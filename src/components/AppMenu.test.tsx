@@ -80,6 +80,36 @@ describe('AppMenu accessibility behavior', () => {
     expect(container.querySelector('button[aria-label="Close app menu"]')).not.toBeNull();
   });
 
+  it('uses focused mobile menu rows for navigation and settings shortcuts', () => {
+    const onSelectSection = vi.fn();
+
+    renderAppMenu({ isOpen: true, onSelectSection });
+
+    const menuLists = Array.from(container.querySelectorAll<HTMLElement>('.mobile-menu-list'));
+    const mainMenuLabels = getMobileMenuLabels(menuLists[0]);
+    const settingsMenuLabels = getMobileMenuLabels(menuLists[1]);
+
+    expect(mainMenuLabels).toEqual(['Loose Pages', 'Tags', 'Trash', 'Library View', 'Shortcuts']);
+    expect(mainMenuLabels).not.toContain('Library');
+    expect(mainMenuLabels).not.toContain('All Books');
+    expect(mainMenuLabels).not.toContain('Search');
+    expect(settingsMenuLabels).toEqual(['Settings', 'Appearance', 'Backups', 'Help / Library Guide']);
+
+    clickMobileMenuRow('Library View');
+    expect(onSelectSection).toHaveBeenLastCalledWith('settings');
+    expect(container.querySelector('.mobile-app-menu-detail')?.textContent).toContain('Library View');
+
+    clickDialogButton('Back to app menu');
+    clickMobileMenuRow('Shortcuts');
+    expect(onSelectSection).toHaveBeenLastCalledWith('shortcuts');
+    expect(container.querySelector('.mobile-app-menu-detail')?.textContent).toContain('Keyboard controls');
+
+    clickDialogButton('Back to app menu');
+    clickMobileMenuRow('Backups');
+    expect(onSelectSection).toHaveBeenLastCalledWith('backup');
+    expect(container.querySelector('.mobile-app-menu-detail')?.textContent).toContain('Backup & Restore');
+  });
+
   it('makes merge and replace import options clear', () => {
     renderAppMenu({ isOpen: true, activeSection: 'backup' });
 
@@ -208,6 +238,32 @@ describe('AppMenu accessibility behavior', () => {
           onSelectSection={overrides.onSelectSection ?? vi.fn()}
         />
       );
+    });
+  }
+
+  function getMobileMenuLabels(list: HTMLElement | undefined): string[] {
+    return Array.from(list?.querySelectorAll<HTMLButtonElement>('.mobile-menu-row') ?? []).map((button) =>
+      button.querySelector('strong')?.textContent?.trim() ?? ''
+    );
+  }
+
+  function clickMobileMenuRow(label: string): void {
+    const button = Array.from(container.querySelectorAll<HTMLButtonElement>('.mobile-menu-row')).find(
+      (item) => item.querySelector('strong')?.textContent?.trim() === label
+    );
+
+    act(() => {
+      button?.click();
+    });
+  }
+
+  function clickDialogButton(label: string): void {
+    const button = Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(
+      (item) => item.getAttribute('aria-label') === label || item.textContent?.trim() === label
+    );
+
+    act(() => {
+      button?.click();
     });
   }
 });
