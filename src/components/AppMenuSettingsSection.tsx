@@ -177,8 +177,8 @@ export function AppMenuSettingsSection({
             <span className="search-result-badge">Local data</span>
           </div>
           <p>
-            LibNote stores data locally in this browser. Exporting creates a JSON backup, and importing replaces the
-            current library after validation and confirmation.
+            LibNote stores data locally in this browser. Exporting creates a JSON backup, and importing can replace or
+            additively merge into the current library after validation and confirmation.
           </p>
           <p className="settings-warning">
             Your notes are saved in this browser. Export backups regularly, especially before clearing browser data or

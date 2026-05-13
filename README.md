@@ -4,7 +4,7 @@ LibNote is a local-first note app built around a personal library metaphor. Inst
 
 The current app runs entirely in the browser. Notes, app settings, recent pages, and most preferences are saved locally, so LibNote is useful for private writing, research notes, study material, worldbuilding, project notebooks, and other collections that benefit from feeling like a small digital library.
 
-LibNote has no backend, account system, cloud sync, collaboration, or server-side storage in the current codebase. Production builds include PWA/offline shell support, and the library itself is stored locally in IndexedDB. The home screen stays centered on the bookshelf/library concept instead of a dashboard-style workspace.
+LibNote has no backend, account system, cloud sync, collaboration, or server-side storage in the current codebase. Production builds include a PWA/offline app shell, and the library itself is stored locally in IndexedDB. The home screen stays centered on the bookshelf/library concept instead of a dashboard-style workspace.
 
 ## Current Features
 
@@ -161,7 +161,7 @@ Inline title editing uses `Enter` to save and `Esc` to cancel. Tag and autocompl
 ### PWA and Offline Shell
 
 - `public/manifest.webmanifest` defines the installable app metadata.
-- `public/sw.js` provides the production service worker.
+- `public/sw.js` provides the production service worker for the app shell.
 - The Vite production build is currently configured with `base: '/libnote/'` for the GitHub Pages project URL.
 - In production, the service worker precaches the app shell under its registration scope, including the scoped root, `index.html`, `manifest.webmanifest`, and app icons.
 - Same-origin GET assets are cached as they are fetched.

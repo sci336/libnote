@@ -60,7 +60,7 @@ The project also has useful regression coverage: store tests, selector tests, se
 - Confirm Trash restore behavior for nested trashed books/chapters/pages and missing parent cases.
 - Add tests for interrupted or failed restore writes and for recent-page cleanup after permanent deletion.
 
-**What not to build:** Cloud sync, accounts, collaboration, bidirectional conflict-resolution sync/merge, dashboard recovery widgets, or duplicate backup controls outside App Menu.
+**What not to build:** True cloud sync, accounts, collaboration, server storage, bidirectional sync/conflict-resolution merge, dashboard recovery widgets, or duplicate backup controls outside App Menu.
 
 **Why now:** This is the foundation for every future editor, search, and library workflow.
 
