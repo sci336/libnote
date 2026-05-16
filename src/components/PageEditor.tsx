@@ -16,9 +16,10 @@ import {
   type TextSizePresetId
 } from './EditorToolbar';
 import { PageMetadataPanel } from './PageMetadataPanel';
+import { SaveStatusIndicator } from './SaveStatusIndicator';
 import { TagSuggestionsDropdown } from './TagSuggestionsDropdown';
 import { WikiLinkPreview } from './WikiLinkPreview';
-import type { Book, Chapter, Page } from '../types/domain';
+import type { Book, Chapter, Page, SaveStatus } from '../types/domain';
 import { formatTimestamp } from '../utils/date';
 import { isLoosePage } from '../utils/pageState';
 import type { ContentSegment, PageTitleLookup } from '../utils/pageLinks';
@@ -62,6 +63,8 @@ export interface PageEditorProps {
   onCreatePageFromLink: (title: string) => void;
   onOpenTagSearch?: (tag: string) => void;
   onExportPage?: () => void;
+  saveStatus?: SaveStatus;
+  onRetrySave?: () => void;
 }
 
 type EditorAutocompleteKind = 'link' | 'tag';
@@ -96,7 +99,9 @@ export function PageEditor({
   onOpenPage,
   onCreatePageFromLink,
   onOpenTagSearch,
-  onExportPage
+  onExportPage,
+  saveStatus,
+  onRetrySave
 }: PageEditorProps): JSX.Element {
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
   const pageIsLoose = isLoosePage(page);
@@ -695,6 +700,9 @@ export function PageEditor({
             Updated {formatTimestamp(page.updatedAt)}
             {pageIsLoose ? ' - Loose Page' : ''}
           </p>
+          {saveStatus && onRetrySave ? (
+            <SaveStatusIndicator status={saveStatus} onRetry={onRetrySave} />
+          ) : null}
           <div className="tag-editor" aria-label="Page tags">
             <div className="tag-list">
               {page.tags.map((tag) => (

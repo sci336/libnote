@@ -1973,18 +1973,27 @@ h1 {
 
 .save-status {
   width: fit-content;
-  min-height: 1.75rem;
-  margin: 0 0 0.8rem;
+  min-height: 1.4rem;
+  margin: 0;
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0.32rem 0.65rem;
+  gap: 0.32rem;
+  padding: 0;
   border: 1px solid rgba(17, 24, 39, 0.08);
+  border-color: transparent;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.66);
+  background: transparent;
   color: #6b7280;
-  font-size: 0.88rem;
+  font-size: 0.84rem;
   font-weight: 600;
+}
+
+.save-status::after {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
 }
 
 .save-status-unsaved {
@@ -2000,7 +2009,7 @@ h1 {
 }
 
 .save-status-saved {
-  color: #586273;
+  color: #168a3a;
 }
 
 .save-status-failed {
@@ -2012,6 +2021,10 @@ h1 {
   color: var(--danger);
   border-radius: 0.85rem;
   padding: 0.75rem 0.85rem;
+}
+
+.save-status-failed::after {
+  display: none;
 }
 
 .save-status-failed-copy {
@@ -2468,27 +2481,39 @@ h1 {
 
 .tag-editor {
   position: relative;
-  margin-top: 0.85rem;
+  margin-top: 0;
   display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  align-items: flex-start;
+  flex-direction: row;
+  gap: 0.35rem;
+  align-items: center;
+  min-width: 0;
 }
 
 .tag-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
+  flex-wrap: nowrap;
+  gap: 0.32rem;
+  min-width: 0;
+  max-width: min(28rem, 36vw);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tag-list::-webkit-scrollbar {
+  display: none;
 }
 
 .tag-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.3rem 0.55rem;
+  flex: 0 0 auto;
+  gap: 0.2rem;
+  min-height: 1.85rem;
+  padding: 0.22rem 0.48rem;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.84);
+  font-size: 0.82rem;
 }
 
 .tag-pill-label,
@@ -2510,7 +2535,7 @@ h1 {
 
 .tag-input-form {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.5rem;
 }
@@ -2555,15 +2580,17 @@ h1 {
 }
 
 .tag-input {
-  width: min(240px, 100%);
-  border-radius: 0.9rem;
+  width: min(8rem, 100%);
+  min-height: 1.85rem;
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.88);
-  padding: 0.65rem 0.85rem;
+  padding: 0.26rem 0.55rem;
+  font-size: 0.82rem;
 }
 
 .tag-input-form .tag-input {
-  flex: 1 1 12rem;
+  flex: 1 1 6rem;
   min-width: 0;
 }
 
@@ -3118,25 +3145,61 @@ mark {
 .editor-shell {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.72rem;
 }
 
 .editor-header-main {
   min-width: 0;
+  flex: 1;
+}
+
+.editor-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.editor-title-row .editor-title,
+.editor-title-row .editor-title-input {
+  flex: 0 1 auto;
+  min-width: min(18rem, 46vw);
+  max-width: 100%;
 }
 
 .editor-context {
-  margin: 0.25rem 0 0;
+  margin: 0;
   color: var(--text-secondary);
-  font-size: 1rem;
+  font-size: 0.86rem;
   line-height: 1.35;
 }
 
+.editor-meta-row,
 .editor-utility-row {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.85rem;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.editor-meta-row {
+  flex-wrap: wrap;
+  margin-top: 0.28rem;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.editor-meta-row > * + *::before {
+  content: "•";
+  margin-right: 0.45rem;
+  color: color-mix(in srgb, var(--text-muted) 62%, transparent);
+}
+
+.editor-actions-menu {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .editor-actions-mobile {
@@ -3188,12 +3251,13 @@ mark {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.7rem 0.85rem;
+  min-height: 2rem;
+  padding: 0.28rem 0.55rem;
   border: 1px solid var(--border);
-  border-radius: 0.9rem;
+  border-radius: 0.62rem;
   background: var(--surface-strong);
   color: var(--text-primary);
-  font-size: 0.92rem;
+  font-size: 0.82rem;
   font-weight: 600;
 }
 
@@ -3257,9 +3321,16 @@ mark {
 
 .editor-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  padding: 0 0.85rem;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.38rem 0.85rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.editor-toolbar::-webkit-scrollbar {
+  display: none;
 }
 
 .editor-toolbar-more {
@@ -3341,8 +3412,14 @@ mark {
   background: var(--surface);
 }
 
+.editor-toolbar-mode-toggle {
+  flex: 0 0 auto;
+  margin-right: 0.28rem;
+  background: var(--input-bg);
+}
+
 .editor-mode-toggle button {
-  min-width: 4.75rem;
+  min-width: 4.1rem;
   min-height: 2rem;
   border: 0;
   border-radius: 0.68rem;
@@ -3360,12 +3437,14 @@ mark {
 }
 
 .editor-toolbar-button {
+  flex: 0 0 auto;
+  min-height: 2rem;
   border: 1px solid var(--border);
-  border-radius: 0.9rem;
-  padding: 0.5rem 0.75rem;
+  border-radius: 0.62rem;
+  padding: 0.34rem 0.58rem;
   background: var(--surface-strong);
   color: var(--text-primary);
-  font-size: 0.92rem;
+  font-size: 0.82rem;
   font-weight: 600;
   transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
 }
@@ -3409,7 +3488,7 @@ mark {
 
 .editor-content-surface {
   flex: 1;
-  min-height: 420px;
+  min-height: min(640px, calc(100dvh - 15rem));
   display: flex;
   flex-direction: column;
 }
@@ -3419,8 +3498,8 @@ mark {
 }
 
 .editor-rich-text {
-  min-height: 420px;
-  padding: 0.9rem 1rem 1rem;
+  min-height: min(600px, calc(100dvh - 17rem));
+  padding: 0.82rem 1rem 1rem;
   line-height: 1.7;
   color: var(--text-primary);
   outline: none;
@@ -3971,6 +4050,23 @@ mark {
     flex-direction: column;
   }
 
+  .lexical-editor-shell.editor-shell {
+    gap: 0.72rem;
+  }
+
+  .lexical-editor-shell .editor-header {
+    flex-direction: row;
+    margin-bottom: 0.35rem;
+  }
+
+  .lexical-editor-shell .editor-title-row {
+    flex-wrap: nowrap;
+  }
+
+  .lexical-editor-shell .editor-content-surface {
+    min-height: calc(100dvh - 14rem);
+  }
+
   .tag-results-header,
   .tag-filter-form {
     flex-direction: column;
@@ -4160,7 +4256,8 @@ mark {
   }
 
   .main-content:has(.lexical-editor-shell) {
-    padding: 0 0 calc(5.3rem + env(safe-area-inset-bottom));
+    min-height: 0;
+    padding: 0 0 calc(4.3rem + env(safe-area-inset-bottom));
   }
 
   .content-section,
@@ -4190,21 +4287,32 @@ mark {
   .heading-input,
   .editor-title,
   .editor-title-input {
-    font-size: clamp(1.75rem, 8.4vw, 2.25rem);
-    line-height: 1.08;
+    font-size: clamp(1.32rem, 6.2vw, 1.72rem);
+    line-height: 1.12;
   }
 
   .lexical-editor-shell {
-    min-height: calc(100svh - 8.2rem);
-    min-height: calc(100dvh - 8.2rem);
-    gap: 0.38rem;
-    padding: 0.76rem 0 0;
+    min-height: calc(100svh - 7.2rem);
+    min-height: calc(100dvh - 7.2rem);
+    gap: 0.22rem;
+    padding: 0.48rem 0 0;
   }
 
   .lexical-editor-shell .editor-header {
     display: block;
-    margin-bottom: 0.22rem;
-    padding: 0 1rem;
+    margin-bottom: 0.12rem;
+    padding: 0 0.78rem;
+  }
+
+  .lexical-editor-shell .editor-title-row {
+    align-items: center;
+    gap: 0.34rem;
+  }
+
+  .lexical-editor-shell .editor-title,
+  .lexical-editor-shell .editor-title-input {
+    min-width: 0;
+    flex: 1 1 8rem;
   }
 
   .lexical-editor-shell .editor-title,
@@ -4215,17 +4323,26 @@ mark {
   }
 
   .editor-context {
-    margin-top: 0.22rem;
     color: #8fa0bd;
-    font-size: 0.9rem;
+    font-size: 0.78rem;
     line-height: 1.35;
   }
 
   .editor-meta {
-    margin: 0.26rem 0 0;
+    margin: 0;
     color: var(--text-muted);
-    font-size: 0.84rem;
+    font-size: 0.76rem;
     line-height: 1.35;
+  }
+
+  .editor-meta-row {
+    gap: 0.26rem;
+    margin-top: 0.18rem;
+    font-size: 0.76rem;
+  }
+
+  .editor-meta-row > * + *::before {
+    margin-right: 0.26rem;
   }
 
   .editor-utility-row {
@@ -4235,7 +4352,8 @@ mark {
 
   .lexical-editor-shell .tag-editor {
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
+    max-width: 46%;
     margin-top: 0;
     flex-direction: row;
     align-items: center;
@@ -4278,7 +4396,7 @@ mark {
   }
 
   .lexical-editor-shell .tag-editor:has(.tag-pill) .tag-input-form {
-    flex-basis: 2.2rem;
+    flex: 0 0 1.9rem;
     min-width: 2.2rem;
   }
 
@@ -4291,23 +4409,22 @@ mark {
   }
 
   .lexical-editor-shell .tag-editor:has(.tag-pill) .tag-input {
+    width: 1.9rem;
+    color: transparent;
     padding: 0.42rem 0.42rem;
   }
 
-  .editor-actions-desktop {
-    display: none;
-  }
-
-  .editor-actions-mobile {
-    display: flex;
-    flex: 0 0 auto;
+  .lexical-editor-shell .tag-editor:has(.tag-pill) .tag-input:focus {
+    width: 5.6rem;
+    color: var(--text-primary);
   }
 
   .mobile-page-actions-button {
     min-height: 1.85rem;
+    min-width: 1.95rem;
     white-space: nowrap;
     border-radius: 999px;
-    padding: 0.3rem 0.52rem;
+    padding: 0.24rem 0.48rem;
     font-size: 0.8rem;
   }
 
@@ -4334,12 +4451,6 @@ mark {
     font-size: 0.95rem;
   }
 
-  .editor-mode-bar {
-    order: -2;
-    justify-content: flex-start;
-    padding: 0.1rem 1rem 0.25rem;
-  }
-
   .editor-mode-toggle {
     width: auto;
     padding: 0.12rem;
@@ -4362,8 +4473,8 @@ mark {
   }
 
   .lexical-editor-shell .editor-content-surface {
-    min-height: calc(100svh - 17rem);
-    min-height: calc(100dvh - 17rem);
+    min-height: calc(100svh - 12.1rem);
+    min-height: calc(100dvh - 12.1rem);
     overflow: visible;
     border: 0;
     border-radius: 0;
@@ -4378,15 +4489,17 @@ mark {
   .lexical-editing-pane {
     order: 0;
     flex: 1 1 auto;
-    min-height: calc(100svh - 20.2rem);
-    min-height: calc(100dvh - 20.2rem);
+    min-height: calc(100svh - 14.5rem);
+    min-height: calc(100dvh - 14.5rem);
+    overflow: visible;
   }
 
   .editor-rich-text,
   .wiki-link-preview {
-    min-height: calc(100svh - 20.2rem);
-    min-height: calc(100dvh - 20.2rem);
-    padding: 0.9rem 1rem calc(7.1rem + env(safe-area-inset-bottom));
+    min-height: calc(100svh - 14.5rem);
+    min-height: calc(100dvh - 14.5rem);
+    padding: 0.72rem 0.88rem calc(4.2rem + env(safe-area-inset-bottom));
+    scroll-margin-bottom: calc(5rem + env(safe-area-inset-bottom));
     font-family: Georgia, "Times New Roman", serif;
     font-size: 1.08rem;
     line-height: 1.62;
@@ -4407,8 +4520,8 @@ mark {
     flex-wrap: nowrap;
     align-items: center;
     gap: 0.22rem;
-    margin: 0.04rem 1rem 0.18rem;
-    padding: 0.28rem;
+    margin: 0.02rem 0.78rem 0.08rem;
+    padding: 0.22rem;
     overflow-x: auto;
     scrollbar-width: none;
     border: 1px solid var(--border);
@@ -4425,7 +4538,7 @@ mark {
   .editor-toolbar-button {
     flex: 0 0 auto;
     min-width: 1.72rem;
-    min-height: 1.88rem;
+    min-height: 1.76rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -4455,7 +4568,7 @@ mark {
 
   .editor-toolbar-more summary {
     min-width: 1.72rem;
-    min-height: 1.88rem;
+    min-height: 1.76rem;
     display: grid;
     place-items: center;
     border: 1px solid var(--border);

@@ -28,6 +28,8 @@ interface EditorToolbarProps {
   onTextSizeChange: (size: TextSizePresetId) => void;
   onBeforeTextSizeChange: () => void;
   activeFormats?: Partial<Record<EditorFormatAction, boolean>>;
+  editorMode?: 'edit' | 'preview';
+  onEditorModeChange?: (mode: 'edit' | 'preview') => void;
 }
 
 const TOOLBAR_BUTTONS: Array<{
@@ -115,7 +117,9 @@ export function EditorToolbar({
   activeTextSize,
   onTextSizeChange,
   onBeforeTextSizeChange,
-  activeFormats = {}
+  activeFormats = {},
+  editorMode,
+  onEditorModeChange
 }: EditorToolbarProps): JSX.Element {
   const moreSummaryRef = useRef<HTMLElement | null>(null);
   const isCompactToolbar = useMediaQuery(COMPACT_TOOLBAR_MEDIA);
@@ -136,6 +140,26 @@ export function EditorToolbar({
 
   return (
     <div className="editor-toolbar" role="toolbar" aria-label="Text formatting">
+      {editorMode && onEditorModeChange ? (
+        <div className="editor-mode-toggle editor-toolbar-mode-toggle" role="group" aria-label="Editor mode">
+          <button
+            type="button"
+            className={editorMode === 'edit' ? 'is-active' : ''}
+            aria-pressed={editorMode === 'edit'}
+            onClick={() => onEditorModeChange('edit')}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            className={editorMode === 'preview' ? 'is-active' : ''}
+            aria-pressed={editorMode === 'preview'}
+            onClick={() => onEditorModeChange('preview')}
+          >
+            Preview
+          </button>
+        </div>
+      ) : null}
       {!isCompactToolbar ? (
         <TextSizeControl
           activeTextSize={activeTextSize}

@@ -13,7 +13,7 @@ export function SaveStatusIndicator({ status, onRetry }: SaveStatusIndicatorProp
   if (status.state === 'unsaved') {
     return (
       <div className="save-status save-status-unsaved" role="status" aria-live="polite">
-        Unsaved changes
+        Unsaved
       </div>
     );
   }
@@ -21,7 +21,7 @@ export function SaveStatusIndicator({ status, onRetry }: SaveStatusIndicatorProp
   if (status.state === 'saving') {
     return (
       <div className="save-status save-status-saving" role="status" aria-live="polite">
-        Saving...
+        Saving
       </div>
     );
   }
@@ -29,7 +29,7 @@ export function SaveStatusIndicator({ status, onRetry }: SaveStatusIndicatorProp
   if (status.state === 'retrying') {
     return (
       <div className="save-status save-status-retrying" role="status" aria-live="polite">
-        Retrying save...
+        Retrying
       </div>
     );
   }
@@ -41,8 +41,8 @@ export function SaveStatusIndicator({ status, onRetry }: SaveStatusIndicatorProp
     });
 
     return (
-      <div className="save-status save-status-saved" role="status" aria-live="polite">
-        Saved · Last saved at {savedAt}
+      <div className="save-status save-status-saved" role="status" aria-live="polite" title={`Last saved at ${savedAt}`}>
+        Saved
       </div>
     );
   }

@@ -83,10 +83,12 @@ test.describe('mobile and narrow viewport flows', () => {
   });
 
   test('edits Lexical content with toolbar formatting and persists it after mobile reload', async ({ page }) => {
-    const editor = await createNamedLoosePage(page, 'Mobile Editor Scratch');
+    const editor = await createNamedLoosePage(page, 'Mobile Editor Scratch', { tags: ['/mobile'] });
     const toolbar = page.getByRole('toolbar', { name: 'Text formatting' });
 
     await expect(toolbar).toBeVisible();
+    await expect(toolbar.getByRole('button', { name: 'Edit' })).toBeVisible();
+    await expect(toolbar.getByRole('button', { name: 'Preview' })).toBeVisible();
     await expect(toolbar.getByRole('button', { name: 'Bold' })).toBeVisible();
     await expect(toolbar.getByRole('button', { name: 'Italic' })).toBeVisible();
     await expect(toolbar.getByRole('button', { name: 'Underline' })).toBeVisible();
@@ -97,20 +99,30 @@ test.describe('mobile and narrow viewport flows', () => {
 
     const mobileEditorMetrics = await page.evaluate(() => {
       const surface = document.querySelector<HTMLElement>('.lexical-editor-shell .editor-content-surface');
+      const headerElement = document.querySelector<HTMLElement>('.lexical-editor-shell .editor-header');
+      const titleRowElement = document.querySelector<HTMLElement>('.lexical-editor-shell .editor-title-row');
+      const tagEditorElement = document.querySelector<HTMLElement>('.lexical-editor-shell .tag-editor');
       const toolbarElement = document.querySelector<HTMLElement>('.lexical-editor-shell .editor-toolbar');
       const editorElement = document.querySelector<HTMLElement>('.lexical-editor-shell .editor-rich-text');
 
-      if (!surface || !toolbarElement || !editorElement) {
+      if (!surface || !headerElement || !titleRowElement || !tagEditorElement || !toolbarElement || !editorElement) {
         throw new Error('Expected mobile editor elements to be present');
       }
 
+      const headerRect = headerElement.getBoundingClientRect();
+      const titleRowRect = titleRowElement.getBoundingClientRect();
+      const tagRect = tagEditorElement.getBoundingClientRect();
       const toolbarRect = toolbarElement.getBoundingClientRect();
       const editorRect = editorElement.getBoundingClientRect();
       const surfaceStyles = window.getComputedStyle(surface);
+      const editorStyles = window.getComputedStyle(editorElement);
 
       return {
         editorTop: editorRect.top,
         editorWidth: editorRect.width,
+        headerHeight: headerRect.height,
+        tagSharesTitleRow: tagRect.top < titleRowRect.bottom && tagRect.bottom > titleRowRect.top,
+        editorPaddingBottom: Number.parseFloat(editorStyles.paddingBottom),
         surfaceBorderTopWidth: surfaceStyles.borderTopWidth,
         toolbarBottom: toolbarRect.bottom
       };
@@ -118,7 +130,19 @@ test.describe('mobile and narrow viewport flows', () => {
 
     expect(mobileEditorMetrics.toolbarBottom).toBeLessThan(mobileEditorMetrics.editorTop + 1);
     expect(mobileEditorMetrics.editorWidth).toBeGreaterThan(360);
+    expect(mobileEditorMetrics.headerHeight).toBeLessThan(90);
+    expect(mobileEditorMetrics.tagSharesTitleRow).toBe(true);
+    expect(mobileEditorMetrics.editorPaddingBottom).toBeLessThan(90);
     expect(mobileEditorMetrics.surfaceBorderTopWidth).toBe('0px');
+
+    await page.getByRole('button', { name: 'Page actions' }).click();
+    const pageActionsMenu = page.getByRole('menu', { name: 'Page actions' });
+    await expect(pageActionsMenu).toBeVisible();
+    await expect(pageActionsMenu.getByRole('menuitem', { name: 'Show Page Info' })).toBeVisible();
+    await expect(pageActionsMenu.getByRole('menuitem', { name: 'Export Page (.txt)' })).toBeVisible();
+    await expect(pageActionsMenu.getByRole('menuitem', { name: 'Move to Trash' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(pageActionsMenu).toBeHidden();
 
     await page.getByLabel('More formatting options').click();
     await expect(page.getByRole('button', { name: 'Numbered list' })).toBeVisible();
@@ -287,6 +311,7 @@ async function clearAppStorage(page: Page): Promise<void> {
   await page.goto('/');
   await page.evaluate(() => {
     window.localStorage.clear();
+    window.localStorage.setItem('libnote:lastSeenUpdateVersion', '0.1.0');
     return new Promise<void>((resolve, reject) => {
       const request = indexedDB.deleteDatabase('note-library-db');
       request.onsuccess = () => resolve();

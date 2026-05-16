@@ -62,6 +62,7 @@ import {
   type TextSizePresetId
 } from './EditorToolbar';
 import { PageMetadataPanel } from './PageMetadataPanel';
+import { SaveStatusIndicator } from './SaveStatusIndicator';
 import { WikiLinkPreview } from './WikiLinkPreview';
 import type { PageEditorProps } from './PageEditor';
 import { formatTimestamp } from '../utils/date';
@@ -129,7 +130,9 @@ export function LexicalPageEditor({
   onOpenPage,
   onCreatePageFromLink,
   onOpenTagSearch,
-  onExportPage
+  onExportPage,
+  saveStatus,
+  onRetrySave
 }: PageEditorProps): JSX.Element {
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit');
   const [showMovePanel, setShowMovePanel] = useState(false);
@@ -230,21 +233,14 @@ export function LexicalPageEditor({
     <section className="editor-shell lexical-editor-shell">
       <div className="editor-header">
         <div className="editor-header-main">
-          <InlineEditableText
-            value={page.title}
-            onSave={onChangeTitle}
-            className="editor-title"
-            inputClassName="editor-title-input"
-            placeholder="Untitled Page"
-          />
-          {!pageIsLoose && pageContextLabel ? (
-            <p className="editor-context">{pageContextLabel}</p>
-          ) : null}
-          <p className="editor-meta">
-            Updated {formatTimestamp(page.updatedAt)} - {pageTypeLabel}
-          </p>
-
-          <div className="editor-utility-row">
+          <div className="editor-title-row">
+            <InlineEditableText
+              value={page.title}
+              onSave={onChangeTitle}
+              className="editor-title"
+              inputClassName="editor-title-input"
+              placeholder="Untitled Page"
+            />
             <div className="tag-editor" aria-label="Page tags">
               <div className="tag-list">
                 {page.tags.map((tag) => (
@@ -282,9 +278,8 @@ export function LexicalPageEditor({
                 />
               </form>
             </div>
-
             <div
-              className="editor-actions editor-actions-mobile"
+              className="editor-actions editor-actions-menu"
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
                   event.preventDefault();
@@ -301,7 +296,7 @@ export function LexicalPageEditor({
                 aria-expanded={showPageActionsMenu}
                 onClick={() => setShowPageActionsMenu((open) => !open)}
               >
-                Actions <span aria-hidden="true">...</span>
+                <span aria-hidden="true">...</span>
               </button>
               {showPageActionsMenu ? (
                 <div className="mobile-page-actions-menu" role="menu" aria-label="Page actions">
@@ -358,31 +353,17 @@ export function LexicalPageEditor({
               ) : null}
             </div>
           </div>
-        </div>
 
-        <div className="editor-actions editor-actions-desktop">
-          {pageIsLoose ? (
-            <button type="button" className="secondary-button" onClick={() => setShowMovePanel((open) => !open)}>
-              Move to Chapter
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => setShowMetadataPanel((open) => !open)}
-            aria-expanded={showMetadataPanel}
-            aria-controls="page-info-panel"
-          >
-            {showMetadataPanel ? 'Hide Page Info' : 'Show Page Info'}
-          </button>
-          {onExportPage ? (
-            <button type="button" className="secondary-button" onClick={onExportPage}>
-              Export Page (.txt)
-            </button>
-          ) : null}
-          <button type="button" className="danger-button" onClick={onDelete}>
-            Move to Trash
-          </button>
+          <div className="editor-meta-row">
+            {!pageIsLoose && pageContextLabel ? (
+              <span className="editor-context">{pageContextLabel}</span>
+            ) : null}
+            <span className="editor-meta">Updated {formatTimestamp(page.updatedAt)}</span>
+            <span className="editor-meta">{pageTypeLabel}</span>
+            {saveStatus && onRetrySave ? (
+              <SaveStatusIndicator status={saveStatus} onRetry={onRetrySave} />
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -454,7 +435,12 @@ export function LexicalPageEditor({
         <div className={`editor-content-surface ${editorMode === 'preview' ? 'is-preview' : 'is-editing'}`}>
           {editorMode === 'edit' ? (
             <LexicalComposer key={page.id} initialConfig={initialConfig}>
-              <LexicalToolbar activeTextSize={activeTextSize} onChangeTextSize={onChangeTextSize} />
+              <LexicalToolbar
+                activeTextSize={activeTextSize}
+                editorMode={editorMode}
+                onChangeEditorMode={setEditorMode}
+                onChangeTextSize={onChangeTextSize}
+              />
               <div className="editor-editing-pane lexical-editing-pane">
                 <RichTextPlugin
                   contentEditable={
@@ -482,37 +468,38 @@ export function LexicalPageEditor({
               </div>
             </LexicalComposer>
           ) : (
-            <WikiLinkPreview
-              content={page.content}
-              contentSegments={contentSegments}
-              titleLookup={pageTitleLookup}
-              destinationLabels={wikiLinkDestinationLabels}
-              textSize={page.textSize}
-              onOpenPage={onOpenPage}
-              onCreatePageFromLink={onCreatePageFromLink}
-            />
+            <>
+              <div className="editor-toolbar editor-preview-toolbar" role="toolbar" aria-label="Text formatting">
+                <div className="editor-mode-toggle editor-toolbar-mode-toggle" role="group" aria-label="Editor mode">
+                  <button
+                    type="button"
+                    aria-pressed={false}
+                    onClick={() => setEditorMode('edit')}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="is-active"
+                    aria-pressed={true}
+                    onClick={() => setEditorMode('preview')}
+                  >
+                    Preview
+                  </button>
+                </div>
+              </div>
+              <WikiLinkPreview
+                content={page.content}
+                contentSegments={contentSegments}
+                titleLookup={pageTitleLookup}
+                destinationLabels={wikiLinkDestinationLabels}
+                textSize={page.textSize}
+                onOpenPage={onOpenPage}
+                onCreatePageFromLink={onCreatePageFromLink}
+              />
+            </>
           )}
 
-          <div className="editor-mode-bar">
-            <div className="editor-mode-toggle" role="group" aria-label="Editor mode">
-              <button
-                type="button"
-                className={editorMode === 'edit' ? 'is-active' : ''}
-                aria-pressed={editorMode === 'edit'}
-                onClick={() => setEditorMode('edit')}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                className={editorMode === 'preview' ? 'is-active' : ''}
-                aria-pressed={editorMode === 'preview'}
-                onClick={() => setEditorMode('preview')}
-              >
-                Preview
-              </button>
-            </div>
-          </div>
         </div>
 
         {showMetadataPanel ? (
@@ -535,9 +522,13 @@ export function LexicalPageEditor({
 
 function LexicalToolbar({
   activeTextSize,
+  editorMode,
+  onChangeEditorMode,
   onChangeTextSize
 }: {
   activeTextSize: TextSizePresetId;
+  editorMode: 'edit' | 'preview';
+  onChangeEditorMode: (mode: 'edit' | 'preview') => void;
   onChangeTextSize: (size: number) => void;
 }): JSX.Element {
   const [editor] = useLexicalComposerContext();
@@ -663,6 +654,8 @@ function LexicalToolbar({
       onBeforeTextSizeChange={() => undefined}
       onTextSizeChange={applyTextSize}
       activeFormats={activeFormats}
+      editorMode={editorMode}
+      onEditorModeChange={onChangeEditorMode}
     />
   );
 }

@@ -9,9 +9,9 @@ describe('SaveStatusIndicator', () => {
   });
 
   it('distinguishes unsaved, saving, saved, and retrying states', () => {
-    expect(render({ state: 'unsaved' })).toContain('Unsaved changes');
-    expect(render({ state: 'saving' })).toContain('Saving...');
-    expect(render({ state: 'retrying' })).toContain('Retrying save...');
+    expect(render({ state: 'unsaved' })).toContain('Unsaved');
+    expect(render({ state: 'saving' })).toContain('Saving');
+    expect(render({ state: 'retrying' })).toContain('Retrying');
     expect(render({ state: 'saved', lastSavedAt: new Date('2026-05-04T14:30:00Z').getTime() })).toContain('Saved');
   });
 

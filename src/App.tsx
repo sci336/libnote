@@ -248,7 +248,9 @@ export default function App(): JSX.Element {
       }
     >
       <PwaStatus />
-      <SaveStatusIndicator status={app.saveStatus} onRetry={app.retryLibrarySave} />
+      {app.view.type === 'page' ? null : (
+        <SaveStatusIndicator status={app.saveStatus} onRetry={app.retryLibrarySave} />
+      )}
       {renderMainContent(app, data, {
         openPageById,
         openSearchResult,
@@ -479,6 +481,8 @@ function renderMainContent(
         onCreatePageFromLink={(title) => app.handleCreatePageFromLink(activePage, title)}
         onExportPage={() => app.handleExportPage(activePage.id)}
         onOpenTagSearch={app.handleOpenTag}
+        saveStatus={app.saveStatus}
+        onRetrySave={app.retryLibrarySave}
       />
     );
   }
